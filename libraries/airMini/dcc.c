@@ -6,8 +6,6 @@
  *
  */
 
-#define TRANSMIT
-
 #include <avr/io.h> 
 #include <avr/interrupt.h>
 #include <string.h>
@@ -150,7 +148,7 @@ ISR(INT0_vect)
     if(PIND & 0x04)                         // if it's a one, start of pulse
 #endif
     {                                       // so, we need to
-        usec = TCNT1;                       //   snag the current time in microseconds
+        usec = TCNT1;                       // snag the current time in microseconds
         if (useModemDataDCC) OUTPUT_HIGH;   // Set D Pin3 HIGH if we are using modem data, otherwise use set DC value
         else 
         {

@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#include <config.h>
 #include <avr/io.h>
 
 #ifndef DCC_H_
@@ -17,19 +18,18 @@ extern "C" {
 // Define here the input/output pins
 
 #ifdef TRANSMIT
-#define INPUT_PIN PD3
-#define OUTPUT_PIN PD4
+#define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
+#define OUTPUT_PIN PD4  // 5V unipolar DCC diagnostic output, not currently used
 #else
-#define INPUT_PIN PD2
-#define OUTPUT_PIN PD3
+#define INPUT_PIN  PD2  // 3.3V unipolar DCC input from raw modem output
+#define OUTPUT_PIN PD3  // 5V unipolar DCC filtered output
 #endif
 
-#define SET_INPUTPIN DDRD &= ~(1<<INPUT_PIN)
-#define SET_OUTPUTPIN DDRD |= (1<<OUTPUT_PIN)
-#define OUTPUT_HIGH PORTD |=  (1<<OUTPUT_PIN)
-#define OUTPUT_LOW  PORTD &= ~(1<<OUTPUT_PIN)
+#define SET_INPUTPIN  DDRD  &= ~(1<<INPUT_PIN)
+#define SET_OUTPUTPIN DDRD  |=  (1<<OUTPUT_PIN)
+#define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
+#define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
 
-#define NOTHING 1
 #define DCCMAXLEN 6 // This is the maximum # of bytes of a DCC packet (not 5!)
 typedef struct
 {

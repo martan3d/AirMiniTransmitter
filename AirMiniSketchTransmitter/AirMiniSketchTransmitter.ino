@@ -1,5 +1,3 @@
-#define TRANSMIT
-
 #include <dcc.h>
 #include <spi.h>
 #include <uart.h>
@@ -9,8 +7,21 @@
 #include <util/atomic.h>
 #include <string.h>
 
-#undef DCCLibrary
+#ifdef TRANSMIT
+#undef RECEIVE
 #define DCCLibrary
+#define USE_LCD
+#else
+#define RECEIVE
+#undef DCCLibrary
+#undef USE_LCD
+#endif
+
+#ifdef USE_LCD
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#endif
+
 
 #ifdef DCCLibrary
 ///////////////////
@@ -21,9 +32,9 @@
 extern bool (*GetNextMessage)(void); // For DCCLibrary
 // For DCCLibrary
 #ifdef TRANSMIT
-#define DCC_PIN    2     // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
+#define DCC_PIN    2     // Arduino pin for DCC out to modem 
 #else
-#define DCC_PIN    4     // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
+#define DCC_PIN    4     // Arduino pin for DCC out, not currently used
 #endif
 #define DCC_DIAG0  5     // Diagnostic Pin #1
 #define DCC_DIAG1  6     // Diagnostic Pin #2
@@ -45,10 +56,6 @@ volatile uint8_t lastMessageExtracted = 0;
 volatile uint8_t currentIndex = 0;   // -> to DCCLibrary.c
 uint8_t          newIndex     = 2;
 
-// For opMode debug
-uint64_t opModeTime = 0; 
-uint64_t opModeDuration = 4000000; // 1 s
-
 ///////////////////
 ///////////////////
 ///////////////////
@@ -67,7 +74,11 @@ uint64_t opModeDuration = 4000000; // 1 s
 #define STOP    0x36
 
 // Need to test
+#ifdef TRANSMIT
 #define DOUBLE_PASS 1            // Do a double pass on CV setting (currently does not work)
+#else
+#define DOUBLE_PASS 0
+#endif
 
 int64_t now;
 int64_t then;
@@ -90,12 +101,14 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 #endif
 
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
-volatile uint8_t useModemData = 0;           // Initial setting for use-of-modem-data state
+uint8_t filterModemData = 1;                 // Set the logical for whether to always use modem data
+volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
 int64_t idlePeriod = 0;                      // 0 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 int64_t lastIdleTime = 0;
 int64_t tooLong  = 4000000;                  // 1 sec, changed to variable that might be changed by SW
-int64_t sleepTime = 8000000;                 // 2 sec, changed to variable that might be changed by SW
+// int64_t sleepTime = 8000000;                 // 2 sec, changed to variable that might be changed by SW
+int64_t sleepTime = 0;                       // 2 sec, changed to variable that might be changed by SW
 int64_t timeOfValidDCC;                      // Time stamp of the last valid DCC packet
 int64_t inactiveStartTime;                   // Time stamp if when modem data is ignored
 uint16_t maxTransitionCount;                 // Maximum number of bad transitions to tolerate before ignoring modem data
@@ -114,10 +127,14 @@ uint8_t turnModemOnOff_in;                   // Non-volatile version
 volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
 extern uint8_t powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
 uint8_t dcLevel_in;                          // Non-volatile version
+
 uint8_t AirMiniCV1;                          // The AirMini's address, HIGH byte
+
 uint8_t AirMiniCV17;                         // The AirMini's address, HIGH byte
 uint8_t AirMiniCV17tmp;                      // The AirMini's address, HIGH byte, temporary value until CV18 is reassigned in ops mode
+
 uint8_t AirMiniCV18;                         // The AirMini's address, LOW byte
+
 uint8_t AirMiniCV29;                         // The AirMini's address, HIGH byte
 uint8_t AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
 
@@ -142,6 +159,10 @@ uint8_t  EEMEM EEisSetidlePeriodms;          // Stored idlePeriodms set flag
 uint8_t  EEMEM EEidlePeriodms;               // Stored idlePeriod in ms
 uint8_t  EEMEM EEidlePeriodmsDefault;        // Stored idlePeriod in ms
 
+uint8_t  EEMEM EEisSetfilterModemData;       // Stored idlePeriodms set flag
+uint8_t  EEMEM EEfilterModemData;            // Stored idlePeriod in ms
+uint8_t  EEMEM EEfilterModemDataDefault;     // Stored idlePeriod in ms
+
 uint8_t  EEMEM EEisSetAirMiniCV1;            // Stored AirMini decoder short address is set
 uint8_t  EEMEM EEAirMiniCV1;                 // Stored AirMini decoder short address
 uint8_t  EEMEM EEAirMiniCV1Default;          // Stored AirMini decoder short address
@@ -157,6 +178,16 @@ uint8_t  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low byte 
 uint8_t  EEMEM EEisSetAirMiniCV29;           // Stored AirMini decoder configuration variable is set
 uint8_t  EEMEM EEAirMiniCV29;                // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
+
+enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
+
+#ifdef USE_LCD
+#define LCDTimePeriod 8000000                // Set up the LCD re-display time interval, 2 s
+uint64_t prevLCDTime = 0;                    // Initialize the last time displayed
+bool refreshLCD = true;                      // Whether to refresh
+LiquidCrystal_I2C lcd(0x27,16,2);            // Create the LCD object
+char lcd_line[16];
+#endif
 
 /******************************************************************************/
 #ifdef DCCLibrary
@@ -181,12 +212,10 @@ bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
     if (retval)
     {
        // analogWrite(LED_BUILTIN,LED_OFF);                                            // Tried, but dim
-       // digitalWrite(DCC_DIAG0,0);                                                   // Will use this for diagnostics
     }
     else
     {
        // analogWrite(LED_BUILTIN,LED_ON);                                             // Tried, but dim
-       // digitalWrite(DCC_DIAG0,1);                                                   // Will use this for diagnostics
     }
 
     return retval;
@@ -227,6 +256,63 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
    }
 }
 
+#ifdef USE_LCD
+void LCD_Addr_Ch_PL()
+{
+  lcd.clear();
+  lcd.setCursor(0,0); // column, row
+  /*
+  uint16_t AirMiniAddress = (uint16_t)(AirMiniCV17&0b00111111);
+  AirMiniAddress <<= 8;
+  AirMiniAddress |= AirMiniCV17;
+  int AirMiniAddress_int = (int)AirMiniAddress;
+  // sprintf(lcd_line,"Addr: %d",AirMiniAddress_int);
+  */
+  if(AirMiniCV29Bit5) 
+    {
+      int AirMiniAddress_int = (AirMiniCV17-192)*256+AirMiniCV18;
+      sprintf(lcd_line,"Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+    }
+  else
+    {
+      sprintf(lcd_line,"Ad(CV1): %d",AirMiniCV1);
+    }
+    
+  lcd.print(lcd_line);
+  lcd.setCursor(0,1); // column, row
+#ifdef TRANSMIT
+  sprintf(lcd_line,"Ch: %d PL: %d", CHANNEL, powerLevel);
+#else
+  if (filterModemData) sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 1);
+  else sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 0);
+#endif
+  lcd.print(lcd_line);
+  return;
+}
+
+void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
+{
+  lcd.clear();
+  lcd.setCursor(0,0); // column, row
+  switch (CVStatus)
+  {
+    case ACCEPTED:
+       sprintf(lcd_line,"Changed CV%d=%d",CVnum,CVval);
+    break;
+    case IGNORED:
+       sprintf(lcd_line,"Ignored CV%d=%d",CVnum,CVval);
+    break;
+    case PENDING:
+       sprintf(lcd_line,"Pending CV%d=%d",CVnum,CVval);
+    break;
+  }
+  lcd.print(lcd_line);
+  prevLCDTime  = getMsClock();
+  refreshLCD = true;
+  return;
+}
+#endif
+
 void setup() {
 
   DDRB |= 1;        // Use this for debugging if you wish
@@ -237,40 +323,52 @@ void setup() {
   ////////////////////////////////////////////////
 
   // Get the CHANNEL # stored in EEPROM and validate it
-  eeprom_update_byte(&EECHANNELDefault, 0 );
+  // eeprom_update_byte(&EECHANNELDefault, 0 );
   checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, 0, 0);      // Validate the channel, it's possible the EEPROM has bad data
   if(CHANNEL > 16) 
       checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, 0, 1);  // Force the EEPROM data to use CHANNEL 0, if the CHANNEL is invalid
   
   // Just flat out set the powerLevel
-  eeprom_update_byte(&EEpowerLevelDefault, 6 );
-  checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, 6, 1);  // Force the reset of the power level. This is a conservative approach.
+  // eeprom_update_byte(&EEpowerLevelDefault, 8 );
+  checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, 8, 1);  // Force the reset of the power level. This is a conservative approach.
 
   // Set the alternate DC output level to HIGH or LOW (i.e., bad CC1101 data)
   // The level of this output can be used by some decoders. The default is HIGH.
-  eeprom_update_byte(&EEdcLevelDefault, 0 );
+  // eeprom_update_byte(&EEdcLevelDefault, 0 );
   checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, 1, 0);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
   dcLevel = (volatile uint8_t)dcLevel_in;                                  // Since dcLevel is volatile we need a proxy uint8_t 
 
-  // Turn the modem OFF/ON option. For use if bad modem data is detercted in RX mode
-  eeprom_update_byte(&EEturnModemOnOffDefault, 0 );
+  // Turn the modem OFF/ON option. For use if bad modem data is detected in RX mode
+  // eeprom_update_byte(&EEturnModemOnOffDefault, 0 );
   checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, 0, 0);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
   turnModemOnOff = (volatile uint8_t)turnModemOnOff_in;                                    // Needed to use a proxy variable since turnModemOnOff is volatile uint8_t
 
   // Set the DCC time-out period for sending IDLE packets. Used along with duplicate DCC packet detection for inserting IDLE packets
-  eeprom_update_byte(&EEidlePeriodmsDefault, 0 );
+  // eeprom_update_byte(&EEidlePeriodmsDefault, 0 );
   checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, 0, 0);  // Use EEPROM value if it's been set, otherwise set to 0 ms
   idlePeriod = (uint64_t)idlePeriodms * MILLISEC;                                 // Convert to time counts
 
+  // Set whether to always use modem data on transmit
+  // eeprom_update_byte(&EEfilterModemDataDefault, 1 );
+  checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, 1, 0);  // Use EEPROM value if it's been set, otherwise set to 0 
+
   // Get up addressing-related CV's from EEPROM, or if not set set them in EEPROM
-  eeprom_update_byte(&EEAirMiniCV1Default, 3 );
+  // eeprom_update_byte(&EEAirMiniCV1Default, 3 );
   checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    3, 0);  // Short address. By default, not using
-  eeprom_update_byte(&EEAirMiniCV17Default, 227 );
+
+  // eeprom_update_byte(&EEAirMiniCV17Default, 227 );
   checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, 227, 0);  // High byte to set final address to 9000
   AirMiniCV17tmp = AirMiniCV17;                                                  // Due to the special nature of CV17 paired with CV18
-  eeprom_update_byte(&EEAirMiniCV18Default, 40 );
-  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18,  40, 0);  // Low byte to set final address to 9000
-  eeprom_update_byte(&EEAirMiniCV29Default, 32 );
+
+#ifdef TRANSMIT
+  // eeprom_update_byte(&EEAirMiniCV18Default, 40 );
+  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18,  40, 0);  // Low byte to set final address to 9000 for transmitter
+#else
+  // eeprom_update_byte(&EEAirMiniCV18Default, 41 );
+  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18,  41, 0);  // Low byte to set final address to 9001 for receiver
+#endif
+
+  // eeprom_update_byte(&EEAirMiniCV29Default, 32 );
   checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  32, 0);  // Set CV29 so that it will use a long address
   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
@@ -302,6 +400,16 @@ void setup() {
   // if(dcLevel) OUTPUT_HIGH;                   // HIGH
   // else OUTPUT_LOW;                           // LOW
 
+#ifdef USE_LCD
+  lcd.init();                      // Initialize the LCD
+  lcd.backlight();                 // Backlight it
+  lcd.setCursor(0,0);              // Set initial column, row
+  lcd.print("ProMini Air(R)  ");   // Banner
+  lcd.setCursor(0,1);              // Set next line column, row
+  lcd.print("HW:1.0 SW:1.0   ");   // Show state
+  prevLCDTime = 0;                 // Set up the previous display time
+  refreshLCD = true;
+#endif
 
 #ifdef DCCLibrary
    ////////////////////
@@ -358,7 +466,9 @@ void loop() {
                      if (memcmp(sendbuffer,dccptr,sizeof(DCC_MSG))) dccptrRepeatCount=0;  // If they don't match, reset the repeat count
                      else dccptrRepeatCount++;                                            // If they do match, increment the repeat count
 
+#ifdef DCCLibrary
                      newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
+#endif
 
                      if((dccptrRepeatCount < dccptrRepeatCountMax) || (((int64_t)getMsClock() - lastIdleTime) < idlePeriod)) // only process if it's changed since last time
                      {                     
@@ -374,7 +484,6 @@ void loop() {
                              msg[newIndex].len     = dccptr[j]; // Assign msg len from the last byte to send to DCCLibrary.c
 #endif
                        }
-                       // digitalWrite(DCC_DIAG0,0);              // Will use this for diagnostics
                        
                      }
                      else                                       // Send out an idle packet (for keep-alive!)
@@ -386,7 +495,6 @@ void loop() {
                         msg[newIndex].data[1] = 0x00;
                         msg[newIndex].data[2] = 0xFF;
                         msg[newIndex].len     = 3;
-                        // digitalWrite(DCC_DIAG0,1);             // Will use this for diagnostics
 #else
                         memcpy(sendbuffer,dccptr,sizeof(DCC_MSG));
 #endif
@@ -395,23 +503,17 @@ void loop() {
                      lastMessageInserted = newIndex;            // Update the last message inserted for comparisons. We do it here to make sure the ISR's don't affect the value
 #endif
 
+#ifdef RECEIVE
                     if(!useModemData) // If not using modem data, ensure that the output is set to a DC level after coming back from the ISR
                       {
                         if(dcLevel) OUTPUT_HIGH;                // HIGH
                         else OUTPUT_LOW;                        // LOW
                       }
+#endif
 
                    /////////////////////////////////////////////
                    // Special processing for AirMini OPS mode //
                    /////////////////////////////////////////////
-                   if((getMsClock()-opModeTime) > opModeDuration)
-                     {
-                           opModeTime = getMsClock();        // Reset to prevent overflow
-                           // analogWrite(LED_BUILTIN,LED_OFF); // Tried, but dim
-                           digitalWrite(LED_BUILTIN,LOW); // Tried, but dim
-                           digitalWrite(DCC_DIAG0,0);         // Will use this for diagnostics
-                           digitalWrite(DCC_DIAG1,0);         // Will use this for diagnostics
-                     }
                    if(((dccptr[0]==AirMiniCV17) && (dccptr[1]== AirMiniCV18) &&  AirMiniCV29Bit5) ||
                       ((dccptr[0]==AirMiniCV1)                               && !AirMiniCV29Bit5) )
                      {
@@ -424,8 +526,6 @@ void loop() {
                                                                          // we needs its two low bytes for the upper two bytes of the CV address below!
                        if(tmpuint8==0b11101100)                          // Determine if the bit pattern is for modifying CV's with the last two bits don't care
                          {
-                            opModeTime = getMsClock();                                // We made it to ops mode for the AirMini
-                            
                             if(modemCVResetCount==0 && DOUBLE_PASS)                   // Processing for identifying first or second valid call
                               {
                                  modemCVResetCount++;                                 // Update the CV reset counter
@@ -437,7 +537,6 @@ void loop() {
                                    {
                                     // analogWrite(LED_BUILTIN,LED_ON);// Tried, but dim
                                     digitalWrite(LED_BUILTIN,HIGH); // Tried, but dim
-                                    digitalWrite(DCC_DIAG1,1);      // Will use this for diagnostics
                                     startModemFlag = 0;             // Initialize whether the modem will be restarted
                                     tmpuint8 = dccptr[countPtr++]&(0b00000011); // zero out the first 6 bits of dccptr[countPtr], we want to use the last two bits
                                     CVnum = (uint16_t)tmpuint8;     // cast the result to a 2 byte CVnum
@@ -446,83 +545,91 @@ void loop() {
                                     CVnum |= tmpuint16;             // set the last 8 bits with dccptr[countPtr]
                                     CVnum++;                        // NMRA Std of plus one, good grief, to set the final CV number
                                     CVval = dccptr[countPtr++];     // Set CVval to dccptr[countPtr], one byte only!
+                                    CVStatus = ACCEPTED;            // Set the default CV status
 
 	                            switch(CVnum)
                                     {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
                                           if(CVval <= 16)
                                             {
-                                              digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                               checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  // Ignore bad values
                                               startModemFlag = 1;
                                             }
+                                          else
+                                            CVStatus = IGNORED;
                                       break;
                                       case  254:  // Set the RF power level and reset related EEPROM values. Verified this feature works.
                                           if(CVval<=10) 
                                             {
-                                              digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                               checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, CVval, 1); // Set powerLevel and reset EEPROM values. Ignore bad values
                                               startModemFlag = 1;
                                             }
+                                          else
+                                            CVStatus = IGNORED;
                                       break;
                                       case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values. Verified this feature works
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, CVval, 1); // Set turnModemOnOff and reset EEPROM values
                                           turnModemOnOff = (volatile uint8_t)turnModemOnOff_in; // Assign for volatile
                                       break;
                                       case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values. 
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           tooLong = CVval*QUARTERSEC;
                                       break;
                                       case  251:  // Set the sleepTime (in quarter second intervals) and reset related EEPROM values. Verified this feature works.
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           sleepTime = CVval*QUARTERSEC;
                                       break;
                                       case  250:  // Set the low byte for transition counts
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           maxTransitionCountLowByte = CVval;
                                           maxTransitionCount = combineHighLow(maxTransitionCountHighByte,maxTransitionCountLowByte);
                                       break;
                                       case  249:  // Set the high byte for transition counts
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           maxTransitionCountHighByte = CVval;
                                           maxTransitionCount = combineHighLow(maxTransitionCountHighByte,maxTransitionCountLowByte);
                                       break;
                                       case  248:  // Set the DC output level and reset related EEPROM values. Verified this feature works.
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, CVval, 1); // Set dcLevel and reset EEPROM values
                                           dcLevel = (volatile uint8_t)dcLevel_in;
                                       break;
                                       case  247:  // Set the idle period (in ms) and reset related EEPROM values. Verified it works.
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                           checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, CVval, 1); // Set idlePeriodms and reset EEPROM values (in ms!)
                                           idlePeriod = idlePeriodms * MILLISEC; // Convert to cycles
                                       break;
+                                      case  246:  // Set the whether to always use modem data
+                                          checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
+                                      break;
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
-                                          checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); // Set AirMiniCV29 and reset EEPROM values
+                                          checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
                                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
                                       break;
                                       case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values. Verified this feature works.
-                                          digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
-                                          checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AirMiniCV17tmp, 1); // Changes not take effect until now
+                                                  // See NMRA S-9.2.1 Footnote 8.
+                                          checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AirMiniCV17tmp, 1); 
                                           checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, CVval, 1); 
                                       break;
                                       case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!). Verified this feature works
-                                          if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135
+                                          if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135, footnote 8
                                             {
-                                              digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
                                               AirMiniCV17tmp = CVval;    // Do not take effect until CV18 is written! NMRA Standard 9.2.1, footnote 8.
+                                              CVStatus = PENDING;
                                             }
+                                          else
+                                            CVStatus = IGNORED;
                                       break;
                                       case 1:     // Set the Short Address CV and reset related EEPROM values after validation. Verified this feature works.
                                           if((0<CVval) && (CVval<128))  // CV1 cannot be outside this range. Some decoders limit 0<CVval<100
                                             {
-                                              digitalWrite(DCC_DIAG0,1); // Will use this for diagnostics
-                                              checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, CVval, 1); // Set AirMiniCV1 and reset EEPROM values. Ignore bad values
+                                              checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, CVval, 1); 
                                             }
+                                          else
+                                            CVStatus = IGNORED;
+                                      break;
+                                      default:
+                                          CVStatus = IGNORED;
                                       break;
                                     } // end of switch(CVnum) 
+
+#ifdef USE_LCD
+                                    LCD_CVval_Status(CVnum,CVval);
+#endif
 
                                     if(startModemFlag)
                                       {
@@ -530,15 +637,20 @@ void loop() {
                                          dccInit();                 // Reset the DCC state machine, which also resets transitionCount
                                          startModem(CHANNEL, MODE); // Restart on possible-new Airwire Channel and mode (or power level)
                                       }
+
+
                                  } // end of if(!memcmp...
 
                                  modemCVResetCount=0;                                     // Reset the CV reset counter
                                  memcpy(dccptrAirMiniCVReset,dccptrNULL,sizeof(DCC_MSG)); // Reset the dcc packet for comparison
 
                               } // end of else (modemCVResetCount ...
-                         } // end of if(tmpuint8 ...
 
-                         else modemCVResetCount=0; // Reset this counter if we didn't get a "hit" on CV changing
+                         } // end of if(tmpuint8 ...
+                       else  // Not in OPS mode
+                         {
+                           modemCVResetCount=0;           // Reset this counter if we didn't get a "hit" on CV changing
+                         } // End of not in OPS mode
 
                      } // end of if((dccptr[0] ...
                    ///////////////////////////////////////////////////
@@ -555,17 +667,31 @@ void loop() {
 
         now = getMsClock() - then;             // How long has it been since we have come by last?
 
-        if((MODE==RX) && !useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
+#ifdef RECEIVE
+        if(!useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
           {
             if(dcLevel) OUTPUT_HIGH;           // HIGH
             else OUTPUT_LOW;                   // LOW
           }
+#endif
         
          if( now > BACKGROUNDTIME )            // Check for Time Scheduled Tasks
            {                                   // A priority Schedule could be implemented in here if needed
               then = getMsClock();             // Grab Clock Value for next time
 
-              if((MODE==TX) || useModemData)
+#ifdef USE_LCD
+              if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod))
+                {
+                  LCD_Addr_Ch_PL();                // Update the display of address, chanel #, and power level
+                  prevLCDTime = then;              // Slowly... at 1 sec intervals
+                  refreshLCD = false;
+                }
+#endif
+
+#ifdef TRANSMIT
+              sendReceive(MODE);         // keep the radio awake in MODE 
+#else
+              if(useModemData)
                 {
                    sendReceive(MODE);         // keep the radio awake in MODE 
 
@@ -585,13 +711,12 @@ void loop() {
                    //                                  on certain track sections. Might be useful since you can dynamically
                    //                                  reset the DC level by accessing the AirMini on 9000 and set CV1017 
                    //                                  to 0 (LOW) or non-zero (HIGH).
-                   if((MODE==RX) && ((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
+                   if(((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
                      {
-                       if (turnModemOnOff) sendReceive(STOP); // send stop command to modem if no DEMUX is available
-                       useModemData = 0;                      // false use-of-modem-data state
-                       DCCuseModemData(useModemData,dcLevel); // Tell the DCC code if you are or are not using modem data
-                       // analogWrite(LED_BUILTIN,LED_OFF);      // Tried, but dim
-                       inactiveStartTime = then;              // Start inactive timer
+                       if (turnModemOnOff) sendReceive(STOP);     // send stop command to modem if no DEMUX is available
+                       if(filterModemData) useModemData = 0;  // false use-of-modem-data state
+                       DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
+                       inactiveStartTime = then;                  // Start inactive timer
                      }
 
                      if(!useModemData) // If not using modem data, ensure the output is set to a DC level
@@ -604,12 +729,10 @@ void loop() {
               // After sleeping for a while, wake up the modem and try to collect a valid DCC signal
               // Note the logic allows for possibility that the modem is left on 
               // and a valid DCC packet is found during the sleep time.
-              else if((MODE==RX) && 
-                      (((then-inactiveStartTime) >= sleepTime) || ((then-timeOfValidDCC) < tooLong)))
+              else if(((sleepTime||turnModemOnOff) && ((then-inactiveStartTime) >= sleepTime)) || ((then-timeOfValidDCC) < tooLong))
                 {
                    useModemData = 1;                          // Active use-of-modem-data state
                    DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
-                   // analogWrite(LED_BUILTIN,LED_ON);        // Tried, but dim
                    timeOfValidDCC = then;                     // Start over on the DCC timing
                    inactiveStartTime = then + BACKGROUNDTIME; // start the modem inactive timer sometime in the future
                    if(turnModemOnOff)
@@ -619,9 +742,8 @@ void loop() {
                      }
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }
+#endif
 
               PORTB ^= 1;                      // debug - monitor with logic analyzer
           }
 }
-
-

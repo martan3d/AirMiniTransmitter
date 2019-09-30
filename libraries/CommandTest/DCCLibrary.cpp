@@ -1,6 +1,5 @@
 #undef SEND_DUPLICATE_PACKETS // Not sending duplicate packets if a new packet is NOT ready
 #undef SEND_PREAMBLE_PULSES   // Not using extra preamble pulses if a new packet is NOT ready. Using an IDLE packet instead
-#define DCC_DIAG0   5         // HIGH if IDLE packets are sent, LOW otherwise
 
 #include "DCCLibrary.h"
 #include <string.h>
@@ -120,7 +119,6 @@ ISR(TIMER2_OVF_vect){
                        state = SEPERATOR;        // Ready to go to next state with new msg
                        byteIndex = 0;            // Start msg with byte 0
                        msgExtractedIndex = 0;    // Use message extracted from DCC input
-                       // digitalWrite(DCC_DIAG0,0); // Will use this for diagnostics, 1 for special inserted idle on D5
                     }
                     else
                     {
@@ -130,13 +128,8 @@ ISR(TIMER2_OVF_vect){
                       state = SEPERATOR;         // Ready to go to next state with new msg
                       byteIndex = 0;             // Start msg with byte 0
                       msgExtractedIndex = 1;     // Use idle-packet, keep-alive for Airwire?
-                      // digitalWrite(DCC_DIAG0,1);  // Will use this for diagnostics, 1 for special inserted idle on D5
 #endif
                     }
-                    //if (memcmp((void *)&msg[msgExtractedIndex].data,(void *)&msgExtracted[1].data,(size_t)3)) // =0 if the messages are the same to the first 3 bytes, otherwise != 0
-                    //  digitalWrite(DCC_DIAG0,0);  // Will use this for diagnostics, 0 for special inserted idle on D5
-                    //else
-                    //  digitalWrite(DCC_DIAG0,1);  // Will use this for diagnostics, 1 for special inserted idle on D5
                 }
                 break;
             case SEPERATOR:
