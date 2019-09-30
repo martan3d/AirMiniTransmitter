@@ -29,6 +29,7 @@ extern "C" {
 #define OUTPUT_HIGH PORTD |=  (1<<OUTPUT_PIN)
 #define OUTPUT_LOW  PORTD &= ~(1<<OUTPUT_PIN)
 
+#define NOTHING 1
 #define DCCMAXLEN 6 // This is the maximum # of bytes of a DCC packet (not 5!)
 typedef struct
 {
