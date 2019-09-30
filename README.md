@@ -1,5 +1,5 @@
 # AirMiniTransmitter
-The project's overall purpose is to provide an open-source DCC-compatible transmitter (and receiver) that operates on [Airwire(TM)](http://www.cvpusa.com/airwire_system.php) channels 0-16 in the 902-928 MHz "ISM" band. 
+The project's overall purpose is to provide a low-cost DCC-compatible transmitter (and receiver) using open-source software that operates on [Airwire(TM)](http://www.cvpusa.com/airwire_system.php) channels 0-16 in the 902-928 MHz "ISM" band. 
 
 The project's hardware target is the the ["ProMini Air"](http://blueridgeengineering.net/index.php/wiki/building-the-promini-air/) transmitter/receiver hardware developed by [Blueridge Engineering](http://blueridgeengineering.net). The hardware uses an Arduino Pro Mini controller and a PCB that hosts the Texas Instruments CC1101 transceiver board. Interfacing to an "I2C" LCD for diagnostics is provided.
 
