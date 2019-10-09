@@ -7,5 +7,5 @@ The ProMini Air transmitter interfaces to any standard DCC throttle/controller t
 
 The ProMini transmitter can be configured like any mobile decoder by accessing its DCC address (default: 9000) in "OPS" mode and changing Configuration Variable (CV) values described in the documentation.
 
-The ProMini Air *receiver* shares exactly the same hardware as the ProMini Air transmitter, and changing only the #defines in config.h (in library/AirMiniTransmitter) will create a receiver version of the software. As described at the Blueridge Engineering site, an inexpensive, but powerful [amplifier](http://blueridgeengineering.net/index.php/wiki/cheap-airwire-dead-rail-dcc/) is available to convert the ProMini Air receiver's 5V "logic-level" DCC to "bi-polar" DCC for the onboard DCC decoder.
+The ProMini Air *receiver* shares exactly the same hardware as the ProMini Air transmitter, and changing only the #defines in config.h (in library/AirMiniTransmitter) will create a receiver version of the software. As described at the Blueridge Engineering site, an inexpensive, but powerful [amplifier](http://blueridgeengineering.net/index.php/wiki/cheap-airwire-dead-rail-dcc/) is available to convert the ProMini Air receiver's 5V "logic-level" DCC to "bipolar" DCC for the onboard DCC decoder.
 
