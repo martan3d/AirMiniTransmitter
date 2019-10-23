@@ -15,6 +15,7 @@
 #define RECEIVE
 #undef DCCLibrary
 #undef USE_LCD
+#define USE_LCD
 #endif
 
 #ifdef USE_LCD
@@ -75,9 +76,9 @@ uint8_t          newIndex     = 2;
 
 // Need to test
 #ifdef TRANSMIT
-#define DOUBLE_PASS 1            // Do a double pass on CV setting (currently does not work)
+#define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #else
-#define DOUBLE_PASS 0
+#define DOUBLE_PASS 0            // Try double pass for the receiver as well
 #endif
 
 int64_t now;
@@ -107,7 +108,7 @@ int64_t idlePeriod = 0;                      // 0 msec, changed to variable that
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 int64_t lastIdleTime = 0;
 int64_t tooLong  = 4000000;                  // 1 sec, changed to variable that might be changed by SW
-// int64_t sleepTime = 8000000;                 // 2 sec, changed to variable that might be changed by SW
+// int64_t sleepTime = 8000000;              // 2 sec, changed to variable that might be changed by SW
 int64_t sleepTime = 0;                       // 2 sec, changed to variable that might be changed by SW
 int64_t timeOfValidDCC;                      // Time stamp of the last valid DCC packet
 int64_t inactiveStartTime;                   // Time stamp if when modem data is ignored
@@ -116,6 +117,12 @@ uint8_t maxTransitionCountLowByte=100;       // High byte of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
 #define LED_ON 255                           // Analog PWM ON (full on)
 #define LED_OFF 0                            // Analog PWM OFF (full off)
+#ifdef RECEIVE
+uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
+int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
+int64_t endInitialWaitTime;                  // The end of the initial wait time. Will be set in initialization
+int64_t initialWaitPeriod = 40000000;        // 10 sec timeout
+#endif
 
 
 // Changing with CV's
@@ -284,7 +291,7 @@ void LCD_Addr_Ch_PL()
   sprintf(lcd_line,"Ch: %d PL: %d", CHANNEL, powerLevel);
 #else
   if (filterModemData) sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 1);
-  else sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 0);
+  else                 sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 0);
 #endif
   lcd.print(lcd_line);
   return;
@@ -309,6 +316,29 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
   lcd.print(lcd_line);
   prevLCDTime  = getMsClock();
   refreshLCD = true;
+  return;
+}
+
+void LCD_Wait_Period_Over(int status)
+{
+  lcd.clear();
+  lcd.setCursor(0,0); // column, row
+  if (!status) 
+  {
+     sprintf(lcd_line,"NO valid");
+  }
+  else
+  {
+     sprintf(lcd_line,"Found valid");
+  }
+  lcd.print(lcd_line);
+
+  lcd.setCursor(0,1); // column, row
+  sprintf(lcd_line,"RF on Ch: %d",CHANNEL);
+  lcd.print(lcd_line);
+  prevLCDTime  = getMsClock();
+  refreshLCD = true;
+
   return;
 }
 #endif
@@ -441,6 +471,10 @@ void setup() {
 
   then = getMsClock();                        // Grab Current Clock value for the loop below
   timeOfValidDCC = then;                      // Initialize the valid DCC data time
+  initialWait = 1;
+  startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time
+  endInitialWaitTime = startInitialWaitTime
+                     + initialWaitPeriod;     // Initialize the end of the wait time
   inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
 }
@@ -742,6 +776,31 @@ void loop() {
                      }
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }
+              // Special processing for channel search
+              if (initialWait) {
+                 // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
+                 if (timeOfValidDCC > startInitialWaitTime) 
+                 {
+                    initialWait = 0; 
+#ifdef USE_LCD
+                    LCD_Wait_Period_Over(1);
+#endif
+                 }
+                 else  // Othewise, continue to wait
+                 {
+                    if (then > endInitialWaitTime) // If it's too long, then reset the modem to channel 0 and stop waiting
+                    {
+                       initialWait = 0;
+#ifdef USE_LCD
+                       LCD_Wait_Period_Over(0);
+#endif
+                       CHANNEL=0;                 // Reset the channel
+                       sendReceive(STOP);         // Stop the modem
+                       dccInit();                 // Reset the DCC state machine, which also resets transitionCount
+                       startModem(CHANNEL, MODE); // Restart on Airwire Channel 0 and mode (or power level)
+                    }
+                 }
+              } // End of special processing for channel search
 #endif
 
               PORTB ^= 1;                      // debug - monitor with logic analyzer
