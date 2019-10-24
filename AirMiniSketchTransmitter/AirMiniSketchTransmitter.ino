@@ -66,6 +66,7 @@ uint8_t          newIndex     = 2;
 // Times
 #define MILLISEC          4000   // @16Mhz, this is 1ms, 0.001s
 #define QUARTERSEC     1000000   // @16Mhz, this is 0.25s
+#define SEC            4000000   // @16Mhz, this is 1.00s
 #define BACKGROUNDTIME   32000   // @16Mhz, this is 8ms
 
 // CC1101 codes
@@ -121,7 +122,7 @@ uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
 uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
 int64_t endInitialWaitTime;                  // The end of the initial wait time. Will be set in initialization
-int64_t initialWaitPeriod = 40000000;        // 10 sec timeout
+int8_t InitialWaitPeriodSEC;                // Wait period
 #endif
 
 
@@ -185,6 +186,12 @@ uint8_t  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low byte 
 uint8_t  EEMEM EEisSetAirMiniCV29;           // Stored AirMini decoder configuration variable is set
 uint8_t  EEMEM EEAirMiniCV29;                // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
+
+#ifdef RECEIVE
+uint8_t  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
+uint8_t  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
+uint8_t  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+#endif
 
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
@@ -402,6 +409,11 @@ void setup() {
   checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  32, 0);  // Set CV29 so that it will use a long address
   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
+#ifdef RECEIVE
+  // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, 10 );
+  checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  10, 0);  // Wait time in sec
+#endif
+
   /////////////////////////////////
   // Initialization of variables //
   /////////////////////////////////
@@ -473,8 +485,9 @@ void setup() {
   timeOfValidDCC = then;                      // Initialize the valid DCC data time
   initialWait = 1;
   startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time
-  endInitialWaitTime = startInitialWaitTime
-                     + initialWaitPeriod;     // Initialize the end of the wait time
+  endInitialWaitTime = 
+                    startInitialWaitTime
+                  + InitialWaitPeriodSEC*SEC; // Initialize the end of the wait time
   inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
 }
@@ -629,6 +642,12 @@ void loop() {
                                       break;
                                       case  246:  // Set the whether to always use modem data
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
+                                      break;
+                                      case  245:  // Set the wait period in 1 second intervals - Nothing can be done with this until reset
+                                          if(CVval <= 60)
+                                             checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  CVval, 1);  // Wait time in sec
+                                          else
+                                            CVStatus = IGNORED;
                                       break;
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
