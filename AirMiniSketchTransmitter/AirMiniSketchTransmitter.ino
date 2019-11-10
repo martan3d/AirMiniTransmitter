@@ -271,6 +271,16 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 }
 
 #ifdef USE_LCD
+void LCD_Banner()
+{
+  lcd.setCursor(0,0);              // Set initial column, row
+  lcd.print("ProMini Air(R)  ");   // Banner
+  lcd.setCursor(0,1);              // Set next line column, row
+  lcd.print("HW:1.0 SW:1.1   ");   // Show state
+  prevLCDTime  = getMsClock();     // Set up the previous display time
+  refreshLCD = true;
+}
+
 void LCD_Addr_Ch_PL()
 {
   lcd.clear();
@@ -445,12 +455,10 @@ void setup() {
 #ifdef USE_LCD
   lcd.init();                      // Initialize the LCD
   lcd.backlight();                 // Backlight it
-  lcd.setCursor(0,0);              // Set initial column, row
-  lcd.print("ProMini Air(R)  ");   // Banner
-  lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("HW:1.0 SW:1.0   ");   // Show state
-  prevLCDTime = 0;                 // Set up the previous display time
-  refreshLCD = true;
+  LCD_Banner();                    // Display the banner on LCD
+#ifdef RECEIVE
+  delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
+#endif
 #endif
 
 #ifdef DCCLibrary
@@ -483,11 +491,13 @@ void setup() {
 
   then = getMsClock();                        // Grab Current Clock value for the loop below
   timeOfValidDCC = then;                      // Initialize the valid DCC data time
+#ifdef RECEIVE
   initialWait = 1;
-  startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time
+  startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time (never is not a good value)
   endInitialWaitTime = 
                     startInitialWaitTime
                   + InitialWaitPeriodSEC*SEC; // Initialize the end of the wait time
+#endif
   inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
 }
@@ -597,12 +607,12 @@ void loop() {
 	                            switch(CVnum)
                                     {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
-                                          if(CVval <= 16)
+                                          if(CVval <= 16)           // Check for good values
                                             {
-                                              checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  // Ignore bad values
+                                              checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  
                                               startModemFlag = 1;
                                             }
-                                          else
+                                          else                      // Ignore bad values
                                             CVStatus = IGNORED;
                                       break;
                                       case  254:  // Set the RF power level and reset related EEPROM values. Verified this feature works.
@@ -643,12 +653,14 @@ void loop() {
                                       case  246:  // Set the whether to always use modem data
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
                                       break;
+#ifdef RECEIVE
                                       case  245:  // Set the wait period in 1 second intervals - Nothing can be done with this until reset
                                           if(CVval <= 60)
                                              checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  CVval, 1);  // Wait time in sec
                                           else
                                             CVStatus = IGNORED;
                                       break;
+#endif
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
                                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
@@ -658,7 +670,7 @@ void loop() {
                                           checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AirMiniCV17tmp, 1); 
                                           checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, CVval, 1); 
                                       break;
-                                      case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!). Verified this feature works
+                                      case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!).
                                           if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135, footnote 8
                                             {
                                               AirMiniCV17tmp = CVval;    // Do not take effect until CV18 is written! NMRA Standard 9.2.1, footnote 8.
@@ -796,7 +808,8 @@ void loop() {
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }
               // Special processing for channel search
-              if (initialWait) {
+              if (initialWait) 
+              {
                  // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
                  if (timeOfValidDCC > startInitialWaitTime) 
                  {
