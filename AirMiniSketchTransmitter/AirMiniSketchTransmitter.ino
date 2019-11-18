@@ -122,7 +122,7 @@ uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
 uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
 int64_t endInitialWaitTime;                  // The end of the initial wait time. Will be set in initialization
-int8_t InitialWaitPeriodSEC;                // Wait period
+uint8_t InitialWaitPeriodSEC;                // Wait period
 #endif
 
 
