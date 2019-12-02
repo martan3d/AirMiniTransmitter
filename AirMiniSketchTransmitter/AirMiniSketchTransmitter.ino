@@ -82,6 +82,37 @@ uint8_t          newIndex     = 2;
 #define DOUBLE_PASS 0            // Try double pass for the receiver as well
 #endif
 
+// DEFALUT defines
+#define CHANNELDEFAULT 0
+#define CHANNELMAX 16            // Maximum Airwire channel #. This could change if additional channels are added
+
+#ifdef TRANSMIT
+#define POWERLEVELDEFAULT 8
+#else
+#define POWERLEVELDEFAULT 6
+#endif
+
+#define DCLEVEL_INDEFAULT 1
+#define TURNMODEMON_INDEFAULT 0
+#define IDLEPERIODMSDEFAULT 0
+#define FILTERMODEMDATADEFAULT 0
+#define AIRMINICV1DEFAULT 3
+#define AIRMINICV17DEFAULT 227
+
+#ifdef TRANSMIT
+#define AIRMINICV18DEFAULT 40
+#else
+#define AIRMINICV18DEFAULT 41
+#endif
+
+#define AIRMINICV29DEFAULT 32
+
+#ifdef RECEIVE
+#define INITIALWAITPERIODSECDEFAULT 10
+#endif
+
+
+// Declarations
 int64_t now;
 int64_t then;
 
@@ -103,7 +134,7 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 #endif
 
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
-uint8_t filterModemData = 1;                 // Set the logical for whether to always use modem data
+uint8_t filterModemData;                     // Set the logical for whether to always use modem data. Initialized elsewhere
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
 int64_t idlePeriod = 0;                      // 0 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
@@ -196,11 +227,13 @@ uint8_t  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configura
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
 #ifdef USE_LCD
-#define LCDTimePeriod 8000000                // Set up the LCD re-display time interval, 2 s
-uint64_t prevLCDTime = 0;                    // Initialize the last time displayed
-bool refreshLCD = true;                      // Whether to refresh
-LiquidCrystal_I2C lcd(0x27,16,2);            // Create the LCD object
-char lcd_line[16];
+#define LCDCOLUMNS 16                           // Number of LCD columns
+#define LCDROWS 2                               // Number of LCD rows 
+#define LCDTimePeriod 8000000                   // Set up the LCD re-display time interval, 2 s
+uint64_t prevLCDTime = 0;                       // Initialize the last time displayed
+bool refreshLCD = true;                         // Whether to refresh
+LiquidCrystal_I2C lcd(0x27,LCDCOLUMNS,LCDROWS); // Create the LCD object
+char lcd_line[LCDCOLUMNS];
 #endif
 
 /******************************************************************************/
@@ -370,58 +403,53 @@ void setup() {
   ////////////////////////////////////////////////
 
   // Get the CHANNEL # stored in EEPROM and validate it
-  // eeprom_update_byte(&EECHANNELDefault, 0 );
-  checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, 0, 0);      // Validate the channel, it's possible the EEPROM has bad data
-  if(CHANNEL > 16) 
-      checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, 0, 1);  // Force the EEPROM data to use CHANNEL 0, if the CHANNEL is invalid
+  // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
+  checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 0);      // Validate the channel, it's possible the EEPROM has bad data
+  if(CHANNEL > CHANNELMAX) 
+      checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 1);  // Force the EEPROM data to use CHANNEL 0, if the CHANNEL is invalid
   
   // Just flat out set the powerLevel
-  // eeprom_update_byte(&EEpowerLevelDefault, 8 );
-  checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, 8, 1);  // Force the reset of the power level. This is a conservative approach.
+  // eeprom_update_byte(&EEpowerLevelDefault, POWERLEVELDEFAULT );
+  checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
 
   // Set the alternate DC output level to HIGH or LOW (i.e., bad CC1101 data)
   // The level of this output can be used by some decoders. The default is HIGH.
-  // eeprom_update_byte(&EEdcLevelDefault, 0 );
-  checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, 1, 0);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+  // eeprom_update_byte(&EEdcLevelDefault, DCLEVEL_INDEFAULT );
+  checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, DCLEVEL_INDEFAULT, 0);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
   dcLevel = (volatile uint8_t)dcLevel_in;                                  // Since dcLevel is volatile we need a proxy uint8_t 
 
   // Turn the modem OFF/ON option. For use if bad modem data is detected in RX mode
-  // eeprom_update_byte(&EEturnModemOnOffDefault, 0 );
-  checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, 0, 0);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+  // eeprom_update_byte(&EEturnModemOnOffDefault, TURNMODEMON_INDEFAULT );
+  checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, TURNMODEMON_INDEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
   turnModemOnOff = (volatile uint8_t)turnModemOnOff_in;                                    // Needed to use a proxy variable since turnModemOnOff is volatile uint8_t
 
   // Set the DCC time-out period for sending IDLE packets. Used along with duplicate DCC packet detection for inserting IDLE packets
-  // eeprom_update_byte(&EEidlePeriodmsDefault, 0 );
-  checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, 0, 0);  // Use EEPROM value if it's been set, otherwise set to 0 ms
+  // eeprom_update_byte(&EEidlePeriodmsDefault, IDLEPERIODMSDEFAULT );
+  checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, IDLEPERIODMSDEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 0 ms
   idlePeriod = (uint64_t)idlePeriodms * MILLISEC;                                 // Convert to time counts
 
   // Set whether to always use modem data on transmit
-  // eeprom_update_byte(&EEfilterModemDataDefault, 1 );
-  checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, 1, 0);  // Use EEPROM value if it's been set, otherwise set to 0 
+  // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
+  checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 0 
 
   // Get up addressing-related CV's from EEPROM, or if not set set them in EEPROM
-  // eeprom_update_byte(&EEAirMiniCV1Default, 3 );
-  checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    3, 0);  // Short address. By default, not using
+  // eeprom_update_byte(&EEAirMiniCV1Default, AIRMINICV1DEFAULT );
+  checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    AIRMINICV1DEFAULT, 0);  // Short address. By default, not using
 
-  // eeprom_update_byte(&EEAirMiniCV17Default, 227 );
-  checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, 227, 0);  // High byte to set final address to 9000
+  // eeprom_update_byte(&EEAirMiniCV17Default, AIRMINICV17DEFAULT );
+  checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AIRMINICV17DEFAULT, 0);  // High byte to set final address to 9000
   AirMiniCV17tmp = AirMiniCV17;                                                  // Due to the special nature of CV17 paired with CV18
 
-#ifdef TRANSMIT
-  // eeprom_update_byte(&EEAirMiniCV18Default, 40 );
-  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18,  40, 0);  // Low byte to set final address to 9000 for transmitter
-#else
-  // eeprom_update_byte(&EEAirMiniCV18Default, 41 );
-  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18,  41, 0);  // Low byte to set final address to 9001 for receiver
-#endif
+  // eeprom_update_byte(&EEAirMiniCV18Default, AIRMINICV18DEFAULT );
+  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, AIRMINICV18DEFAULT, 0);  // Low byte to set final address to 9000/9001 for transmitter/receiver
 
-  // eeprom_update_byte(&EEAirMiniCV29Default, 32 );
-  checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  32, 0);  // Set CV29 so that it will use a long address
+  // eeprom_update_byte(&EEAirMiniCV29Default, AIRMINICV29DEFAULT );
+  checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  AIRMINICV29DEFAULT, 0);  // Set CV29 so that it will use a long address
   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
 #ifdef RECEIVE
-  // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, 10 );
-  checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  10, 0);  // Wait time in sec
+  // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
+  checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  INITIALWAITPERIODSECDEFAULT, 0);  // Wait time in sec
 #endif
 
   /////////////////////////////////
@@ -457,7 +485,7 @@ void setup() {
   lcd.backlight();                 // Backlight it
   LCD_Banner();                    // Display the banner on LCD
 #ifdef RECEIVE
-  delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
+  // delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
 #endif
 #endif
 
@@ -607,7 +635,7 @@ void loop() {
 	                            switch(CVnum)
                                     {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
-                                          if(CVval <= 16)           // Check for good values
+                                          if(CVval <= CHANNELMAX)           // Check for good values
                                             {
                                               checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  
                                               startModemFlag = 1;
