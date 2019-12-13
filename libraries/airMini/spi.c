@@ -1,32 +1,71 @@
 /*
- * spi.c
- *
- * Created: 12/2/2018 9:24:48 AM
- *  Author: martan
- */ 
-#define USE_ORIG
-#undef USE_ORIG
+spi.c
 
-#ifdef USE_ORIG
-// Right now, it appears that changing FSCTRL1 to the value used in Tx burns the chip up!!!
-#define USE_ORIG_FSCTRL1
-#define USE_ORIG_MDMCFG4
-#define USE_ORIG_MDMCFG3
-#else
-// Right now, it appears that changing FSCTRL1 to the value used in Tx burns the chip up!!!
-#define USE_ORIG_FSCTRL1
-#undef USE_ORIG_MDMCFG4
-#undef USE_ORIG_MDMCFG3
-#endif
+Created: 12/2/2018 9:24:48 AM
+Copyright (c) 2018-2019, Martin Sant
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or
+without modification, are permitted provided that the following
+conditions are met: 
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+*/ 
+
+/*
+Important! 
+The small SMD Anaren transciever boards operate at 27MHz!  These
+boards (A110LR09C00GM with CC110L chips) won't work UNLESS
+USE_WIRELESS_DCC_DATA is defined!  The related initRxData came from wireless-dcc.
+
+The larger, board-level transciever boards operate at 26MHz!  They
+will NOT work if USE_WIRELESS_DCC_DATA is defined!
+*/
 
 #include <avr/io.h>
 #include "spi.h"
 
+#ifdef ANAREN
+#define USE_WIRELESS_DCC_DATA
+#else
+#undef USE_WIRELESS_DCC_DATA
+#define USE_ORIG
+#undef USE_ORIG
+#endif
+
+#ifndef USE_WIRELESS_DCC_DATA
+#ifdef USE_ORIG
+#define USE_ORIG_MDMCFG4
+#define USE_ORIG_MDMCFG3
+#else
+#undef USE_ORIG_MDMCFG4
+#undef USE_ORIG_MDMCFG3
+#endif
+#endif
+
+
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
+#ifndef USE_WIRELESS_DCC_DATA
 uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
-                          0x2E, // IOCFG2
-                          0x2E, // IOCFG1
+                          0x2E, // IOCFG2  // High impedance (3-state)
+                          0x2E, // IOCFG1  // High impedance (3-state)
                           0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
                           0x07, // FIFOTHR
                           0xD3, // SYNC1
@@ -36,11 +75,7 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
                           0x00, // ADDR
                           0x4B, // CHANNR
-#ifdef USE_ORIG_FSCTRL1
-                          0x06, // FSCTRL1* (Reset value: 0x0F) Changed as a test
-#else
-                          0x0C, // FSCTRL1* (Reset value: 0x0F)
-#endif
+                          0x06, // FSCTRL1* (Reset value: 0x0F)
                           0x00, // FSCTRL0
                           0x22, // FREQ2
                           0xB7, // FREQ1
@@ -78,13 +113,62 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x1F, // FSCAL0
                           0x40, // RCCTRL1
                           0x00, // RCCTRL0
-                          0x59, // FSTEST
+                          0x59, // FSTEST*
                           0x7F, // PTEST
-                          0x3F, // AGCTEST
+                          0x3F, // AGCTEST*
                           0x81, // TEST2
                           0x35, // TEST1
                           0x09};// TEST0
-						
+#else
+uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
+                          0x2E, // IOCFG2
+                          0x2E, // IOCFG1
+                          0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
+                          0x07, // FIFOTHR
+                          0xD3, // SYNC1
+                          0x91, // SYNC0
+                          0xFF, // PKTLEN
+                          0x04, // PKTCTRL1 // Append payload with status bytes, no address check
+                          0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
+                          0x00, // ADDR
+                          0x4B, // CHANNR
+                          0x06, // FSCTRL1* (Reset value: 0x0F)
+                          0x00, // FSCTRL0
+                          0x21, // FREQ2*
+                          0x6E, // FREQ1*
+                          0x2C, // FREQ0*
+                          0xBA, // MDMCFG4* 
+                          0x84, // MDMCFG3*
+                          0x00, // MDMCFG2*
+                          0x23, // MDMCFG1
+                          0x2F, // MDMCFG0*
+                          0x47, // DEVIATN*
+                          0x07, // MCSM2
+                          0x30, // MCSM1
+                          0x18, // MCSM0
+                          0x16, // FOCCFG
+                          0x6C, // BSCFG
+                          0x03, // AGCCTRL2
+                          0x40, // AGCCTRL1
+                          0x91, // AGCCTRL0
+                          0x87, // WOREVT1
+                          0x6B, // WOREVT0
+                          0xFB, // WORCTRL
+                          0x56, // FREND1    0101 0110
+                          0x10, // FREND0    0001 0000
+                          0xE9, // FSCAL3
+                          0x2A, // FSCAL2
+                          0x00, // FSCAL1
+                          0x1F, // FSCAL0
+                          0x40, // RCCTRL1
+                          0x00, // RCCTRL0
+                          0x89, // FSTEST*
+                          0x7F, // PTEST
+                          0x63, // AGCTEST*
+                          0x81, // TEST2
+                          0x35, // TEST1
+                          0x09};// TEST0
+#endif
 						
 	
 uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mode
@@ -164,10 +248,23 @@ uint8_t powers[11] = {0x03, 0x15, 0x1C, 0x27, 0x66, 0x8E, 0x89, 0xCD, 0xC4,0xC1,
 
 void initializeSPI()
 {
-    /* Set MOSI and SCK output, all others input */
-    DDRB = 0x2f;
-    PORTB |= SS;              // disable modem
-    SPCR = 0x52;
+                              //   |---------------------------------------------
+                              //   | |---------------------------               |
+                              //   | ||--------------           |               |
+                              //   | ||             |           |               |
+    DDRB = 0x2f;              // 001011 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
+                              //    |
+                              //    MISO (P12) is input
+    PORTB |= SS;              // 000001 00 disable modem on CSN (P10)
+    SPCR = 0x52;              // 01010010 Serial Port Control Register setting
+                              // ||||||||
+                              // ||||||SPR1, SPR0: Next slowest speed (10)
+                              // |||||CPHA: Rising edge sampling (0)
+                              // ||||CPOL: Clock idle when low (0)
+                              // |||MSTR: Arduino in master mode (1)
+                              // ||DORD: MSB first (0)
+                              // |SPE: Enable SPI (1)
+                              // SPIE: Disable SPI Interrupt (0)
 }
 
 uint8_t clockSPI(uint8_t data)
@@ -222,7 +319,7 @@ void startModem(uint8_t channel, uint8_t mode)
     clockSPI(channelCode);
     PORTB |= SS;                 // disable modem
  
-    sendReceive(mode);           // RX mode
+    sendReceive(mode);           // TX or RX mode
 }
 
 
