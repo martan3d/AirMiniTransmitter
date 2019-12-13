@@ -9,3 +9,4 @@ The ProMini transmitter can be configured like any mobile decoder by accessing i
 
 The ProMini Air *receiver* shares exactly the same hardware as the ProMini Air transmitter, and changing only the #defines in config.h (in library/AirMiniTransmitter) will create a receiver version of the hardware. As described at the Blueridge Engineering site, an inexpensive, but powerful [amplifier](http://blueridgeengineering.net/index.php/wiki/cheap-airwire-dead-rail-dcc/) (the [Cytron MD13S](https://smile.amazon.com/gp/product/B07CW3GRL6/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1)) is available to convert the ProMini Air receiver's 5V "logic-level" DCC to "bipolar" DCC for the onboard DCC decoder.
 
+The project has been updated to operate with CC1101 (or CC110L) transceiver boards that operate at 26MHz (the default) or 27MHz (such as Anaren boards). Selection is performed by editing libraries/AirMiniTransmitter/config.h.
