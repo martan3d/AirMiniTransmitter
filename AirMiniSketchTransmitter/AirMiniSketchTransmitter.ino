@@ -1,3 +1,33 @@
+/*
+AirMiniSketchTransmitter.ino
+
+Created: Dec  7 12:15:25 EST 2019
+Copyright (c) 2019, Martin Sant and Darrell Lamm
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or
+without modification, are permitted provided that the following
+conditions are met: 
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include <dcc.h>
 #include <spi.h>
 #include <uart.h>
@@ -47,14 +77,14 @@ volatile Message msg[msgSize] = {      // -> to DCCLibrary.c
     { { 0, 0, 0, 0, 0, 0, 0}, 0}
   };      
 // Private msg sent to DCCLibrary.c ISR
-volatile Message msgExtracted[2] = {   // -> to DCCLibrary.c
+volatile Message msgExtracted[2] = {    // -> to DCCLibrary.c
     { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3}, // Will be overwritten in NextMessage
     { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3}, // The idle packet we will send in DCCLibrary.c when conditions permit/necessitate
 };
 
 volatile uint8_t lastMessageInserted  = 1;
 volatile uint8_t lastMessageExtracted = 0;
-volatile uint8_t currentIndex = 0;   // -> to DCCLibrary.c
+volatile uint8_t currentIndex = 0;      // -> to DCCLibrary.c
 uint8_t          newIndex     = 2;
 
 ///////////////////
@@ -79,7 +109,7 @@ uint8_t          newIndex     = 2;
 #ifdef TRANSMIT
 #define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #else
-#define DOUBLE_PASS 0            // Try double pass for the receiver as well
+#define DOUBLE_PASS 0            // Single pass
 #endif
 
 // DEFALUT defines
@@ -147,8 +177,6 @@ int64_t inactiveStartTime;                   // Time stamp if when modem data is
 uint16_t maxTransitionCount;                 // Maximum number of bad transitions to tolerate before ignoring modem data
 uint8_t maxTransitionCountLowByte=100;       // High byte of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
-#define LED_ON 255                           // Analog PWM ON (full on)
-#define LED_OFF 0                            // Analog PWM OFF (full off)
 #ifdef RECEIVE
 uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
@@ -255,16 +283,6 @@ bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
     currentIndex = lastMessageExtracted;                                              // Set the variable used by DCCLibrary.c to access the msg ring buffer with no update
     memcpy((void *)&msgExtracted[0], (void *)&msg[currentIndex], sizeof(Message));    // Extract the message into private msg
 
-    // Diagnostic output
-    if (retval)
-    {
-       // analogWrite(LED_BUILTIN,LED_OFF);                                            // Tried, but dim
-    }
-    else
-    {
-       // analogWrite(LED_BUILTIN,LED_ON);                                             // Tried, but dim
-    }
-
     return retval;
 }
 ///////////////////
@@ -309,7 +327,7 @@ void LCD_Banner()
   lcd.setCursor(0,0);              // Set initial column, row
   lcd.print("ProMini Air(R)  ");   // Banner
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("HW:1.0 SW:1.1   ");   // Show state
+  lcd.print("HW:1.0 SW:1.2   ");   // Show state
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
 }
@@ -470,11 +488,6 @@ void setup() {
   // Set up the hardware and related variables //
   ///////////////////////////////////////////////
 
-  // Set up and initialize the diagnostic LED 
-  pinMode(LED_BUILTIN, OUTPUT);               // Try to set up an external LED
-  // analogWrite(LED_BUILTIN,LED_OFF);          // Tried, but currently pretty dim
-  digitalWrite(LED_BUILTIN,LOW);              // Tried, but currently pretty dim
-
   // Set up and initialize the output of the diagnostic pin (done in dccInit)
   // SET_OUTPUTPIN;                             // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
   // if(dcLevel) OUTPUT_HIGH;                   // HIGH
@@ -485,7 +498,7 @@ void setup() {
   lcd.backlight();                 // Backlight it
   LCD_Banner();                    // Display the banner on LCD
 #ifdef RECEIVE
-  // delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
+  delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
 #endif
 #endif
 
@@ -620,8 +633,6 @@ void loop() {
                               {
                                  if(!memcmp(dccptrAirMiniCVReset,dccptr,sizeof(DCC_MSG)) || !DOUBLE_PASS)  // If they don't compare, break out
                                    {
-                                    // analogWrite(LED_BUILTIN,LED_ON);// Tried, but dim
-                                    digitalWrite(LED_BUILTIN,HIGH); // Tried, but dim
                                     startModemFlag = 0;             // Initialize whether the modem will be restarted
                                     tmpuint8 = dccptr[countPtr++]&(0b00000011); // zero out the first 6 bits of dccptr[countPtr], we want to use the last two bits
                                     CVnum = (uint16_t)tmpuint8;     // cast the result to a 2 byte CVnum
