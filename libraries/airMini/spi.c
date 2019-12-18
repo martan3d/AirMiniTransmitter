@@ -41,24 +41,11 @@ will NOT work if USE_WIRELESS_DCC_DATA is defined!
 #include <avr/io.h>
 #include "spi.h"
 
-#ifdef ANAREN
+#ifdef TWENTY_SEVEN_MHZ
 #define USE_WIRELESS_DCC_DATA
 #else
 #undef USE_WIRELESS_DCC_DATA
-#define USE_ORIG
-#undef USE_ORIG
 #endif
-
-#ifndef USE_WIRELESS_DCC_DATA
-#ifdef USE_ORIG
-#define USE_ORIG_MDMCFG4
-#define USE_ORIG_MDMCFG3
-#else
-#undef USE_ORIG_MDMCFG4
-#undef USE_ORIG_MDMCFG3
-#endif
-#endif
-
 
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
@@ -80,16 +67,8 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x22, // FREQ2
                           0xB7, // FREQ1
                           0x55, // FREQ0
-#ifdef USE_ORIG_MDMCFG4
                           0x8A, // MDMCFG4* // Changed as a test in conjunction w/ MDMCFG3
-#else
-                          0x8C, // MDMCFG4*
-#endif
-#ifdef USE_ORIG_MDMCFG3
                           0x93, // MDMCFG3* // Changed as a test in conjunction w/ MDMCFG4
-#else
-                          0x22, // MDMCFG3* 
-#endif
                           0x00, // MDMCFG2*
                           0x23, // MDMCFG1
                           0x3B, // MDMCFG0*
@@ -256,9 +235,10 @@ void initializeSPI()
                               //    |
                               //    MISO (P12) is input
     PORTB |= SS;              // 000001 00 disable modem on CSN (P10)
-    SPCR = 0x52;              // 01010010 Serial Port Control Register setting
+ // SPCR = 0x52;              // 01010010 Serial Port Control Register setting
+    SPCR = 0x53;              // 01010011 Serial Port Control Register setting
                               // ||||||||
-                              // ||||||SPR1, SPR0: Next slowest speed (10)
+                              // ||||||SPR1, SPR0: Next slowest speed (10), Slowest speed (11)
                               // |||||CPHA: Rising edge sampling (0)
                               // ||||CPOL: Clock idle when low (0)
                               // |||MSTR: Arduino in master mode (1)

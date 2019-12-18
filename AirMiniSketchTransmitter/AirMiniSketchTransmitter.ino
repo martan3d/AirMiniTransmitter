@@ -327,7 +327,11 @@ void LCD_Banner()
   lcd.setCursor(0,0);              // Set initial column, row
   lcd.print("ProMini Air(R)  ");   // Banner
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("HW:1.0 SW:1.2   ");   // Show state
+#ifdef TWENTY_SEVEN_MHZ
+  lcd.print("H:1.0 S:1.2/27MH");   // Show state
+#else
+  lcd.print("H:1.0 S:1.2/26MH");   // Show state
+#endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
 }
