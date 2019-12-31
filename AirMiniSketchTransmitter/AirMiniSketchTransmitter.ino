@@ -138,7 +138,7 @@ uint8_t          newIndex     = 2;
 #define AIRMINICV29DEFAULT 32
 
 #ifdef RECEIVE
-#define INITIALWAITPERIODSECDEFAULT 10
+#define INITIALWAITPERIODSECDEFAULT 1
 #endif
 
 
@@ -182,6 +182,8 @@ uint8_t initialWait = 1;                     // Initial wait status for receivin
 int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
 int64_t endInitialWaitTime;                  // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
+uint8_t searchChannelIndex = 0;              // Initialial channel search order index
+uint8_t searchChannels[] = {0,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #endif
 
 
@@ -328,9 +330,9 @@ void LCD_Banner()
   lcd.print("ProMini Air(R)  ");   // Banner
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.2/27MH");   // Show state
+  lcd.print("H:1.0 S:1.3/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.2/26MH");   // Show state
+  lcd.print("H:1.0 S:1.3/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -850,6 +852,7 @@ void loop() {
                      }
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }
+
               // Special processing for channel search
               if (initialWait) 
               {
@@ -863,18 +866,40 @@ void loop() {
                  }
                  else  // Othewise, continue to wait
                  {
-                    if (then > endInitialWaitTime) // If it's too long, then reset the modem to channel 0 and stop waiting
+                    // If it's too long, then reset the modem to the next channel
+                    if (then > endInitialWaitTime) 
                     {
-                       initialWait = 0;
 #ifdef USE_LCD
                        LCD_Wait_Period_Over(0);
 #endif
-                       CHANNEL=0;                 // Reset the channel
-                       sendReceive(STOP);         // Stop the modem
-                       dccInit();                 // Reset the DCC state machine, which also resets transitionCount
-                       startModem(CHANNEL, MODE); // Restart on Airwire Channel 0 and mode (or power level)
-                    }
-                 }
+                       if (++searchChannelIndex <= sizeof(searchChannels))
+                       // Keep searching...
+                       {
+                          // Update the seach channel and endInitialWaitTime
+                          CHANNEL = searchChannels[searchChannelIndex-1];
+                          // Re-initialize the start of the wait time
+                          startInitialWaitTime = then;      
+                          // Re-initialize the end of the wait time
+                          endInitialWaitTime = 
+                              startInitialWaitTime
+                              + InitialWaitPeriodSEC*SEC; 
+                       }
+                       else 
+                       // Last resort
+                       {
+                          initialWait = 0;
+                          CHANNEL=0;                 // Reset to the last resort channel
+                       }
+
+                       // Stop the modem
+                       sendReceive(STOP);         
+                       // Reset the DCC state machine, which also resets transitionCount
+                       dccInit();                 
+                       // Restart on Airwire selected and mode (or power level)
+                       startModem(CHANNEL, MODE); 
+
+                    } // end of wait time over
+                 } // end of continue to wait
               } // End of special processing for channel search
 #endif
 
