@@ -143,8 +143,8 @@ uint8_t          newIndex     = 2;
 
 
 // Declarations
-int64_t now;
-int64_t then;
+uint64_t now;
+uint64_t then;
 
 uint8_t sendbuffer[sizeof(DCC_MSG)];
 uint8_t modemCVResetCount=0;
@@ -166,25 +166,26 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
 uint8_t filterModemData;                     // Set the logical for whether to always use modem data. Initialized elsewhere
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-int64_t idlePeriod = 0;                      // 0 msec, changed to variable that might be changed by SW
+uint64_t idlePeriod = 0;                      // 0 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
-int64_t lastIdleTime = 0;
-int64_t tooLong  = 4000000;                  // 1 sec, changed to variable that might be changed by SW
-// int64_t sleepTime = 8000000;              // 2 sec, changed to variable that might be changed by SW
-int64_t sleepTime = 0;                       // 2 sec, changed to variable that might be changed by SW
-int64_t timeOfValidDCC;                      // Time stamp of the last valid DCC packet
-int64_t inactiveStartTime;                   // Time stamp if when modem data is ignored
+uint64_t lastIdleTime = 0;
+uint64_t tooLong  = 4000000;                  // 1 sec, changed to variable that might be changed by SW
+// uint64_t sleepTime = 8000000;              // 2 sec, changed to variable that might be changed by SW
+uint64_t sleepTime = 0;                       // 2 sec, changed to variable that might be changed by SW
+uint64_t timeOfValidDCC;                      // Time stamp of the last valid DCC packet
+uint64_t inactiveStartTime;                   // Time stamp if when modem data is ignored
 uint16_t maxTransitionCount;                 // Maximum number of bad transitions to tolerate before ignoring modem data
 uint8_t maxTransitionCountLowByte=100;       // High byte of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
 #ifdef RECEIVE
 uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
-int64_t startInitialWaitTime;                // The start of the initial wait time. Will be set in initialization
-int64_t endInitialWaitTime;                  // The end of the initial wait time. Will be set in initialization
+uint64_t startInitialWaitTime;               // The start of the initial wait time. Will be set in initialization
+uint64_t endInitialWaitTime;                 // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
 uint8_t searchChannelIndex = 0;              // Initialial channel search order index
 uint8_t searchChannels[] = {0,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #endif
+uint8_t bannerInit = 1;                      // Only display the banner the first time inside channel searching
 
 
 // Changing with CV's
@@ -206,6 +207,7 @@ uint8_t AirMiniCV18;                         // The AirMini's address, LOW byte
 
 uint8_t AirMiniCV29;                         // The AirMini's address, HIGH byte
 uint8_t AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
+uint8_t useMyAddress = 0;                    // Global flag for LCD
 
 // EEPROM data for persistence after turn-off of the AirMini
 uint8_t  EEMEM EEisSetCHANNEL;               // Stored RF channel is set
@@ -259,7 +261,8 @@ enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 #ifdef USE_LCD
 #define LCDCOLUMNS 16                           // Number of LCD columns
 #define LCDROWS 2                               // Number of LCD rows 
-#define LCDTimePeriod 8000000                   // Set up the LCD re-display time interval, 2 s
+//#define LCDTimePeriod 8000000                   // Set up the LCD re-display time interval, 2 s
+uint64_t LCDTimePeriod=16000000;                   // Set up the LCD re-display time interval, 4 s
 uint64_t prevLCDTime = 0;                       // Initialize the last time displayed
 bool refreshLCD = true;                         // Whether to refresh
 LiquidCrystal_I2C lcd(0x27,LCDCOLUMNS,LCDROWS); // Create the LCD object
@@ -324,15 +327,16 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 }
 
 #ifdef USE_LCD
-void LCD_Banner()
+void LCD_Banner(uint8_t bannerInit)
 {
   lcd.setCursor(0,0);              // Set initial column, row
-  lcd.print("ProMini Air(R)  ");   // Banner
+  if (bannerInit) lcd.print("ProMini Air Init");   // Banner
+  else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.3/27MH");   // Show state
+  lcd.print("H:1.0 S:1.4b/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.3/26MH");   // Show state
+  lcd.print("H:1.0 S:1.4b/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -349,15 +353,36 @@ void LCD_Addr_Ch_PL()
   int AirMiniAddress_int = (int)AirMiniAddress;
   // sprintf(lcd_line,"Addr: %d",AirMiniAddress_int);
   */
-  if(AirMiniCV29Bit5) 
-    {
-      int AirMiniAddress_int = (AirMiniCV17-192)*256+AirMiniCV18;
-      sprintf(lcd_line,"Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-    }
+  if(useMyAddress) 
+  {
+     useMyAddress = 0;
+     if(AirMiniCV29Bit5) 
+      {
+         int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
+         // sprintf(lcd_line,"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+         sprintf(lcd_line,"My Ad: %d(L)",AirMiniAddress_int);
+      }
+     else
+      {
+         // sprintf(lcd_line,"My Ad(CV1): %d",AirMiniCV1);
+         sprintf(lcd_line,"My Ad: %d(S)",AirMiniCV1);
+      }
+  }
   else
-    {
-      sprintf(lcd_line,"Ad(CV1): %d",AirMiniCV1);
-    }
+  {
+     useMyAddress = 1;
+     uint8_t tmp = dccptr[0]&0b11000000;
+     if ((tmp==0b11000000) && (dccptr[0]!=0b11111111))
+     {
+         int TargetAddress_int = ((int)dccptr[0]-192)*256+(int)dccptr[1];
+         // sprintf(lcd_line,"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr[0],dccptr[1]);
+         sprintf(lcd_line,"Msg Ad: %d(L)",TargetAddress_int);
+     }
+     else
+     {
+         sprintf(lcd_line,"Msg Ad: %d(S)",(int)dccptr[0]);
+     }
+  }
     
   lcd.print(lcd_line);
   lcd.setCursor(0,1); // column, row
@@ -412,6 +437,14 @@ void LCD_Wait_Period_Over(int status)
   lcd.print(lcd_line);
   prevLCDTime  = getMsClock();
   refreshLCD = true;
+
+  // Display the banner one time after initialization since the first 
+  // banner might go by too quickly
+  if (bannerInit) 
+  {
+     bannerInit = 0;
+     LCD_Banner(bannerInit);
+  }
 
   return;
 }
@@ -480,9 +513,9 @@ void setup() {
   // Initialization of variables //
   /////////////////////////////////
 
-  startModemFlag = 0;                    // Initialize the start-modem flag
-  useModemData = 1;                      // Initialize use-of-modem-data state
-  DCCuseModemData(useModemData,dcLevel); // Tell the DCC code if you are or are not using modem data
+  startModemFlag = 0;                          // Initialize the start-modem flag
+  useModemData = 1;                            // Initialize use-of-modem-data state
+  DCCuseModemData(useModemData,dcLevel);       // Tell the DCC code if you are or are not using modem data
 
   maxTransitionCount = combineHighLow(maxTransitionCountHighByte,maxTransitionCountLowByte);
   modemCVResetCount = 0;
@@ -495,17 +528,14 @@ void setup() {
   ///////////////////////////////////////////////
 
   // Set up and initialize the output of the diagnostic pin (done in dccInit)
-  // SET_OUTPUTPIN;                             // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
-  // if(dcLevel) OUTPUT_HIGH;                   // HIGH
-  // else OUTPUT_LOW;                           // LOW
+  // SET_OUTPUTPIN;                            // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
+  // if(dcLevel) OUTPUT_HIGH;                  // HIGH
+  // else OUTPUT_LOW;                          // LOW
 
 #ifdef USE_LCD
-  lcd.init();                      // Initialize the LCD
-  lcd.backlight();                 // Backlight it
-  LCD_Banner();                    // Display the banner on LCD
-#ifdef RECEIVE
-  delay(1000);                     // Give the banner some time, otherwise, on receive it's too fast with RF finding display
-#endif
+  lcd.init();                                  // Initialize the LCD
+  lcd.backlight();                             // Backlight it
+  LCD_Banner(bannerInit);                      // Display the banner on LCD
 #endif
 
 #ifdef DCCLibrary
@@ -574,7 +604,7 @@ void loop() {
                      newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
 #endif
 
-                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((int64_t)getMsClock() - lastIdleTime) < idlePeriod)) // only process if it's changed since last time
+                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod)) // only process if it's changed since last time
                      {                     
                        decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
   
@@ -794,7 +824,7 @@ void loop() {
                 {
                   LCD_Addr_Ch_PL();                // Update the display of address, chanel #, and power level
                   prevLCDTime = then;              // Slowly... at 1 sec intervals
-                  refreshLCD = false;
+                  refreshLCD = true;
                 }
 #endif
 
