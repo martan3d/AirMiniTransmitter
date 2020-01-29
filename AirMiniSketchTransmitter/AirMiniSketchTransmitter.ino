@@ -166,14 +166,14 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
 uint8_t filterModemData;                     // Set the logical for whether to always use modem data. Initialized elsewhere
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-uint64_t idlePeriod = 0;                      // 0 msec, changed to variable that might be changed by SW
+uint64_t idlePeriod = 0;                     // 0 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
-uint64_t tooLong  = 4000000;                  // 1 sec, changed to variable that might be changed by SW
-// uint64_t sleepTime = 8000000;              // 2 sec, changed to variable that might be changed by SW
-uint64_t sleepTime = 0;                       // 2 sec, changed to variable that might be changed by SW
-uint64_t timeOfValidDCC;                      // Time stamp of the last valid DCC packet
-uint64_t inactiveStartTime;                   // Time stamp if when modem data is ignored
+uint64_t tooLong  = 4000000;                 // 1 sec, changed to variable that might be changed by SW
+// uint64_t sleepTime = 8000000;             // 2 sec, changed to variable that might be changed by SW
+uint64_t sleepTime = 0;                      // 2 sec, changed to variable that might be changed by SW
+uint64_t timeOfValidDCC;                     // Time stamp of the last valid DCC packet
+uint64_t inactiveStartTime;                  // Time stamp if when modem data is ignored
 uint16_t maxTransitionCount;                 // Maximum number of bad transitions to tolerate before ignoring modem data
 uint8_t maxTransitionCountLowByte=100;       // High byte of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
@@ -261,8 +261,7 @@ enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 #ifdef USE_LCD
 #define LCDCOLUMNS 16                           // Number of LCD columns
 #define LCDROWS 2                               // Number of LCD rows 
-//#define LCDTimePeriod 8000000                   // Set up the LCD re-display time interval, 2 s
-uint64_t LCDTimePeriod=16000000;                   // Set up the LCD re-display time interval, 4 s
+uint64_t LCDTimePeriod=16000000;                // Set up the LCD re-display time interval, 4 s
 uint64_t prevLCDTime = 0;                       // Initialize the last time displayed
 bool refreshLCD = true;                         // Whether to refresh
 LiquidCrystal_I2C lcd(0x27,LCDCOLUMNS,LCDROWS); // Create the LCD object
@@ -357,16 +356,16 @@ void LCD_Addr_Ch_PL()
   {
      useMyAddress = 0;
      if(AirMiniCV29Bit5) 
-      {
-         int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
-         // sprintf(lcd_line,"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-         sprintf(lcd_line,"My Ad: %d(L)",AirMiniAddress_int);
-      }
+     {
+        int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
+        // sprintf(lcd_line,"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+        sprintf(lcd_line,"My Ad: %d(L)",AirMiniAddress_int);
+     }
      else
-      {
-         // sprintf(lcd_line,"My Ad(CV1): %d",AirMiniCV1);
-         sprintf(lcd_line,"My Ad: %d(S)",AirMiniCV1);
-      }
+     {
+        // sprintf(lcd_line,"My Ad(CV1): %d",AirMiniCV1);
+        sprintf(lcd_line,"My Ad: %d(S)",AirMiniCV1);
+     }
   }
   else
   {
