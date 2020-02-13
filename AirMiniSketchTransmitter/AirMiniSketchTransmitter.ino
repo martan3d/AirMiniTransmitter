@@ -139,6 +139,8 @@ uint8_t          newIndex     = 2;
 
 #ifdef RECEIVE
 #define INITIALWAITPERIODSECDEFAULT 1
+#else
+#define AUTOIDLEOFFDEFAULT 0
 #endif
 
 
@@ -184,6 +186,8 @@ uint64_t endInitialWaitTime;                 // The end of the initial wait time
 uint8_t InitialWaitPeriodSEC;                // Wait period
 uint8_t searchChannelIndex = 0;              // Initialial channel search order index
 uint8_t searchChannels[] = {0,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
+#else
+uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
 #endif
 uint8_t bannerInit = 1;                      // Only display the banner the first time inside channel searching
 
@@ -254,6 +258,10 @@ uint8_t  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configura
 uint8_t  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+#else
+uint8_t  EEMEM EEisSetAutoIdleOff;  // Stored AirMini decoder configuration variable
+uint8_t  EEMEM EEAutoIdleOff;       // Stored AirMini decoder configuration variable
+uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
 #endif
 
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
@@ -333,9 +341,9 @@ void LCD_Banner(uint8_t bannerInit)
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.4b/27MH");   // Show state
+  lcd.print("H:1.0 S:1.4c/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.4b/26MH");   // Show state
+  lcd.print("H:1.0 S:1.4c/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -506,6 +514,9 @@ void setup() {
 #ifdef RECEIVE
   // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
   checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  INITIALWAITPERIODSECDEFAULT, 0);  // Wait time in sec
+#else
+  // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
+  checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  AUTOIDLEOFFDEFAULT, 0);  // Set AutoIdleOff
 #endif
 
   /////////////////////////////////
@@ -603,13 +614,15 @@ void loop() {
                      newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
 #endif
 
-                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod)) // only process if it's changed since last time
+                     decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
+                     memcpy(sendbuffer,dccptr,sizeof(DCC_MSG));
+
+#ifdef TRANSMIT
+                     // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
+                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
                      {                     
-                       decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
-  
                        for (j=0;j<sizeof(DCC_MSG);j++)          // save for next time compare (memcpy quicker?)
                        {
-                          sendbuffer[j] = dccptr[j];
 #ifdef DCCLibrary
                           if (j < sizeof(DCC_MSG)-1)            // Assign msg data to send to DCCLibrary.c
                              msg[newIndex].data[j] = dccptr[j];
@@ -628,10 +641,10 @@ void loop() {
                         msg[newIndex].data[1] = 0x00;
                         msg[newIndex].data[2] = 0xFF;
                         msg[newIndex].len     = 3;
-#else
-                        memcpy(sendbuffer,dccptr,sizeof(DCC_MSG));
 #endif
                      }
+#endif
+
 #ifdef DCCLibrary
                      lastMessageInserted = newIndex;            // Update the last message inserted for comparisons. We do it here to make sure the ISR's don't affect the value
 #endif
@@ -733,6 +746,11 @@ void loop() {
                                              checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  CVval, 1);  // Wait time in sec
                                           else
                                             CVStatus = IGNORED;
+                                      break;
+#endif
+#ifdef TRANSMIT
+                                      case  244:  // Turn off automatic IDLE insertion
+                                           checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  CVval, 1); 
                                       break;
 #endif
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
