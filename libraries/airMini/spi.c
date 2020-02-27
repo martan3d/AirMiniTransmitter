@@ -113,9 +113,16 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x4B, // CHANNR
                           0x06, // FSCTRL1* (Reset value: 0x0F)
                           0x00, // FSCTRL0
+#ifdef FCC_IC_APPROVED
                           0x21, // FREQ2*
                           0x6E, // FREQ1*
                           0x2C, // FREQ0*
+#else
+                          0x20, // FREQ2*
+                          0x37, // FREQ1*
+                          // 0xA5, // FREQ0* Channel 36, 869.869MHz
+                          0x77,    // FREQ0* Exactly at 869.85MHz
+#endif
                           0xBA, // MDMCFG4* 
                           0x84, // MDMCFG3*
                           0x00, // MDMCFG2*
@@ -198,8 +205,7 @@ uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mo
                           0x3F,   // AGCTEST
                           0x81,   // TEST2
                           0x35,   // TEST1
-                          0x09    // TEST0
-};
+                          0x09};  // TEST0
 #else
 uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst mode
                           0x2E,    // IOCFG2
@@ -215,9 +221,16 @@ uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst m
                           0x4B,    // CHANNR
                           0x06,    // FSCTRL1*
                           0x00,    // FSCTRL0
-                          0x21,    // FREQ2*
-                          0x6E,    // FREQ1*
-                          0x2C,    // FREQ0*
+#ifdef FCC_IC_APPROVED
+                          0x21, // FREQ2*
+                          0x6E, // FREQ1*
+                          0x2C, // FREQ0*
+#else
+                          0x20, // FREQ2*
+                          0x37, // FREQ1*
+                          // 0xA5, // FREQ0* Channel 36, 869.869MHz
+                          0x77,    // FREQ0* Exactly at 869.85MHz
+#endif
                           0xBA,    // MDMCFG4*
                           0x84,    // MDMCFG3*
                           0x00,    // MDMCFG2*
@@ -248,15 +261,20 @@ uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst m
                           0x63,    // AGCTEST*
                           0x81,    // TEST2
                           0x35,    // TEST1
-                          0x09 };  // TEST0
+                          0x09};   // TEST0
 #endif
 
 
 // Channels designations are 0-16.  These are the corresponding values
 // for the CC1101.
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
-uint8_t channels[17] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
-                        0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
+#ifdef FCC_IC_APPROVED
+uint8_t channels[] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
+                      0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
+#else
+uint8_t channels[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+#endif
 
 // Transmitter power settings are designated 0-10.  These are the corresponding
 // PATABLE entries to set these powers.
@@ -272,9 +290,9 @@ uint8_t powers[11] = {0x03, 0x15, 0x1C, 0x27, 0x66, 0x8E, 0x89, 0xCD, 0xC4,0xC1,
 #define SS      0x04
 #define SNOP    0x3d
 
-#define WRITE_BURST              0x40
-#define READ_SINGLE              0x80
-#define READ_BURST               0xC0
+#define WRITE_BURST 0x40
+#define READ_SINGLE 0x80
+#define READ_BURST  0xC0
 
 
 void initializeSPI()
@@ -326,6 +344,7 @@ void startModem(uint8_t channel, uint8_t mode)
     uint8_t *md;
     uint8_t powerCode = 0x89;               //use 0x89 for rx mode
             powerCode = powers[powerLevel]; // Reset
+    if (channel > sizeof(channels)-1) channel=sizeof(channel)-1; // Error checking on channel
     uint8_t channelCode = channels[channel];
     
         if (mode == RX) 

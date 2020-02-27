@@ -337,7 +337,11 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 void LCD_Banner(uint8_t bannerInit)
 {
   lcd.setCursor(0,0);              // Set initial column, row
-  if (bannerInit) lcd.print("ProMini Air Init");   // Banner
+#ifdef FCC_IC_APPROVED
+  if (bannerInit) lcd.print("ProMini Air NA");   // Banner
+#else
+  if (bannerInit) lcd.print("ProMini Air EU");   // Banner
+#endif
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
