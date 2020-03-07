@@ -11,13 +11,16 @@
 #define ANAREN
 
 // The LAST entry is active!
-// For CE-approved use
-#undef FCC_IC_APPROVED
 // For US/Canadian use
 #define FCC_IC_APPROVED
+// For CE-approved use
+#undef FCC_IC_APPROVED
 
 
+////////////////////////////////
 // Determined from defines above
+////////////////////////////////
+
 // Define whether is or is NOT operating @27 MHz
 #ifdef ANAREN
 #define TWENTY_SEVEN_MHZ

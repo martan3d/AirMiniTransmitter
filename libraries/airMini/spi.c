@@ -64,9 +64,71 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x4B, // CHANNR
                           0x06, // FSCTRL1* (Reset value: 0x0F)
                           0x00, // FSCTRL0
+#ifdef FCC_IC_APPROVED
                           0x22, // FREQ2
                           0xB7, // FREQ1
                           0x55, // FREQ0
+#else
+                          0x21, // FREQ2 Target fCarrier: 869.850Mhz
+                          0x74, // FREQ1
+                          0xAD, // FREQ0
+#endif
+                          0x8A, // MDMCFG4* // Changed as a test in conjunction w/ MDMCFG3
+                          0x93, // MDMCFG3* // Changed as a test in conjunction w/ MDMCFG4
+                          0x00, // MDMCFG2*
+                          0x23, // MDMCFG1
+                          0x3B, // MDMCFG0*
+                          0x50, // DEVIATN*
+                          0x07, // MCSM2
+                          0x30, // MCSM1
+                          0x18, // MCSM0
+                          0x16, // FOCCFG
+                          0x6C, // BSCFG
+                          0x03, // AGCCTRL2
+                          0x40, // AGCCTRL1
+                          0x91, // AGCCTRL0
+                          0x87, // WOREVT1
+                          0x6B, // WOREVT0
+                          0xF8, // WORCTRL
+                          0x56, // FREND1    0101 0110
+                          0x10, // FREND0    0001 0000
+                          0xE9, // FSCAL3
+                          0x2A, // FSCAL2
+                          0x00, // FSCAL1
+                          0x1F, // FSCAL0
+                          0x40, // RCCTRL1
+                          0x00, // RCCTRL0
+                          0x59, // FSTEST*
+                          0x7F, // PTEST
+                          0x3F, // AGCTEST*
+                          0x81, // TEST2
+                          0x35, // TEST1
+                          0x09};// TEST0
+#else
+#ifdef CE_APPROVED
+uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
+                          0x2E, // IOCFG2  // High impedance (3-state)
+                          0x2E, // IOCFG1  // High impedance (3-state)
+                          0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
+                          0x07, // FIFOTHR
+                          0xD3, // SYNC1
+                          0x91, // SYNC0
+                          0xFF, // PKTLEN
+                          0x04, // PKTCTRL1 // Append payload with status bytes, no address check
+                          0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
+                          0x00, // ADDR
+                          0x4B, // CHANNR
+                          0x06, // FSCTRL1* (Reset value: 0x0F)
+                          0x00, // FSCTRL0
+#ifdef FCC_IC_APPROVED
+                          0x21, // FREQ2*
+                          0x6E, // FREQ1*
+                          0x2C, // FREQ0*
+#else
+                          0x20, // FREQ2*
+                          0x37, // FREQ1*
+                          0x77, // FREQ0* Exactly at 869.85MHz
+#endif
                           0x8A, // MDMCFG4* // Changed as a test in conjunction w/ MDMCFG3
                           0x93, // MDMCFG3* // Changed as a test in conjunction w/ MDMCFG4
                           0x00, // MDMCFG2*
@@ -120,8 +182,7 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
 #else
                           0x20, // FREQ2*
                           0x37, // FREQ1*
-                          // 0xA5, // FREQ0* Channel 36, 869.869MHz
-                          0x77,    // FREQ0* Exactly at 869.85MHz
+                          0x77, // FREQ0* Exactly at 869.85MHz
 #endif
                           0xBA, // MDMCFG4* 
                           0x84, // MDMCFG3*
@@ -155,6 +216,7 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x35, // TEST1
                           0x09};// TEST0
 #endif
+#endif
 
 
 #ifndef USE_WIRELESS_DCC_DATA
@@ -172,9 +234,71 @@ uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mo
                           0x4B,   // CHANNR
                           0x0C,   // FSCTRL1*
                           0x00,   // FSCTRL0
-                          0x22,   // FREQ2
-                          0xB7,   // FREQ1
-                          0x55,   // FREQ0
+#ifdef FCC_IC_APPROVED
+                          0x22, // FREQ2
+                          0xB7, // FREQ1
+                          0x55, // FREQ0
+#else
+                          0x21, // FREQ2 Target fCarrier: 869.850Mhz
+                          0x74, // FREQ1
+                          0xAD, // FREQ0
+#endif
+                          0x8C,   // MDMCFG4*
+                          0x22,   // MDMCFG3*
+                          0x93,   // MDMCFG2*
+                          0x23,   // MDMCFG1 
+                          0x3C,   // MDMCFG0*
+                          0x47,   // DEVIATN*
+                          0x07,   // MCSM2
+                          0x30,   // MCSM1
+                          0x18,   // MCSM0
+                          0x16,   // FOCCFG
+                          0x6C,   // BSCFG
+                          0x03,   // AGCCTRL2
+                          0x40,   // AGCCTRL1
+                          0x91,   // AGCCTRL0
+                          0x87,   // WOREVT1
+                          0x6B,   // WOREVT0
+                          0xF8,   // WORCTRL
+                          0x56,   // FREND1    0101 0110
+                          0x10,   // FREND0    0001 0000
+                          0xE9,   // FSCAL3
+                          0x2A,   // FSCAL2
+                          0x00,   // FSCAL1
+                          0x1F,   // FSCAL0
+                          0x40,   // RCCTRL1
+                          0x00,   // RCCTRL0
+                          0x59,   // FSTEST
+                          0x7F,   // PTEST
+                          0x3F,   // AGCTEST
+                          0x81,   // TEST2
+                          0x35,   // TEST1
+                          0x09};  // TEST0
+#else
+#ifdef CE_APPROVED
+uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mode
+                          0x2E,   // IOCFG2
+                          0x2E,   // IOCFG1 
+                          0x0D,   // IOCFG0
+                          0x07,   // FIFOTHR
+                          0xD3,   // SYNC1
+                          0x91,   // SYNC0
+                          0xFF,   // PKTLEN
+                          0x04,   // PKTCTRL1
+                          0x32,   // PKTCTRL0
+                          0x00,   // ADDR
+                          0x4B,   // CHANNR
+                          0x0C,   // FSCTRL1*
+                          0x00,   // FSCTRL0
+#ifdef FCC_IC_APPROVED
+                          0x21, // FREQ2*
+                          0x6E, // FREQ1*
+                          0x2C, // FREQ0*
+#else
+                          0x20, // FREQ2*
+                          0x37, // FREQ1*
+                          0x77, // FREQ0* Exactly at 869.85MHz
+#endif
                           0x8C,   // MDMCFG4*
                           0x22,   // MDMCFG3*
                           0x93,   // MDMCFG2*
@@ -228,8 +352,7 @@ uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst m
 #else
                           0x20, // FREQ2*
                           0x37, // FREQ1*
-                          // 0xA5, // FREQ0* Channel 36, 869.869MHz
-                          0x77,    // FREQ0* Exactly at 869.85MHz
+                          0x77, // FREQ0* Exactly at 869.85MHz
 #endif
                           0xBA,    // MDMCFG4*
                           0x84,    // MDMCFG3*
@@ -262,6 +385,7 @@ uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst m
                           0x81,    // TEST2
                           0x35,    // TEST1
                           0x09};   // TEST0
+#endif
 #endif
 
 
