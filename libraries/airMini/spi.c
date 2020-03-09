@@ -98,9 +98,9 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x1F, // FSCAL0
                           0x40, // RCCTRL1
                           0x00, // RCCTRL0
-                          0x59, // FSTEST*
+                          0x59, // FSTEST
                           0x7F, // PTEST
-                          0x3F, // AGCTEST*
+                          0x3F, // AGCTEST
                           0x81, // TEST2
                           0x35, // TEST1
                           0x09};// TEST0
@@ -134,7 +134,7 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x00, // MDMCFG2*
                           0x23, // MDMCFG1
                           0x3B, // MDMCFG0*
-                          0x50, // DEVIATN*
+                          0x47, // DEVIATN*
                           0x07, // MCSM2
                           0x30, // MCSM1
                           0x18, // MCSM0
@@ -154,9 +154,9 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x1F, // FSCAL0
                           0x40, // RCCTRL1
                           0x00, // RCCTRL0
-                          0x59, // FSTEST*
+                          0x59, // FSTEST
                           0x7F, // PTEST
-                          0x3F, // AGCTEST*
+                          0x3F, // AGCTEST
                           0x81, // TEST2
                           0x35, // TEST1
                           0x09};// TEST0
@@ -209,9 +209,9 @@ uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
                           0x1F, // FSCAL0
                           0x40, // RCCTRL1
                           0x00, // RCCTRL0
-                          0x89, // FSTEST*
+                          0x59, // FSTEST
                           0x7F, // PTEST
-                          0x63, // AGCTEST*
+                          0x3F, // AGCTEST
                           0x81, // TEST2
                           0x35, // TEST1
                           0x09};// TEST0
@@ -248,7 +248,7 @@ uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mo
                           0x93,   // MDMCFG2*
                           0x23,   // MDMCFG1 
                           0x3C,   // MDMCFG0*
-                          0x47,   // DEVIATN*
+                          0x50,   // DEVIATN*
                           0x07,   // MCSM2
                           0x30,   // MCSM1
                           0x18,   // MCSM0
@@ -379,9 +379,9 @@ uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst m
                           0x1F,    // FSCAL0
                           0x40,    // RCCTRL1
                           0x00,    // RCCTRL0
-                          0x89,    // FSTEST*
+                          0x59,    // FSTEST
                           0x7F,    // PTEST
-                          0x63,    // AGCTEST*
+                          0x3F,    // AGCTEST
                           0x81,    // TEST2
                           0x35,    // TEST1
                           0x09};   // TEST0
