@@ -32,362 +32,93 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 Important! 
 The small SMD Anaren transciever boards operate at 27MHz!  These
 boards (A110LR09C00GM with CC110L chips) won't work UNLESS
-USE_WIRELESS_DCC_DATA is defined!  The related initRxData came from wireless-dcc.
+TWENTY_SEVEN_MHZ is defined!  The related initRxData came from wireless-dcc.
 
-The larger, board-level transciever boards operate at 26MHz!  They
-will NOT work if USE_WIRELESS_DCC_DATA is defined!
+The larger, board-level transciever boards operate at 26MHz!
+This requires #undef TWENTY_SEVEN_MHZ
 */
 
 #include <avr/io.h>
 #include "spi.h"
 
-#ifdef TWENTY_SEVEN_MHZ
-#define USE_WIRELESS_DCC_DATA
-#else
-#undef USE_WIRELESS_DCC_DATA
-#endif
-
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
-#ifndef USE_WIRELESS_DCC_DATA
-uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
-                          0x2E, // IOCFG2  // High impedance (3-state)
-                          0x2E, // IOCFG1  // High impedance (3-state)
-                          0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
-                          0x07, // FIFOTHR
-                          0xD3, // SYNC1
-                          0x91, // SYNC0
-                          0xFF, // PKTLEN
-                          0x04, // PKTCTRL1 // Append payload with status bytes, no address check
-                          0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
-                          0x00, // ADDR
-                          0x4B, // CHANNR
-                          0x06, // FSCTRL1* (Reset value: 0x0F)
-                          0x00, // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x22, // FREQ2
-                          0xB7, // FREQ1
-                          0x55, // FREQ0
-#else
-                          0x21, // FREQ2 Target fCarrier: 869.850Mhz
-                          0x74, // FREQ1
-                          0xAD, // FREQ0
-#endif
-                          0x8A, // MDMCFG4* // Changed as a test in conjunction w/ MDMCFG3
-                          0x93, // MDMCFG3* // Changed as a test in conjunction w/ MDMCFG4
-                          0x00, // MDMCFG2*
-                          0x23, // MDMCFG1
-                          0x3B, // MDMCFG0*
-                          0x50, // DEVIATN*
-                          0x07, // MCSM2
-                          0x30, // MCSM1
-                          0x18, // MCSM0
-                          0x16, // FOCCFG
-                          0x6C, // BSCFG
-                          0x03, // AGCCTRL2
-                          0x40, // AGCCTRL1
-                          0x91, // AGCCTRL0
-                          0x87, // WOREVT1
-                          0x6B, // WOREVT0
-                          0xF8, // WORCTRL
-                          0x56, // FREND1    0101 0110
-                          0x10, // FREND0    0001 0000
-                          0xE9, // FSCAL3
-                          0x2A, // FSCAL2
-                          0x00, // FSCAL1
-                          0x1F, // FSCAL0
-                          0x40, // RCCTRL1
-                          0x00, // RCCTRL0
-                          0x59, // FSTEST
-                          0x7F, // PTEST
-                          0x3F, // AGCTEST
-                          0x81, // TEST2
-                          0x35, // TEST1
-                          0x09};// TEST0
-#else
-#ifdef CE_APPROVED
-uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
-                          0x2E, // IOCFG2  // High impedance (3-state)
-                          0x2E, // IOCFG1  // High impedance (3-state)
-                          0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
-                          0x07, // FIFOTHR
-                          0xD3, // SYNC1
-                          0x91, // SYNC0
-                          0xFF, // PKTLEN
-                          0x04, // PKTCTRL1 // Append payload with status bytes, no address check
-                          0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
-                          0x00, // ADDR
-                          0x4B, // CHANNR
-                          0x06, // FSCTRL1* (Reset value: 0x0F)
-                          0x00, // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x21, // FREQ2*
-                          0x6E, // FREQ1*
-                          0x2C, // FREQ0*
-#else
-                          0x20, // FREQ2*
-                          0x37, // FREQ1*
-                          0x77, // FREQ0* Exactly at 869.85MHz
-#endif
-                          0x8A, // MDMCFG4* // Changed as a test in conjunction w/ MDMCFG3
-                          0x93, // MDMCFG3* // Changed as a test in conjunction w/ MDMCFG4
-                          0x00, // MDMCFG2*
-                          0x23, // MDMCFG1
-                          0x3B, // MDMCFG0*
-                          0x47, // DEVIATN*
-                          0x07, // MCSM2
-                          0x30, // MCSM1
-                          0x18, // MCSM0
-                          0x16, // FOCCFG
-                          0x6C, // BSCFG
-                          0x03, // AGCCTRL2
-                          0x40, // AGCCTRL1
-                          0x91, // AGCCTRL0
-                          0x87, // WOREVT1
-                          0x6B, // WOREVT0
-                          0xF8, // WORCTRL
-                          0x56, // FREND1    0101 0110
-                          0x10, // FREND0    0001 0000
-                          0xE9, // FSCAL3
-                          0x2A, // FSCAL2
-                          0x00, // FSCAL1
-                          0x1F, // FSCAL0
-                          0x40, // RCCTRL1
-                          0x00, // RCCTRL0
-                          0x59, // FSTEST
-                          0x7F, // PTEST
-                          0x3F, // AGCTEST
-                          0x81, // TEST2
-                          0x35, // TEST1
-                          0x09};// TEST0
-#else
-uint8_t initRxData[48] = {0x40, // address byte, start with reg 0, in burst mode
-                          0x2E, // IOCFG2
-                          0x2E, // IOCFG1
-                          0x0D, // IOCFG0  // Serial Data Output. Asynchronous serial mode
-                          0x07, // FIFOTHR
-                          0xD3, // SYNC1
-                          0x91, // SYNC0
-                          0xFF, // PKTLEN
-                          0x04, // PKTCTRL1 // Append payload with status bytes, no address check
-                          0x32, // PKTCTRL0 // Asynchronous serial mode, infinite packet length
-                          0x00, // ADDR
-                          0x4B, // CHANNR
-                          0x06, // FSCTRL1* (Reset value: 0x0F)
-                          0x00, // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x21, // FREQ2*
-                          0x6E, // FREQ1*
-                          0x2C, // FREQ0*
-#else
-                          0x20, // FREQ2*
-                          0x37, // FREQ1*
-                          0x77, // FREQ0* Exactly at 869.85MHz
-#endif
-                          0xBA, // MDMCFG4* 
-                          0x84, // MDMCFG3*
-                          0x00, // MDMCFG2*
-                          0x23, // MDMCFG1
-                          0x2F, // MDMCFG0*
-                          0x47, // DEVIATN*
-                          0x07, // MCSM2
-                          0x30, // MCSM1
-                          0x18, // MCSM0
-                          0x16, // FOCCFG
-                          0x6C, // BSCFG
-                          0x03, // AGCCTRL2
-                          0x40, // AGCCTRL1
-                          0x91, // AGCCTRL0
-                          0x87, // WOREVT1
-                          0x6B, // WOREVT0
-                          0xFB, // WORCTRL
-                          0x56, // FREND1    0101 0110
-                          0x10, // FREND0    0001 0000
-                          0xE9, // FSCAL3
-                          0x2A, // FSCAL2
-                          0x00, // FSCAL1
-                          0x1F, // FSCAL0
-                          0x40, // RCCTRL1
-                          0x00, // RCCTRL0
-                          0x59, // FSTEST
-                          0x7F, // PTEST
-                          0x3F, // AGCTEST
-                          0x81, // TEST2
-                          0x35, // TEST1
-                          0x09};// TEST0
-#endif
+// init[RT]xData settings.
+//                         |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL1 (Dep on fXOSC) IF Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL0 (Dep on fXOSC) IF Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ2 (Dep on desire Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ1 (Dep on desired Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ0 (Dep on desired Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG4 (Dep on fXOSC) NOT_USED[0:0], CHANBW_E[1:0], CHANBW_M[1:0], DRATE_E[3:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG3 (Dep on fXOSC) DRATE_M[7:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG2 DEM_DCFILT_OFF[0:0], MOD_FORMAT[2:0], MANCHESTER_EN[0:0], SYNC_MODE[2:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG1 FEC_EN[0:0], NUM_PREAMBLE[2:0], NOT_USED[1:0], CHANSPC_E[1:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |   MDMCFG0 (Dep on fXOSC) CHANSPC_M[7:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    DEVIATN (Dep on fXOSC) NOT_USED[0:0], DEVIATION_E[2:0], NOT_USED[0:0], DEVIATION_M[2:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    *    *    *    *    *    |    |    *    *    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |
+#define Rx_26MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x22,0xB7,0x55,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_26MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x22,0xB7,0x55,0x8C,0x22,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Rx_26MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x74,0xAD,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_26MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x74,0xAD,0x8C,0x22,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+
+#define Rx_27MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8A,0x93,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_27MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Rx_27MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x20,0x37,0x77,0x8A,0x93,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_27MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x20,0x37,0x77,0x8C,0x22,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+
+// Experimental only
+// Change to GFSK from 2-FSK. Result: None to perhaps slightly negative for CVP receivers.
+//                                                                                                                                  *
+#define Tx_27MHz_NA_E      0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x10,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+
+// Works
+#if defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_APPROVED)
+#warning "Note: using Rx_27MHz_NA. Works with CVP transmitters"
+uint8_t initRxData[48] = {
+Rx_27MHz_NA
+};
+#warning "Note: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
+uint8_t initTxData[48] = {
+Tx_27MHz_NA
+};
 #endif
 
-
-#ifndef USE_WIRELESS_DCC_DATA
-uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mode
-                          0x2E,   // IOCFG2
-                          0x2E,   // IOCFG1 
-                          0x0D,   // IOCFG0
-                          0x07,   // FIFOTHR
-                          0xD3,   // SYNC1
-                          0x91,   // SYNC0
-                          0xFF,   // PKTLEN
-                          0x04,   // PKTCTRL1
-                          0x32,   // PKTCTRL0
-                          0x00,   // ADDR
-                          0x4B,   // CHANNR
-                          0x0C,   // FSCTRL1*
-                          0x00,   // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x22, // FREQ2
-                          0xB7, // FREQ1
-                          0x55, // FREQ0
-#else
-                          0x21, // FREQ2 Target fCarrier: 869.850Mhz
-                          0x74, // FREQ1
-                          0xAD, // FREQ0
-#endif
-                          0x8C,   // MDMCFG4*
-                          0x22,   // MDMCFG3*
-                          0x93,   // MDMCFG2*
-                          0x23,   // MDMCFG1 
-                          0x3C,   // MDMCFG0*
-                          0x50,   // DEVIATN*
-                          0x07,   // MCSM2
-                          0x30,   // MCSM1
-                          0x18,   // MCSM0
-                          0x16,   // FOCCFG
-                          0x6C,   // BSCFG
-                          0x03,   // AGCCTRL2
-                          0x40,   // AGCCTRL1
-                          0x91,   // AGCCTRL0
-                          0x87,   // WOREVT1
-                          0x6B,   // WOREVT0
-                          0xF8,   // WORCTRL
-                          0x56,   // FREND1    0101 0110
-                          0x10,   // FREND0    0001 0000
-                          0xE9,   // FSCAL3
-                          0x2A,   // FSCAL2
-                          0x00,   // FSCAL1
-                          0x1F,   // FSCAL0
-                          0x40,   // RCCTRL1
-                          0x00,   // RCCTRL0
-                          0x59,   // FSTEST
-                          0x7F,   // PTEST
-                          0x3F,   // AGCTEST
-                          0x81,   // TEST2
-                          0x35,   // TEST1
-                          0x09};  // TEST0
-#else
-#ifdef CE_APPROVED
-uint8_t initTxData[48] = {0x40,   // address byte, start with reg 0, in burst mode
-                          0x2E,   // IOCFG2
-                          0x2E,   // IOCFG1 
-                          0x0D,   // IOCFG0
-                          0x07,   // FIFOTHR
-                          0xD3,   // SYNC1
-                          0x91,   // SYNC0
-                          0xFF,   // PKTLEN
-                          0x04,   // PKTCTRL1
-                          0x32,   // PKTCTRL0
-                          0x00,   // ADDR
-                          0x4B,   // CHANNR
-                          0x0C,   // FSCTRL1*
-                          0x00,   // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x21, // FREQ2*
-                          0x6E, // FREQ1*
-                          0x2C, // FREQ0*
-#else
-                          0x20, // FREQ2*
-                          0x37, // FREQ1*
-                          0x77, // FREQ0* Exactly at 869.85MHz
-#endif
-                          0x8C,   // MDMCFG4*
-                          0x22,   // MDMCFG3*
-                          0x93,   // MDMCFG2*
-                          0x23,   // MDMCFG1 
-                          0x3C,   // MDMCFG0*
-                          0x47,   // DEVIATN*
-                          0x07,   // MCSM2
-                          0x30,   // MCSM1
-                          0x18,   // MCSM0
-                          0x16,   // FOCCFG
-                          0x6C,   // BSCFG
-                          0x03,   // AGCCTRL2
-                          0x40,   // AGCCTRL1
-                          0x91,   // AGCCTRL0
-                          0x87,   // WOREVT1
-                          0x6B,   // WOREVT0
-                          0xF8,   // WORCTRL
-                          0x56,   // FREND1    0101 0110
-                          0x10,   // FREND0    0001 0000
-                          0xE9,   // FSCAL3
-                          0x2A,   // FSCAL2
-                          0x00,   // FSCAL1
-                          0x1F,   // FSCAL0
-                          0x40,   // RCCTRL1
-                          0x00,   // RCCTRL0
-                          0x59,   // FSTEST
-                          0x7F,   // PTEST
-                          0x3F,   // AGCTEST
-                          0x81,   // TEST2
-                          0x35,   // TEST1
-                          0x09};  // TEST0
-#else
-uint8_t initTxData[48] = {0x40,    // address byte, start with reg 0, in burst mode
-                          0x2E,    // IOCFG2
-                          0x2E,    // IOCFG1 
-                          0x0D,    // IOCFG0
-                          0x07,    // FIFOTHR
-                          0xD3,    // SYNC1
-                          0x91,    // SYNC0
-                          0xFF,    // PKTLEN
-                          0x04,    // PKTCTRL1
-                          0x32,    // PKTCTRL0
-                          0x00,    // ADDR
-                          0x4B,    // CHANNR
-                          0x06,    // FSCTRL1*
-                          0x00,    // FSCTRL0
-#ifdef FCC_IC_APPROVED
-                          0x21, // FREQ2*
-                          0x6E, // FREQ1*
-                          0x2C, // FREQ0*
-#else
-                          0x20, // FREQ2*
-                          0x37, // FREQ1*
-                          0x77, // FREQ0* Exactly at 869.85MHz
-#endif
-                          0xBA,    // MDMCFG4*
-                          0x84,    // MDMCFG3*
-                          0x00,    // MDMCFG2*
-                          0x23,    // MDMCFG1 
-                          0x2F,    // MDMCFG0*
-                          0x47,    // DEVIATN
-                          0x07,    // MCSM2
-                          0x30,    // MCSM1
-                          0x18,    // MCSM0
-                          0x16,    // FOCCFG
-                          0x6C,    // BSCFG
-                          0x03,    // AGCCTRL2
-                          0x40,    // AGCCTRL1
-                          0x91,    // AGCCTRL0
-                          0x87,    // WOREVT1
-                          0x6B,    // WOREVT0
-                          0xFB,    // WORCTRL
-                          0x56,    // FREND1    0101 0110
-                          0x10,    // FREND0    0001 0000
-                          0xE9,    // FSCAL3
-                          0x2A,    // FSCAL2
-                          0x00,    // FSCAL1
-                          0x1F,    // FSCAL0
-                          0x40,    // RCCTRL1
-                          0x00,    // RCCTRL0
-                          0x59,    // FSTEST
-                          0x7F,    // PTEST
-                          0x3F,    // AGCTEST
-                          0x81,    // TEST2
-                          0x35,    // TEST1
-                          0x09};   // TEST0
-#endif
+// Works
+#if defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_APPROVED)
+#warning "Note: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+uint8_t initRxData[48] = {
+Rx_27MHz_EU
+};
+#warning "Note: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+uint8_t initTxData[48] = {
+Tx_27MHz_EU
+};
 #endif
 
+// Works
+#if !defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_APPROVED)
+#warning "Note: using Rx_26MHz_NA. Works with CVP transmitters"
+uint8_t initRxData[48] = {
+Rx_26MHz_NA
+};
+#warning "Note: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
+uint8_t initTxData[48] = {
+Tx_26MHz_NA
+};
+#endif
+
+// Works
+#if !defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_APPROVED)
+#warning "Note: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+uint8_t initRxData[48] = {
+Rx_26MHz_EU
+};
+#warning "Note: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+uint8_t initTxData[48] = {
+Tx_26MHz_EU
+};
+#endif
 
 // Channels designations are 0-16.  These are the corresponding values
 // for the CC1101.
@@ -501,7 +232,7 @@ void startModem(uint8_t channel, uint8_t mode)
 uint8_t sendReceive(uint8_t data)
 {
     PORTB &= ~SS;             // select modem (port low)
-    SPDR = data;              // RX
+    SPDR = data;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     PORTB |= SS;              // disable modem
     return (SPDR);
@@ -512,7 +243,7 @@ uint8_t readReg(uint8_t addr)
     uint8_t ret;
     
     PORTB &= ~SS;             // select modem (port low)
-    SPDR = addr;              // RX
+    SPDR = addr;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     SPDR = 0;                 // generic out, we only want read back
     while(! (SPSR & 0x80) );  // wait for byte to clock out
