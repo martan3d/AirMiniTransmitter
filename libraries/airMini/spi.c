@@ -49,12 +49,12 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ2 (Dep on desire Base Freq & fXOSC) Base Freq
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ1 (Dep on desired Base Freq & fXOSC) Base Freq
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ0 (Dep on desired Base Freq & fXOSC) Base Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG4 (Dep on fXOSC) NOT_USED[0:0], CHANBW_E[1:0], CHANBW_M[1:0], DRATE_E[3:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG4 (Dep on fXOSC) CHANBW_E[7:6], CHANBW_M[5:4], DRATE_E[3:0]
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG3 (Dep on fXOSC) DRATE_M[7:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG2 DEM_DCFILT_OFF[0:0], MOD_FORMAT[2:0], MANCHESTER_EN[0:0], SYNC_MODE[2:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG1 FEC_EN[0:0], NUM_PREAMBLE[2:0], NOT_USED[1:0], CHANSPC_E[1:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |   MDMCFG0 (Dep on fXOSC) CHANSPC_M[7:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    DEVIATN (Dep on fXOSC) NOT_USED[0:0], DEVIATION_E[2:0], NOT_USED[0:0], DEVIATION_M[2:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG2 DEM_DCFILT_OFF[7:7], MOD_FORMAT[6:4], MANCHESTER_EN[3:3], SYNC_MODE[2:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG1 FEC_EN[7:7], NUM_PREAMBLE[6:4], NOT_USED[3:2], CHANSPC_E[1:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG0 (Dep on fXOSC) CHANSPC_M[7:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    DEVIATN (Dep on fXOSC) NOT_USED[7:7], DEVIATION_E[6:4], NOT_USED[3:3], DEVIATION_M[2:0]
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    *    *    *    *    *    |    |    *    *    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |
 #define Rx_26MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x22,0xB7,0x55,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
@@ -69,11 +69,11 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 
 // Experimental only
 // Change to GFSK from 2-FSK. Result: None to perhaps slightly negative for CVP receivers.
-//                                                                                                                                  *
+//                                                                                                                        *          
 #define Tx_27MHz_NA_E      0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x10,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 
 // Works
-#if defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_APPROVED)
+#if defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_ISM)
 #warning "Note: using Rx_27MHz_NA. Works with CVP transmitters"
 uint8_t initRxData[48] = {
 Rx_27MHz_NA
@@ -85,7 +85,7 @@ Tx_27MHz_NA
 #endif
 
 // Works
-#if defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_APPROVED)
+#if defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_ISM)
 #warning "Note: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData[48] = {
 Rx_27MHz_EU
@@ -97,7 +97,7 @@ Tx_27MHz_EU
 #endif
 
 // Works
-#if !defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_APPROVED)
+#if !defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_ISM)
 #warning "Note: using Rx_26MHz_NA. Works with CVP transmitters"
 uint8_t initRxData[48] = {
 Rx_26MHz_NA
@@ -109,7 +109,7 @@ Tx_26MHz_NA
 #endif
 
 // Works
-#if !defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_APPROVED)
+#if !defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_ISM)
 #warning "Note: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData[48] = {
 Rx_26MHz_EU
@@ -123,7 +123,7 @@ Tx_26MHz_EU
 // Channels designations are 0-16.  These are the corresponding values
 // for the CC1101.
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
-#ifdef FCC_IC_APPROVED
+#ifdef FCC_IC_ISM
 uint8_t channels[17] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
                         0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
 #else
@@ -136,7 +136,7 @@ uint8_t channels[17] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 
 // See Table 4 of swra151a.pdf (0xC0 is the highest level of output @9.5dBM)
 // Removed 0x66 entry (-4.9dBM) per the note in this document
-#ifdef FCC_IC_APPROVED
+#ifdef FCC_IC_ISM
 //dBm                 -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
 uint8_t powers[11] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
 #else
