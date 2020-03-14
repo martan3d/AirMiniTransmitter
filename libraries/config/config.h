@@ -11,10 +11,10 @@
 #define TWENTY_SEVEN_MHZ
 
 // The LAST entry is active!
-// For CE-approved use
-#undef FCC_IC_APPROVED
 // For US/Canadian use
 #define FCC_IC_APPROVED
+// For European use
+#undef FCC_IC_APPROVED
 
 
 
