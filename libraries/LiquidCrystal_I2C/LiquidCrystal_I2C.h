@@ -85,6 +85,7 @@ public:
 #endif
   void command(uint8_t);
   void init();
+  void reset(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows);
 
 ////compatibility API function aliases
 void blink_on();						// alias for blink()

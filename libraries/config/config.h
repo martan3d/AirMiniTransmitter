@@ -28,11 +28,18 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */ 
 
+// The LAST entry is active
+// To set the default North American channel (0)
+#define NA_DEFAULT
+// To set the default European channel (17)
+#undef NA_DEFAULT
+
+
 // The LAST entry is active!
-// For transmitter
-#define TRANSMIT
 // For receiver
 #undef TRANSMIT
+// For transmitter
+#define TRANSMIT
 
 // The LAST entry is active!
 // For 26MHz transceiver
@@ -40,13 +47,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // For 27MHz transceivers (e.g., Anaren)
 #define TWENTY_SEVEN_MHZ
 
-// The LAST entry is active!
-// For US/Canadian use
-#define FCC_IC_ISM
-// For European use
-#undef FCC_IC_ISM
-
-
+// The LCD display's default address. 
+// The address range for TI serial drivers 
+// PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
+// PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
+// O=Open jumper (=High); C=Closed jumper (=Low), addresses are A2,A1,A0 from left to right on the boards
+#define LCDADDRESSDEFAULT 0x27
+#warning "Info: Setting default LCD address to 0x27"
 
 ////////////////////////////////
 // Determined from defines above
@@ -60,13 +67,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RECEIVE
 #endif
 
-// Explicit CE undef/define
-#ifdef FCC_IC_ISM
-#undef ETSI_ISM
-#else
-#define ETSI_ISM
-#endif
-
 // Explicit Frequency
 #ifdef TWENTY_SEVEN_MHZ
 #undef TWENTY_SIX_MHZ
@@ -74,25 +74,27 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TWENTY_SIX_MHZ
 #endif
 
-// Messages
+// Messages. When output duing compilation, THESE ARE NOT ERRORS or WARNINGS! They are simply informational.
 #ifdef TRANSMIT
-#warning "Note: Compiling for Transmitter"
+#warning "Info: Compiling for Transmitter"
 #endif
 #ifdef RECEIVE
-#warning "Note: Compiling for Receiver"
+#warning "Info: Compiling for Receiver"
 #endif
 
 #ifdef TWENTY_SEVEN_MHZ
-#warning "Note: Compiling for 27MHz transceivers"
+#warning "Info: Compiling for 27MHz transceivers"
 #endif
 #ifdef TWENTY_SIX_MHZ
-#warning "Note: Compiling for 26MHz transceivers"
+#warning "Info: Compiling for 26MHz transceivers"
 #endif
 
-#ifdef FCC_IC_ISM
-#warning "Note: Compiling for North American use"
-#endif
-#ifdef ETSI_ISM
-#warning "Note: Compiling for European use"
+#ifdef NA_DEFAULT
+#define CHANNELDEFAULT 0
+#warning "Info: Default channel is 0 (North America)"
+#else
+#define EU_DEFAULT
+#define CHANNELDEFAULT 17
+#warning "Info: Default channel is 17 (Europe)"
 #endif
 

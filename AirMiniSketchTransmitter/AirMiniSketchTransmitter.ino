@@ -112,9 +112,11 @@ uint8_t          newIndex     = 2;
 #define DOUBLE_PASS 0            // Single pass
 #endif
 
-// DEFALUT defines
-#define CHANNELDEFAULT 0
-#define CHANNELMAX 16            // Maximum Airwire channel #. This could change if additional channels are added
+// DEFAULT defines
+// #define CHANNELDEFAULT 0      // now set in config.h
+extern uint8_t channels_max;
+extern uint8_t channels_na_max;
+uint8_t CHANNELMAX=channels_max; // Maximum channel NA & EU
 
 #ifdef TRANSMIT
 #define POWERLEVELDEFAULT 8
@@ -185,7 +187,7 @@ uint64_t startInitialWaitTime;               // The start of the initial wait ti
 uint64_t endInitialWaitTime;                 // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
 uint8_t searchChannelIndex = 0;              // Initialial channel search order index
-uint8_t searchChannels[] = {0,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
+uint8_t searchChannels[] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #else
 uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
 #endif
@@ -267,13 +269,19 @@ uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration vari
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
 #ifdef USE_LCD
+// #define LCDADDRESSDEFAULT 0x27               // Moved to config.h
+uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
+uint8_t EEMEM EELCDAddress;                    // Stored LCD address
+uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
+uint8_t LCDAddress;
 #define LCDCOLUMNS 16                           // Number of LCD columns
 #define LCDROWS 2                               // Number of LCD rows 
 uint64_t LCDTimePeriod=16000000;                // Set up the LCD re-display time interval, 4 s
 uint64_t prevLCDTime = 0;                       // Initialize the last time displayed
 bool refreshLCD = true;                         // Whether to refresh
-LiquidCrystal_I2C lcd(0x27,LCDCOLUMNS,LCDROWS); // Create the LCD object
-char lcd_line[LCDCOLUMNS];
+LiquidCrystal_I2C lcd(LCDADDRESSDEFAULT,LCDCOLUMNS,LCDROWS); // Create the LCD object with a default address
+char lcd_line[LCDCOLUMNS+1];
+char region[] = "N";
 #endif
 
 /******************************************************************************/
@@ -337,17 +345,13 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 void LCD_Banner(uint8_t bannerInit)
 {
   lcd.setCursor(0,0);              // Set initial column, row
-#ifdef FCC_IC_ISM
-  if (bannerInit) lcd.print("ProMini Air NA");   // Banner
-#else
-  if (bannerInit) lcd.print("ProMini Air EU");   // Banner
-#endif
+  if (bannerInit) lcd.print("ProMini Air NA/E");   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.4c/27MH");   // Show state
+  lcd.print("H:1.0 S:1.5/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.4c/26MH");   // Show state
+  lcd.print("H:1.0 S:1.5/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -362,7 +366,7 @@ void LCD_Addr_Ch_PL()
   AirMiniAddress <<= 8;
   AirMiniAddress |= AirMiniCV17;
   int AirMiniAddress_int = (int)AirMiniAddress;
-  // sprintf(lcd_line,"Addr: %d",AirMiniAddress_int);
+  // snprintf(lcd_line,sizeof(lcd_line),"Addr: %d",AirMiniAddress_int);
   */
   if(useMyAddress) 
   {
@@ -370,13 +374,13 @@ void LCD_Addr_Ch_PL()
      if(AirMiniCV29Bit5) 
      {
         int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
-        // sprintf(lcd_line,"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-        sprintf(lcd_line,"My Ad: %d(L)",AirMiniAddress_int);
+        // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(L)",AirMiniAddress_int);
      }
      else
      {
-        // sprintf(lcd_line,"My Ad(CV1): %d",AirMiniCV1);
-        sprintf(lcd_line,"My Ad: %d(S)",AirMiniCV1);
+        // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
+        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(S)",AirMiniCV1);
      }
   }
   else
@@ -386,22 +390,26 @@ void LCD_Addr_Ch_PL()
      if ((tmp==0b11000000) && (dccptr[0]!=0b11111111))
      {
          int TargetAddress_int = ((int)dccptr[0]-192)*256+(int)dccptr[1];
-         // sprintf(lcd_line,"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr[0],dccptr[1]);
-         sprintf(lcd_line,"Msg Ad: %d(L)",TargetAddress_int);
+         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr[0],dccptr[1]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
      }
      else
      {
-         sprintf(lcd_line,"Msg Ad: %d(S)",(int)dccptr[0]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptr[0]);
      }
   }
     
   lcd.print(lcd_line);
   lcd.setCursor(0,1); // column, row
+  if (CHANNEL <= channels_na_max)
+     snprintf(region,sizeof(region),"%s","N");
+  else
+     snprintf(region,sizeof(region),"%s","E");
 #ifdef TRANSMIT
-  sprintf(lcd_line,"Ch: %d PL: %d", CHANNEL, powerLevel);
+  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, region, powerLevel);
 #else
-  if (filterModemData) sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 1);
-  else                 sprintf(lcd_line,"Ch: %d Filter: %d", CHANNEL, 0);
+  if (filterModemData) snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, region, 1);
+  else                 snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, region, 0);
 #endif
   lcd.print(lcd_line);
   return;
@@ -414,13 +422,13 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
   switch (CVStatus)
   {
     case ACCEPTED:
-       sprintf(lcd_line,"Changed CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Changed CV%d=%d",CVnum,CVval);
     break;
     case IGNORED:
-       sprintf(lcd_line,"Ignored CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Ignored CV%d=%d",CVnum,CVval);
     break;
     case PENDING:
-       sprintf(lcd_line,"Pending CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Pending CV%d=%d",CVnum,CVval);
     break;
   }
   lcd.print(lcd_line);
@@ -435,16 +443,20 @@ void LCD_Wait_Period_Over(int status)
   lcd.setCursor(0,0); // column, row
   if (!status) 
   {
-     sprintf(lcd_line,"NO valid");
+     snprintf(lcd_line,sizeof(lcd_line),"NO valid");
   }
   else
   {
-     sprintf(lcd_line,"Found valid");
+     snprintf(lcd_line,sizeof(lcd_line),"Found valid");
   }
   lcd.print(lcd_line);
 
-  lcd.setCursor(0,1); // column, row
-  sprintf(lcd_line,"RF on Ch: %d",CHANNEL);
+  lcd.setCursor(0,1); // column, row 
+  if (CHANNEL <= channels_na_max)
+     snprintf(region,sizeof(region),"%s","N");
+  else
+     snprintf(region,sizeof(region),"%s","E");
+  snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d(%s)",CHANNEL, region);
   lcd.print(lcd_line);
   prevLCDTime  = getMsClock();
   refreshLCD = true;
@@ -522,6 +534,10 @@ void setup() {
   // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
   checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  AUTOIDLEOFFDEFAULT, 0);  // Set AutoIdleOff
 #endif
+#ifdef USE_LCD
+  // eeprom_update_byte(&EELCDAddressDefault, LCDADDRESSDEFAULT );
+  checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  LCDADDRESSDEFAULT, 0);  // Set LCDAddress
+#endif
 
   /////////////////////////////////
   // Initialization of variables //
@@ -547,6 +563,7 @@ void setup() {
   // else OUTPUT_LOW;                          // LOW
 
 #ifdef USE_LCD
+  lcd.reset(LCDAddress,LCDCOLUMNS,LCDROWS);    // Reset the lcd to the new address
   lcd.init();                                  // Initialize the LCD
   lcd.backlight();                             // Backlight it
   LCD_Banner(bannerInit);                      // Display the banner on LCD
@@ -757,6 +774,13 @@ void loop() {
                                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  CVval, 1); 
                                       break;
 #endif
+#ifdef USE_LCD
+                                      case  243:  // Reset the LCD address
+                                           checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  CVval, 1);  // Set LCD address for the NEXT boot
+                                           CVStatus = PENDING;
+                                      break;
+#endif
+
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
                                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)

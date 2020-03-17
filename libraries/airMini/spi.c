@@ -41,6 +41,8 @@ This requires #undef TWENTY_SEVEN_MHZ
 #include <avr/io.h>
 #include "spi.h"
 
+uint8_t na_operation = 1;
+
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
 // init[RT]xData settings.
@@ -73,77 +75,65 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 #define Tx_27MHz_NA_E      0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x10,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 
 // Works
-#if defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_ISM)
-#warning "Note: using Rx_27MHz_NA. Works with CVP transmitters"
-uint8_t initRxData[48] = {
+#if defined(TWENTY_SEVEN_MHZ)
+#warning "Info: using Rx_27MHz_NA. Works with CVP transmitters"
+uint8_t initRxData_na[48] = {
 Rx_27MHz_NA
 };
-#warning "Note: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
-uint8_t initTxData[48] = {
-Tx_27MHz_NA
-};
-#endif
-
-// Works
-#if defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_ISM)
-#warning "Note: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
-uint8_t initRxData[48] = {
+#warning "Info: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+uint8_t initRxData_eu[48] = {
 Rx_27MHz_EU
 };
-#warning "Note: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
-uint8_t initTxData[48] = {
+#warning "Info: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
+uint8_t initTxData_na[48] = {
+Tx_27MHz_NA
+};
+#warning "Info: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+uint8_t initTxData_eu[48] = {
 Tx_27MHz_EU
 };
 #endif
 
 // Works
-#if !defined(TWENTY_SEVEN_MHZ) && defined(FCC_IC_ISM)
-#warning "Note: using Rx_26MHz_NA. Works with CVP transmitters"
-uint8_t initRxData[48] = {
+#if !defined(TWENTY_SEVEN_MHZ)
+#warning "Info: using Rx_26MHz_NA. Works with CVP transmitters"
+uint8_t initRxData_na[48] = {
 Rx_26MHz_NA
 };
-#warning "Note: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
-uint8_t initTxData[48] = {
-Tx_26MHz_NA
-};
-#endif
-
-// Works
-#if !defined(TWENTY_SEVEN_MHZ) && !defined(FCC_IC_ISM)
-#warning "Note: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
-uint8_t initRxData[48] = {
+#warning "Info: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+uint8_t initRxData_eu[48] = {
 Rx_26MHz_EU
 };
-#warning "Note: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
-uint8_t initTxData[48] = {
+#warning "Info: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
+uint8_t initTxData_na[48] = {
+Tx_26MHz_NA
+};
+#warning "Info: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+uint8_t initTxData_eu[48] = {
 Tx_26MHz_EU
 };
 #endif
 
+
 // Channels designations are 0-16.  These are the corresponding values
 // for the CC1101.
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
-#ifdef FCC_IC_ISM
-uint8_t channels[17] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
-                        0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
-#else
-uint8_t channels[17] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-#endif
+uint8_t channels_na[17] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
+                           0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
+uint8_t channels_eu[1]  = {0x00};
+uint8_t channels_na_max = sizeof(channels_na)-1;
+uint8_t channels_max = sizeof(channels_na)+sizeof(channels_eu)-1;
 
 // Transmitter power settings are designated 0-10.  These are the corresponding
 // PATABLE entries to set these powers.
 
 // See Table 4 of swra151a.pdf (0xC0 is the highest level of output @9.5dBM)
 // Removed 0x66 entry (-4.9dBM) per the note in this document
-#ifdef FCC_IC_ISM
-//dBm                 -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
-uint8_t powers[11] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
-#else
-// See Table 3 of swra151a.pdf (0xC0 is the highest level of output @10.7dBm)
-// dbm                -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  2.1   5.0   7.8   8.9   9.2
-uint8_t powers[11] = {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}; 
-#endif
+//dBm                    -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
+uint8_t powers_na[11] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
+// See Table 3 of swra151a.pdf (0xC0 is the highest level of output @9.2dBm)
+// dbm                   -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  2.1   5.0   7.8   8.9   9.2
+uint8_t powers_eu[11] = {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}; 
 
 #define RX      0x34
 #define TX      0x35
@@ -205,15 +195,30 @@ void startModem(uint8_t channel, uint8_t mode)
 {
     uint8_t i;
     uint8_t *md;
-    uint8_t powerCode = 0x89;               //use 0x89 for rx mode
-            powerCode = powers[powerLevel]; // Reset
-    if (channel > sizeof(channels)-1) channel=sizeof(channel)-1; // Error checking on channel
-    uint8_t channelCode = channels[channel];
+    uint8_t channelCode;
+    uint8_t powerCode;
+    uint8_t channel_l = channel % (channels_max+1); // Error checking on channel
+    if (channel_l <= channels_na_max){
+       na_operation = 1;
+       channelCode = channels_na[channel_l];
+       powerCode = powers_na[powerLevel]; // Reset
+    }
+    else {
+       channel_l -= (channels_na_max+1);
+       na_operation = 0;
+       channelCode = channels_eu[channel_l];
+       powerCode = powers_eu[powerLevel]; // Reset
+    }
     
-        if (mode == RX) 
-           md = initRxData;
-        else
-           md = initTxData;
+
+    if (mode == RX) {
+       if (na_operation) md = initRxData_na;
+       else md = initRxData_eu;
+    }
+    else {
+       if (na_operation) md = initTxData_na;
+       else md = initTxData_eu;
+    }
 
     sendReceive(STOP);           // send stop command to modem
 
