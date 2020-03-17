@@ -13,4 +13,4 @@ The ProMini transmitter/receiver can be configured like any mobile decoder by ac
 
 The project has been updated to operate with CC1101 (or CC110L) transceiver boards that operate at 26MHz (the default) or 27MHz (such as Anaren boards). Selection is performed by editing [libraries/config/config.h](https://github.com/martan3d/AirMiniTransmitter/blob/master/libraries/config/config.h).
 
-The I2C LCD library in this project has been MODIFIED with the addition of a "reset" method to allow resetting the I2C LCD's address using EEPROM data. IT MUST BE USED WITH THIS PROJECT - THE "VANILLA" I2C LIBRARY WILL NOT WORK! Our thanks to the I2C LCD library's original authors!
+The LiquidCrystal_I2C library in this project has been MODIFIED with the addition of a "reset" method to allow resetting the I2C LCD's address using EEPROM data. IT MUST BE USED WITH THIS PROJECT - THE "VANILLA" LiquidCrystal_I2C LIBRARY WILL NOT WORK! Our thanks to the LiquidCrystal_I2C library authors!
