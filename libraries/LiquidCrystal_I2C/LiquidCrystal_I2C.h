@@ -2,6 +2,8 @@
 #ifndef LiquidCrystal_I2C_h
 #define LiquidCrystal_I2C_h
 
+#pragma message "Info: Using a MODIFIED version of LiquidCrystal_I2C with modified initializer and init methods!"
+
 #include <inttypes.h>
 #include "Print.h" 
 #include <Wire.h>

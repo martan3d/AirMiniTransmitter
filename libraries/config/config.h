@@ -32,7 +32,10 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */ 
 
-// The LAST entry is active
+//////////////////////////////
+//    vvv User Entry Area vvv
+
+// The LAST entry is active!
 // To set the default North American channel (0)
 #define NA_DEFAULT
 // To set the default European channel (17)
@@ -57,7 +60,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
 // O=Open jumper (=High); C=Closed jumper (=Low), addresses are A2,A1,A0 from left to right on the boards
 #define LCDADDRESSDEFAULT 0x27
-#warning "Info: Setting default LCD address to 0x27"
+
+//    ^^^ User Entry Area ^^^^
+//////////////////////////////
 
 ////////////////////////////////
 // Determined from defines above
@@ -79,28 +84,34 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 // Messages. When output duing compilation, THESE ARE NOT ERRORS or WARNINGS! They are simply informational.
+#define xstr(x) str(x)
+#define str(x) #x
+#define DO_PRAGMA(x) _Pragma(str(x))
+
 #ifdef TRANSMIT
-#warning "Info: Compiling for Transmitter"
+#pragma message "Info: Compiling for Transmitter"
 #endif
 #ifdef RECEIVE
-#warning "Info: Compiling for Receiver"
+#pragma message "Info: Compiling for Receiver"
 #endif
 
 #ifdef TWENTY_SEVEN_MHZ
-#warning "Info: Compiling for 27MHz transceivers"
+#pragma message "Info: Compiling for 27MHz transceivers"
 #endif
 #ifdef TWENTY_SIX_MHZ
-#warning "Info: Compiling for 26MHz transceivers"
+#pragma message "Info: Compiling for 26MHz transceivers"
 #endif
 
 #ifdef NA_DEFAULT
 #define CHANNELDEFAULT 0
-#warning "Info: Default channel is 0 (North America)"
+#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) " (North America)"
 #else
 #define EU_DEFAULT
 #define CHANNELDEFAULT 17
-#warning "Info: Default channel is 17 (Europe)"
+#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) " (Europe)"
 #endif
+
+#pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 
 // End of entire include
 #endif

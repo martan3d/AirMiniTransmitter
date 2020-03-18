@@ -76,19 +76,19 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 
 // Works
 #if defined(TWENTY_SEVEN_MHZ)
-#warning "Info: using Rx_27MHz_NA. Works with CVP transmitters"
+#pragma message "Info: using Rx_27MHz_NA. Works with CVP transmitters"
 uint8_t initRxData_na[48] = {
 Rx_27MHz_NA
 };
-#warning "Info: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+#pragma message "Info: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
 Rx_27MHz_EU
 };
-#warning "Info: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
+#pragma message "Info: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
 uint8_t initTxData_na[48] = {
 Tx_27MHz_NA
 };
-#warning "Info: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+#pragma message "Info: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
 Tx_27MHz_EU
 };
@@ -96,19 +96,19 @@ Tx_27MHz_EU
 
 // Works
 #if !defined(TWENTY_SEVEN_MHZ)
-#warning "Info: using Rx_26MHz_NA. Works with CVP transmitters"
+#pragma message "Info: using Rx_26MHz_NA. Works with CVP transmitters"
 uint8_t initRxData_na[48] = {
 Rx_26MHz_NA
 };
-#warning "Info: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+#pragma message "Info: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
 Rx_26MHz_EU
 };
-#warning "Info: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
+#pragma message "Info: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
 uint8_t initTxData_na[48] = {
 Tx_26MHz_NA
 };
-#warning "Info: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+#pragma message "Info: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
 Tx_26MHz_EU
 };
