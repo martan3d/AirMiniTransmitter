@@ -1,3 +1,7 @@
+// Include only once!
+#ifndef config_h
+#define config_h
+
 /*
 config.h
 
@@ -36,10 +40,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 // The LAST entry is active!
-// For receiver
-#undef TRANSMIT
 // For transmitter
 #define TRANSMIT
+// For receiver
+#undef TRANSMIT
 
 // The LAST entry is active!
 // For 26MHz transceiver
@@ -98,3 +102,5 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #warning "Info: Default channel is 17 (Europe)"
 #endif
 
+// End of entire include
+#endif

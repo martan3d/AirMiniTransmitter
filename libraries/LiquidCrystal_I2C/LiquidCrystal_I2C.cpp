@@ -44,23 +44,12 @@ inline void LiquidCrystal_I2C::write(uint8_t value) {
 // can't assume that its in that state when a sketch starts (and the
 // LiquidCrystal constructor is called).
 
-LiquidCrystal_I2C::LiquidCrystal_I2C(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows)
+void LiquidCrystal_I2C::init(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows)
 {
-  _Addr = lcd_Addr;
-  _cols = lcd_cols;
-  _rows = lcd_rows;
-  _backlightval = LCD_NOBACKLIGHT;
-}
-
-void LiquidCrystal_I2C::reset(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t lcd_rows)
-{
-  _Addr = lcd_Addr;
-  _cols = lcd_cols;
-  _rows = lcd_rows;
-  _backlightval = LCD_NOBACKLIGHT;
-}
-
-void LiquidCrystal_I2C::init(){
+	_Addr = lcd_Addr;
+	_cols = lcd_cols;
+	_rows = lcd_rows;
+	_backlightval = LCD_NOBACKLIGHT;
 	init_priv();
 }
 

@@ -2,7 +2,7 @@
 AirMiniSketchTransmitter.ino
 
 Created: Dec  7 12:15:25 EST 2019
-Copyright (c) 2019, Martin Sant and Darrell Lamm
+Copyright (c) 2019-2020, Martin Sant and Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -269,17 +269,17 @@ uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration vari
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
 #ifdef USE_LCD
-// #define LCDADDRESSDEFAULT 0x27               // Moved to config.h
+// #define LCDADDRESSDEFAULT 0x27              // Moved to config.h
 uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
 uint8_t EEMEM EELCDAddress;                    // Stored LCD address
 uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
 uint8_t LCDAddress;
-#define LCDCOLUMNS 16                           // Number of LCD columns
-#define LCDROWS 2                               // Number of LCD rows 
-uint64_t LCDTimePeriod=16000000;                // Set up the LCD re-display time interval, 4 s
-uint64_t prevLCDTime = 0;                       // Initialize the last time displayed
-bool refreshLCD = true;                         // Whether to refresh
-LiquidCrystal_I2C lcd(LCDADDRESSDEFAULT,LCDCOLUMNS,LCDROWS); // Create the LCD object with a default address
+#define LCDCOLUMNS 16                          // Number of LCD columns
+#define LCDROWS 2                              // Number of LCD rows 
+uint64_t LCDTimePeriod=16000000;               // Set up the LCD re-display time interval, 4 s
+uint64_t prevLCDTime = 0;                      // Initialize the last time displayed
+bool refreshLCD = true;                        // Whether to refresh
+LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];
 char region[] = "N";
 #endif
@@ -332,7 +332,9 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
    {
       *TargetPtr = defaultValue; 
       eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)1 );
+      delay(10); // Magic delay time to ensure update is complete
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
+      delay(10); // Magic delay time to ensure update is complete
    }
    else
    {
@@ -558,15 +560,14 @@ void setup() {
   ///////////////////////////////////////////////
 
   // Set up and initialize the output of the diagnostic pin (done in dccInit)
-  // SET_OUTPUTPIN;                            // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
-  // if(dcLevel) OUTPUT_HIGH;                  // HIGH
-  // else OUTPUT_LOW;                          // LOW
+  // SET_OUTPUTPIN;                           // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
+  // if(dcLevel) OUTPUT_HIGH;                 // HIGH
+  // else OUTPUT_LOW;                         // LOW
 
 #ifdef USE_LCD
-  lcd.reset(LCDAddress,LCDCOLUMNS,LCDROWS);    // Reset the lcd to the new address
-  lcd.init();                                  // Initialize the LCD
-  lcd.backlight();                             // Backlight it
-  LCD_Banner(bannerInit);                      // Display the banner on LCD
+  lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
+  lcd.backlight();                            // Backlight it
+  LCD_Banner(bannerInit);                     // Display the banner on LCD
 #endif
 
 #ifdef DCCLibrary
