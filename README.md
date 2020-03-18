@@ -11,6 +11,6 @@ As described at the Blueridge Engineering site, an inexpensive, but powerful [am
 
 The ProMini transmitter/receiver can be configured like any mobile decoder by accessing its DCC address (default: 9000/9001) in "OPS" mode and changing Configuration Variable (CV) values described in the documentation.
 
-The project has been updated to operate with CC1101 (or CC110L) transceiver boards that operate at 26MHz (the default) or 27MHz (such as Anaren boards). Selection is performed by editing [libraries/config/config.h](https://github.com/martan3d/AirMiniTransmitter/blob/master/libraries/config/config.h).
+The project has been updated to operate with CC1101 (or CC110L) transceiver boards that operate at 27MHz (such as the FCC/IC/ETSI-approved Anaren boards) or 26 MHz. Selection is performed by editing [libraries/config/config.h](https://github.com/martan3d/AirMiniTransmitter/blob/master/libraries/config/config.h).
 
 The LiquidCrystal_I2C library in this project has been MODIFIED with a change to a parameterless LiquidCrystal_I2C declaration, so that it can be global in scope, and modificaiton of the init method with address and sizing parameters to allow using EEPROM data, which is by necessity inside a function call. THIS MODIFIED LIBRARY MUST BE USED WITH THIS PROJECT - THE "VANILLA" LiquidCrystal_I2C LIBRARY WILL NOT WORK! Our thanks to the LiquidCrystal_I2C library authors!
