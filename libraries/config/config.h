@@ -58,7 +58,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // The address range for TI serial drivers 
 // PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
 // PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
-// O=Open jumper (=High); C=Closed jumper (=Low), addresses are A2,A1,A0 from left to right on the boards
+// O=Open jumper (=High); C=Closed jumper (=Low), 
+// addresses are A2,A1,A0 from left to right on the boards
 #define LCDADDRESSDEFAULT 0x27
 
 //    ^^^ User Entry Area ^^^^
