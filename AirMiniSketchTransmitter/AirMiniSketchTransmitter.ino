@@ -109,7 +109,8 @@ uint8_t          newIndex     = 2;
 #ifdef TRANSMIT
 #define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #else
-#define DOUBLE_PASS 0            // Single pass
+// #define DOUBLE_PASS 0            // Single pass
+#define DOUBLE_PASS 1            // Double pass now works for receiver
 #endif
 
 // DEFAULT defines
