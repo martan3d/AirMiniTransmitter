@@ -2,6 +2,7 @@
 AirMiniSketchTransmitter.ino
 
 Created: Dec  7 12:15:25 EST 2019
+
 Copyright (c) 2019-2020, Martin Sant and Darrell Lamm
 All rights reserved.
 
@@ -333,9 +334,9 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
    {
       *TargetPtr = defaultValue; 
       eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)1 );
-      delay(10); // Magic delay time to ensure update is complete
+      delay(100); // Magic delay time to ensure update is complete
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
-      delay(10); // Magic delay time to ensure update is complete
+      delay(100); // Magic delay time to ensure update is complete
    }
    else
    {
