@@ -1,6 +1,6 @@
 
 .DS_Store
-all.diff
 *.diff
 *.sh
 *.swp
+*.swo
