@@ -968,7 +968,7 @@ void loop() {
                        // Last resort
                        {
                           initialWait = 0;
-                          CHANNEL=0;                 // Reset to the last resort channel
+                          CHANNEL=CHANNELDEFAULT;    // Reset to the last resort channel
                        }
 
                        // Stop the modem
