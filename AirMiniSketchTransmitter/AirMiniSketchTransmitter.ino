@@ -220,52 +220,52 @@ uint8_t useMyAddress = 0;                    // Global flag for LCD
 // EEPROM data for persistence after turn-off of the AirMini
 uint8_t  EEMEM EEisSetCHANNEL;               // Stored RF channel is set
 uint8_t  EEMEM EECHANNEL;                    // Stored RF channel #
-uint8_t  EEMEM EECHANNELDefault;             // Stored RF channel #
+// uint8_t  EEMEM EECHANNELDefault;             // Stored RF channel #
 
 uint8_t  EEMEM EEisSetturnModemOnOff;        // Stored modem turn on/off is set
 uint8_t  EEMEM EEturnModemOnOff;             // Stored modem turn on/off
-uint8_t  EEMEM EEturnModemOnOffDefault;      // Stored modem turn on/off
+// uint8_t  EEMEM EEturnModemOnOffDefault;      // Stored modem turn on/off
 
 uint8_t  EEMEM EEisSetdcLevel;               // Stored DC output level is set
 uint8_t  EEMEM EEdcLevel;                    // Stored DC output level if modem turned off
-uint8_t  EEMEM EEdcLevelDefault;             // Stored DC output level if modem turned off
+// uint8_t  EEMEM EEdcLevelDefault;             // Stored DC output level if modem turned off
 
 uint8_t  EEMEM EEisSetpowerLevel;            // Stored DC output power level is set
 uint8_t  EEMEM EEpowerLevel;                 // Stored DC output power level 
-uint8_t  EEMEM EEpowerLevelDefault;          // Stored DC output power level 
+// uint8_t  EEMEM EEpowerLevelDefault;          // Stored DC output power level 
 
 uint8_t  EEMEM EEisSetidlePeriodms;          // Stored idlePeriodms set flag
 uint8_t  EEMEM EEidlePeriodms;               // Stored idlePeriod in ms
-uint8_t  EEMEM EEidlePeriodmsDefault;        // Stored idlePeriod in ms
+// uint8_t  EEMEM EEidlePeriodmsDefault;        // Stored idlePeriod in ms
 
 uint8_t  EEMEM EEisSetfilterModemData;       // Stored idlePeriodms set flag
 uint8_t  EEMEM EEfilterModemData;            // Stored idlePeriod in ms
-uint8_t  EEMEM EEfilterModemDataDefault;     // Stored idlePeriod in ms
+// uint8_t  EEMEM EEfilterModemDataDefault;     // Stored idlePeriod in ms
 
 uint8_t  EEMEM EEisSetAirMiniCV1;            // Stored AirMini decoder short address is set
 uint8_t  EEMEM EEAirMiniCV1;                 // Stored AirMini decoder short address
-uint8_t  EEMEM EEAirMiniCV1Default;          // Stored AirMini decoder short address
+// uint8_t  EEMEM EEAirMiniCV1Default;          // Stored AirMini decoder short address
 
 uint8_t  EEMEM EEisSetAirMiniCV17;           // Stored AirMini decoder high byte address is set
 uint8_t  EEMEM EEAirMiniCV17;                // Stored AirMini decoder high byte address
-uint8_t  EEMEM EEAirMiniCV17Default;
+// uint8_t  EEMEM EEAirMiniCV17Default;
 
 uint8_t  EEMEM EEisSetAirMiniCV18;           // Stored AirMini decoder low byte address is set
 uint8_t  EEMEM EEAirMiniCV18;                // Stored AirMini decoder low byte address
-uint8_t  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low byte address
+// uint8_t  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low byte address
 
 uint8_t  EEMEM EEisSetAirMiniCV29;           // Stored AirMini decoder configuration variable is set
 uint8_t  EEMEM EEAirMiniCV29;                // Stored AirMini decoder configuration variable
-uint8_t  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
+// uint8_t  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
 
 #ifdef RECEIVE
 uint8_t  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
-uint8_t  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+// uint8_t  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
 #else
 uint8_t  EEMEM EEisSetAutoIdleOff;  // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEAutoIdleOff;       // Stored AirMini decoder configuration variable
-uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
+// uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
 #endif
 
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
@@ -273,7 +273,7 @@ enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 #ifdef USE_LCD
 uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
 uint8_t EEMEM EELCDAddress;                    // Stored LCD address
-uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
+// uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
 uint8_t LCDAddress;                            // The I2C address of the LCD
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
