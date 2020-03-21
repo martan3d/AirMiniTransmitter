@@ -95,6 +95,8 @@ uint8_t          newIndex     = 2;
 
 
 // Times
+#define INITIALDELAYMS    1000   // Initial processor start-up delay in ms
+#define EEPROMDELAYMS      100   // Delay after eeprom write in ms
 #define MILLISEC          4000   // @16Mhz, this is 1ms, 0.001s
 #define QUARTERSEC     1000000   // @16Mhz, this is 0.25s
 #define SEC            4000000   // @16Mhz, this is 1.00s
@@ -110,14 +112,12 @@ uint8_t          newIndex     = 2;
 #ifdef TRANSMIT
 #define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #else
-// #define DOUBLE_PASS 0            // Single pass
-#define DOUBLE_PASS 1            // Double pass now works for receiver
+#define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #endif
 
 // DEFAULT defines
-// #define CHANNELDEFAULT 0      // now set in config.h
-extern uint8_t channels_max;
-extern uint8_t channels_na_max;
+extern uint8_t channels_max;     // From spi.c
+extern uint8_t channels_na_max;  // From spi.c
 uint8_t CHANNELMAX=channels_max; // Maximum channel NA & EU
 
 #ifdef TRANSMIT
@@ -271,19 +271,18 @@ uint8_t  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration vari
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
 #ifdef USE_LCD
-// #define LCDADDRESSDEFAULT 0x27              // Moved to config.h
 uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
 uint8_t EEMEM EELCDAddress;                    // Stored LCD address
 uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
-uint8_t LCDAddress;
+uint8_t LCDAddress;                            // The I2C address of the LCD
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
 uint64_t LCDTimePeriod=16000000;               // Set up the LCD re-display time interval, 4 s
 uint64_t prevLCDTime = 0;                      // Initialize the last time displayed
 bool refreshLCD = true;                        // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
-char lcd_line[LCDCOLUMNS+1];
-char region[] = "N";
+char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end null!
+char region[] = "N";                           // Region code: N=North America, E=Europe
 #endif
 
 /******************************************************************************/
@@ -329,19 +328,19 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 {
    uint8_t isSet; 
    if (EEisSetTargetPtr != (const uint8_t *)NULL) isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
-   else isSet = 0;
+   else isSet = 0; // Bad if you get here!
    if (!isSet || forceDefault)
    {
       *TargetPtr = defaultValue; 
       eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)1 );
-      delay(100); // Magic delay time to ensure update is complete
+      delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
-      delay(100); // Magic delay time to ensure update is complete
+      delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
    }
    else
    {
       if(EETargetPtr != (const uint8_t *)NULL) *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
-      else *TargetPtr = defaultValue; 
+      else *TargetPtr = defaultValue;  // Bad if you get here!
    }
 }
 
@@ -479,6 +478,8 @@ void LCD_Wait_Period_Over(int status)
 
 void setup() {
 
+  delay(INITIALDELAYMS);
+
   DDRB |= 1;        // Use this for debugging if you wish
   initUART(38400);  // More debugging, send serial data out- decoded DCC packets
 
@@ -557,6 +558,18 @@ void setup() {
   memset(dccptrNULL,0,sizeof(dccptrNULL));                      // Create a null dccptr for CV setting
   memset(dccptrAirMiniCVReset,0,sizeof(dccptrAirMiniCVReset));  // Initialize the reset dccptr for CV setting
 
+  // Set up slow-time variables
+  then = getMsClock();                        // Grab Current Clock value for the loop below
+  timeOfValidDCC = then;                      // Initialize the valid DCC data time
+#ifdef RECEIVE
+  initialWait = 1;
+  startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time (never is not a good value)
+  endInitialWaitTime = 
+                    startInitialWaitTime
+                  + InitialWaitPeriodSEC*SEC; // Initialize the end of the wait time
+#endif
+  inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
+
   ///////////////////////////////////////////////
   // Set up the hardware and related variables //
   ///////////////////////////////////////////////
@@ -595,21 +608,10 @@ void setup() {
 
   initServoTimer();                           // Master Timer plus servo timer
   initializeSPI();                            // Initialize the SPI interface to the radio
-  dccInit();                                  // Enable DCC receive
-  startModem(CHANNEL, MODE);                  // Start on this Airwire Channel
+  dccInit();                                  // Enable DCC transmit/receive
+  startModem(CHANNEL, MODE);                  // Start on this Channel
 
   sei();                                      // enable interrupts
-
-  then = getMsClock();                        // Grab Current Clock value for the loop below
-  timeOfValidDCC = then;                      // Initialize the valid DCC data time
-#ifdef RECEIVE
-  initialWait = 1;
-  startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time (never is not a good value)
-  endInitialWaitTime = 
-                    startInitialWaitTime
-                  + InitialWaitPeriodSEC*SEC; // Initialize the end of the wait time
-#endif
-  inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
 }
 // End of setup
