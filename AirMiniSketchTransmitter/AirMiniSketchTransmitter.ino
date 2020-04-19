@@ -29,6 +29,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <EEPROM.h>
 #include <dcc.h>
 #include <spi.h>
 #include <uart.h>
@@ -108,7 +109,7 @@ uint8_t          newIndex     = 2;
 #define TX      0x35
 #define STOP    0x36
 
-// Need to test
+// Setting up double pass for OPS mode
 #ifdef TRANSMIT
 #define DOUBLE_PASS 1            // Do a double pass on CV setting 
 #else
@@ -277,7 +278,7 @@ uint8_t EEMEM EELCDAddress;                    // Stored LCD address
 uint8_t LCDAddress;                            // The I2C address of the LCD
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
-uint64_t LCDTimePeriod=16000000;               // Set up the LCD re-display time interval, 4 s
+uint64_t LCDTimePeriod=2*SEC;                  // Set up the LCD re-display time interval, 2 s
 uint64_t prevLCDTime = 0;                      // Initialize the last time displayed
 bool refreshLCD = true;                        // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
@@ -321,6 +322,16 @@ uint16_t combineHighLow(uint8_t High, uint8_t Low)
    return (tmp16);
 }
 
+void reboot() {
+  asm volatile ("  jmp 0"); // "Dirty" method because it simply restarts the SW, and does NOT reset the HW 
+}
+
+void eepromClear() {
+  for (int i = 0 ; i < (int)(EEPROM.length()) ; i++) {
+    EEPROM.write(i, 0);
+  }
+}
+
 // Function, based on the value of forceDefault:
 //    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
 //    - FALSE:  extract and use EEPROM data, if previously-set, to set the TargetPtr's value
@@ -332,8 +343,10 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
    if (!isSet || forceDefault)
    {
       *TargetPtr = defaultValue; 
+      eeprom_busy_wait();
       eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)1 );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
+      eeprom_busy_wait();
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
    }
@@ -342,6 +355,9 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
       if(EETargetPtr != (const uint8_t *)NULL) *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
       else *TargetPtr = defaultValue;  // Bad if you get here!
    }
+
+   eeprom_busy_wait();
+
 }
 
 #ifdef USE_LCD
@@ -352,9 +368,9 @@ void LCD_Banner(uint8_t bannerInit)
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.5/27MH");   // Show state
+  lcd.print("H:1.0 S:1.6/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.5/26MH");   // Show state
+  lcd.print("H:1.0 S:1.6/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -722,7 +738,9 @@ void loop() {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
                                           if(CVval <= CHANNELMAX)           // Check for good values
                                             {
+                                              cli();
                                               checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  
+                                              sei();
                                               startModemFlag = 1;
                                             }
                                           else                      // Ignore bad values
@@ -731,14 +749,18 @@ void loop() {
                                       case  254:  // Set the RF power level and reset related EEPROM values. Verified this feature works.
                                           if(CVval<=10) 
                                             {
+                                              cli();
                                               checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, CVval, 1); // Set powerLevel and reset EEPROM values. Ignore bad values
+                                              sei();
                                               startModemFlag = 1;
                                             }
                                           else
                                             CVStatus = IGNORED;
                                       break;
                                       case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values. Verified this feature works
+                                          cli();
                                           checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, CVval, 1); // Set turnModemOnOff and reset EEPROM values
+                                          sei();
                                           turnModemOnOff = (volatile uint8_t)turnModemOnOff_in; // Assign for volatile
                                       break;
                                       case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values. 
@@ -756,44 +778,59 @@ void loop() {
                                           maxTransitionCount = combineHighLow(maxTransitionCountHighByte,maxTransitionCountLowByte);
                                       break;
                                       case  248:  // Set the DC output level and reset related EEPROM values. Verified this feature works.
+                                          cli();
                                           checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, CVval, 1); // Set dcLevel and reset EEPROM values
+                                          sei();
                                           dcLevel = (volatile uint8_t)dcLevel_in;
                                       break;
                                       case  247:  // Set the idle period (in ms) and reset related EEPROM values. Verified it works.
+                                          cli();
                                           checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, CVval, 1); // Set idlePeriodms and reset EEPROM values (in ms!)
+                                          sei();
                                           idlePeriod = idlePeriodms * MILLISEC; // Convert to cycles
                                       break;
                                       case  246:  // Set the whether to always use modem data
+                                          cli();
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
+                                          sei();
                                       break;
 #ifdef RECEIVE
                                       case  245:  // Set the wait period in 1 second intervals - Nothing can be done with this until reset
                                           if(CVval <= 60)
+                                             cli();
                                              checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  CVval, 1);  // Wait time in sec
+                                             sei();
                                           else
                                             CVStatus = IGNORED;
                                       break;
 #endif
 #ifdef TRANSMIT
                                       case  244:  // Turn off automatic IDLE insertion
+                                           cli();
                                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  CVval, 1); 
+                                           sei();
                                       break;
 #endif
 #ifdef USE_LCD
                                       case  243:  // Reset the LCD address
+                                           cli();
                                            checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  CVval, 1);  // Set LCD address for the NEXT boot
+                                           sei();
                                            CVStatus = PENDING;
                                       break;
 #endif
-
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
+                                          cli();
                                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
+                                          sei();
                                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
                                       break;
                                       case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values. Verified this feature works.
                                                   // See NMRA S-9.2.1 Footnote 8.
+                                          cli();
                                           checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AirMiniCV17tmp, 1); 
                                           checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, CVval, 1); 
+                                          sei();
                                       break;
                                       case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!).
                                           if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135, footnote 8
@@ -804,10 +841,31 @@ void loop() {
                                           else
                                             CVStatus = IGNORED;
                                       break;
+                                      case  8:  // Full EEPROM Reset and reboot!
+                                           if (CVval==8) {
+#ifdef USE_LCD
+                                              lcd.clear();
+                                              lcd.setCursor(0,0); // column, row
+                                              snprintf(lcd_line,sizeof(lcd_line),"Keep Power ON!");
+                                              lcd.print(lcd_line);
+                                              lcd.setCursor(0,1); // column, row
+                                              snprintf(lcd_line,sizeof(lcd_line),"Factory Reset...");
+                                              lcd.print(lcd_line);
+#endif
+                                              cli();
+                                              eepromClear();
+                                              reboot(); // No need for sei, you're starting over...
+                                           }
+                                           else {
+                                              CVStatus = IGNORED;
+                                           }
+                                      break;
                                       case 1:     // Set the Short Address CV and reset related EEPROM values after validation. Verified this feature works.
                                           if((0<CVval) && (CVval<128))  // CV1 cannot be outside this range. Some decoders limit 0<CVval<100
                                             {
+                                              cli();
                                               checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, CVval, 1); 
+                                              sei();
                                             }
                                           else
                                             CVStatus = IGNORED;
