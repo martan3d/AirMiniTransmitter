@@ -738,9 +738,7 @@ void loop() {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
                                           if(CVval <= CHANNELMAX)           // Check for good values
                                             {
-                                              cli();
                                               checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  
-                                              sei();
                                               startModemFlag = 1;
                                             }
                                           else                      // Ignore bad values
@@ -749,18 +747,14 @@ void loop() {
                                       case  254:  // Set the RF power level and reset related EEPROM values. Verified this feature works.
                                           if(CVval<=10) 
                                             {
-                                              cli();
                                               checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, CVval, 1); // Set powerLevel and reset EEPROM values. Ignore bad values
-                                              sei();
                                               startModemFlag = 1;
                                             }
                                           else
                                             CVStatus = IGNORED;
                                       break;
                                       case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values. Verified this feature works
-                                          cli();
                                           checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, CVval, 1); // Set turnModemOnOff and reset EEPROM values
-                                          sei();
                                           turnModemOnOff = (volatile uint8_t)turnModemOnOff_in; // Assign for volatile
                                       break;
                                       case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values. 
@@ -778,59 +772,43 @@ void loop() {
                                           maxTransitionCount = combineHighLow(maxTransitionCountHighByte,maxTransitionCountLowByte);
                                       break;
                                       case  248:  // Set the DC output level and reset related EEPROM values. Verified this feature works.
-                                          cli();
                                           checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, CVval, 1); // Set dcLevel and reset EEPROM values
-                                          sei();
                                           dcLevel = (volatile uint8_t)dcLevel_in;
                                       break;
                                       case  247:  // Set the idle period (in ms) and reset related EEPROM values. Verified it works.
-                                          cli();
                                           checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, CVval, 1); // Set idlePeriodms and reset EEPROM values (in ms!)
-                                          sei();
                                           idlePeriod = idlePeriodms * MILLISEC; // Convert to cycles
                                       break;
                                       case  246:  // Set the whether to always use modem data
-                                          cli();
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
-                                          sei();
                                       break;
 #ifdef RECEIVE
                                       case  245:  // Set the wait period in 1 second intervals - Nothing can be done with this until reset
                                           if(CVval <= 60)
-                                             cli();
                                              checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  CVval, 1);  // Wait time in sec
-                                             sei();
                                           else
                                             CVStatus = IGNORED;
                                       break;
 #endif
 #ifdef TRANSMIT
                                       case  244:  // Turn off automatic IDLE insertion
-                                           cli();
                                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  CVval, 1); 
-                                           sei();
                                       break;
 #endif
 #ifdef USE_LCD
                                       case  243:  // Reset the LCD address
-                                           cli();
                                            checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  CVval, 1);  // Set LCD address for the NEXT boot
-                                           sei();
                                            CVStatus = PENDING;
                                       break;
 #endif
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
-                                          cli();
                                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, CVval, 1); 
-                                          sei();
                                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
                                       break;
                                       case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values. Verified this feature works.
                                                   // See NMRA S-9.2.1 Footnote 8.
-                                          cli();
                                           checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AirMiniCV17tmp, 1); 
                                           checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, CVval, 1); 
-                                          sei();
                                       break;
                                       case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!).
                                           if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135, footnote 8
@@ -852,7 +830,6 @@ void loop() {
                                               snprintf(lcd_line,sizeof(lcd_line),"Factory Reset...");
                                               lcd.print(lcd_line);
 #endif
-                                              cli();
                                               eepromClear();
                                               reboot(); // No need for sei, you're starting over...
                                            }
@@ -863,9 +840,7 @@ void loop() {
                                       case 1:     // Set the Short Address CV and reset related EEPROM values after validation. Verified this feature works.
                                           if((0<CVval) && (CVval<128))  // CV1 cannot be outside this range. Some decoders limit 0<CVval<100
                                             {
-                                              cli();
                                               checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, CVval, 1); 
-                                              sei();
                                             }
                                           else
                                             CVStatus = IGNORED;

@@ -36,17 +36,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //    vvv User Entry Area vvv
 
 // The LAST entry is active!
-// To set the default North American channel (0)
-#define NA_DEFAULT
 // To set the default European channel (17)
 #undef NA_DEFAULT
+// To set the default North American channel (0)
+#define NA_DEFAULT
 
 
 // The LAST entry is active!
-// For transmitter
-#define TRANSMIT
 // For receiver
 #undef TRANSMIT
+// For transmitter
+#define TRANSMIT
 
 // The LAST entry is active!
 // For 26MHz transceiver
