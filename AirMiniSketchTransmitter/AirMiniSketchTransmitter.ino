@@ -323,6 +323,7 @@ uint16_t combineHighLow(uint8_t High, uint8_t Low)
 }
 
 void reboot() {
+  cli();                    // Ensure that when setup() is called, interrupts are OFF
   asm volatile ("  jmp 0"); // "Dirty" method because it simply restarts the SW, and does NOT reset the HW 
 }
 
