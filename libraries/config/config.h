@@ -36,10 +36,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //    vvv User Entry Area vvv
 
 // The LAST entry is active!
-// To set the default European channel (17)
-#undef NA_DEFAULT
 // To set the default North American channel (0)
 #define NA_DEFAULT
+// To set the default European channel (17)
+#undef NA_DEFAULT
 
 
 // The LAST entry is active!
