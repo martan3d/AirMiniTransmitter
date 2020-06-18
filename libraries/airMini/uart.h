@@ -35,7 +35,7 @@ extern "C" {
 #ifndef UART_H_
 #define UART_H_
 
-#define F_CPU  16000000
+// #define F_CPU  16000000
 
 void initUART(long baud);
 void SendByte(uint8_t c);

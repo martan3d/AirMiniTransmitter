@@ -35,7 +35,7 @@ extern "C" {
 #ifndef SERVOTIMER_H_
 #define SERVOTIMER_H_
 
-#define F_CPU  16000000
+// #define F_CPU  16000000
 
 void initServoTimer();
 void setServoPulse(uint8_t i, int16_t pulse);
