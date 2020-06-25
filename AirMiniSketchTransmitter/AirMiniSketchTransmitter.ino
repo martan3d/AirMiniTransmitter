@@ -780,7 +780,7 @@ void loop() {
                                           checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, CVval, 1); // Set idlePeriodms and reset EEPROM values (in ms!)
                                           idlePeriod = idlePeriodms * MILLISEC; // Convert to cycles
                                       break;
-                                      case  246:  // Set the whether to always use modem data
+                                      case  246:  // Set whether to always use modem data
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
                                       break;
 #ifdef RECEIVE
