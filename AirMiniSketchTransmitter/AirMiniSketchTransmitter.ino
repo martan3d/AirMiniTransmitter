@@ -938,7 +938,7 @@ void loop() {
                    if(((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
                      {
                        if (turnModemOnOff) sendReceive(STOP);     // send stop command to modem if no DEMUX is available
-                       if(filterModemData) useModemData = 0;  // false use-of-modem-data state
+                       if(filterModemData) useModemData = 0;      // false use-of-modem-data state
                        DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
                        inactiveStartTime = then;                  // Start inactive timer
                      }
