@@ -44,8 +44,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
  #define WAITSERVO2   18
  #define ENDSERVO     22
 
- #define ONEMS  	  2000	        /* ONE MS @ 16mhz */
- #define NEXTSCAN	  16*ONEMS      /* 16 ms just will fit into 16 bits */
+ #define ONEMS        2000	    /* ONE ms @ 16mhz */
+ #define NEXTSCAN     16*ONEMS      /* 16 ms just will fit into 16 bits */
  #define ENDSCAN      10*ONEMS      /* generic time to wait until next servo */
  #define SERVOSOFF    0xf8          /* bottom three pins are the 3 servo outputs */
  
@@ -90,7 +90,7 @@ static volatile uint32_t msUpper;
 static volatile uint8_t servostate;
 
 
-uint16_t normalMs = 2000;
+uint16_t normalMs = 2000; // 1 ms in timer updates
 
 /* starts both the servo cycle and the master 1us clock source */
 
@@ -112,7 +112,7 @@ void initServoTimer(void)
      TCNT1  = 0;
 
      TCCR1B |= 0x02;			          // clock select, divide sysclock by 8
-     TIMSK1 |= USTIMER | SERVOTIMER | COMPAREB;      // enable interrupts 
+     TIMSK1 |= USTIMER | SERVOTIMER | COMPAREB;   // enable interrupts 
 
      // Overflow and OCR interrupts, let timer run until overflow, keep track of upper word in s/w 
 }
