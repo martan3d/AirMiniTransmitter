@@ -37,9 +37,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // The LAST entry is active!
 // Use the 869MHz ISM band
-#define EU8869MHz
+#define EU869MHz
 // Use the 433MHz ISM band
-#undef EU8869MHz
+#undef EU869MHz
 
 // The LAST entry is active!
 // To set the default North American channel (0)
