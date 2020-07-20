@@ -177,8 +177,7 @@ uint64_t idlePeriod = 0;                     // 0 msec, changed to variable that
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
 uint64_t tooLong  = 4000000;                 // 1 sec, changed to variable that might be changed by SW
-// uint64_t sleepTime = 8000000;             // 2 sec, changed to variable that might be changed by SW
-uint64_t sleepTime = 0;                      // 2 sec, changed to variable that might be changed by SW
+uint64_t sleepTime = 0;                      // 0 sec, changed to variable that might be changed by SW
 uint64_t timeOfValidDCC;                     // Time stamp of the last valid DCC packet
 uint64_t inactiveStartTime;                  // Time stamp if when modem data is ignored
 uint16_t maxTransitionCount;                 // Maximum number of bad transitions to tolerate before ignoring modem data
@@ -369,9 +368,9 @@ void LCD_Banner(uint8_t bannerInit)
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.6/27MH");   // Show state
+  lcd.print("H:1.0 S:1.7/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.6/26MH");   // Show state
+  lcd.print("H:1.0 S:1.7/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
