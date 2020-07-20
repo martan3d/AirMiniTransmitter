@@ -36,6 +36,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //    vvv User Entry Area vvv
 
 // The LAST entry is active!
+// Use the 869MHz ISM band
+#define EU8869MHz
+// Use the 433MHz ISM band
+#undef EU8869MHz
+
+// The LAST entry is active!
 // To set the default North American channel (0)
 #define NA_DEFAULT
 // To set the default European channel (17)
@@ -49,10 +55,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TRANSMIT
 
 // The LAST entry is active!
-// For 26MHz transceiver
-#undef TWENTY_SEVEN_MHZ
 // For 27MHz transceivers (e.g., Anaren)
 #define TWENTY_SEVEN_MHZ
+// For 26MHz transceiver
+#undef TWENTY_SEVEN_MHZ
 
 // The LCD display's default address. 
 // The address range for TI serial drivers 
@@ -110,6 +116,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define EU_DEFAULT
 #define CHANNELDEFAULT 17
 #pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) " (Europe)"
+#endif
+
+#ifdef EU8869MHz
+#pragma message "Info: Using the 869MHz European ISM band"
+#else
+#define EU434MHz
+#pragma message "Info: Using the 434MHz European ISM band"
 #endif
 
 #pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
