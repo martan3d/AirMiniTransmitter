@@ -46,33 +46,77 @@ uint8_t na_operation = 1;
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
 // init[RT]xData settings.
-//                         |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL1 (Dep on fXOSC) IF Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL0 (Dep on fXOSC) IF Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ2 (Dep on desire Base Freq & fXOSC) Base Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ1 (Dep on desired Base Freq & fXOSC) Base Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ0 (Dep on desired Base Freq & fXOSC) Base Freq
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG4 (Dep on fXOSC) CHANBW_E[7:6], CHANBW_M[5:4], DRATE_E[3:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG3 (Dep on fXOSC) DRATE_M[7:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG2 DEM_DCFILT_OFF[7:7], MOD_FORMAT[6:4], MANCHESTER_EN[3:3], SYNC_MODE[2:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG1 FEC_EN[7:7], NUM_PREAMBLE[6:4], NOT_USED[3:2], CHANSPC_E[1:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG0 (Dep on fXOSC) CHANSPC_M[7:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    DEVIATN (Dep on fXOSC) NOT_USED[7:7], DEVIATION_E[6:4], NOT_USED[3:3], DEVIATION_M[2:0]
-//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    
+//                         Burst mode
+//                         |    IOCFG0(0x00) High Impedance (3-state)
+//                         |    |    IOCFG1(0x01) High Impedance (3-state)
+//                         |    |    |    IOCFG2(0x02) 0x0D Serial Data Output. Used for asynchronous serial mode
+//                         |    |    |    |    FIFOTHR (0x3) 
+//                         |    |    |    |    |    SYNC1 (0x4) Sync word high, byte
+//                         |    |    |    |    |    |    SYNC0 (0x5) Sync word,low byte
+//                         |    |    |    |    |    |    |    PKTLEN (0x06)
+//                         |    |    |    |    |    |    |    |    PKTCTRL1 (0x07) 2:2 appended with status bytes; 1:0 Addressing (=b00 for here no address check)
+//                         |    |    |    |    |    |    |    |    |    PKCTCTRL0 (0x08) Special setting for asynchronous data: 5:4 =b11 for asynchronous data; 1:0 =b10 for infinite length data
+//                         |    |    |    |    |    |    |    |    |    |    ADDR (0x09) Address =(b00000000) we have no address
+//                         |    |    |    |    |    |    |    |    |    |    |    CHANNR (0x0A) Channel #, which will be changed!
+//                         |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL1 (0x0B) (Dep on fXOSC) IF Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    FSCTRL0 (0x0C) (Dep on fXOSC) IF Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ2 (0xD) (Dep on desired Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ1 (0xE) (Dep on desired Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREQ0 (0xF) (Dep on desired Base Freq & fXOSC) Base Freq
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG4 (0x10) (Dep on fXOSC) CHANBW_E[7:6], CHANBW_M[5:4], DRATE_E[3:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG3 (0x11)(Dep on fXOSC) DRATE_M[7:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG2 (0x12) DEM_DCFILT_OFF[7:7], MOD_FORMAT[6:4], MANCHESTER_EN[3:3], SYNC_MODE[2:0] (MOD_FORMAT: b000 -> 2-FSK; b001 -> GSFK)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG1 (0x13) FEC_EN[7:7], NUM_PREAMBLE[6:4], NOT_USED[3:2], CHANSPC_E[1:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MDMCFG0 (0x14) (Dep on fXOSC) CHANSPC_M[7:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    DEVIATN (0x15) (Dep on fXOSC) NOT_USED[7:7], DEVIATION_E[6:4], NOT_USED[3:3], DEVIATION_M[2:0]
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MCSM2 (0x16) Main RC State Machine Conf (default vals)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MCSM1 (0x17) Main RC State Machine Conf (default vals)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    MCSM0 (0x18) Main RC State Machine Conf. ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FOCCFG (0x19) Freq Offset Comp. Conf. ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    BSCFG (0x1A) Bit Sync Conf. ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    AGCCTRL2 (0x1B) AGC Ctrl ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    AGCCTRL1 (0x1C) AGC Ctrl ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    AGCCTRL0 (0x1D) AGC Ctrl ?
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    (0x1E) ? Skippped in RF Studio!
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    (0x1F) ? Skippped in RF Studio!
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    Reserved 0x20 (0x20) From RF Studio
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREND1 (0x21) FE RX Config
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FREND0 (0x22) FE TX Config
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FSCAL3 (0x23)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FSCAL2 (0x24)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FSCAL1 (0x25)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    FSCAL0 (0x26)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    (0x27) ? Skippped in RF Studio
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    (0x28) ? Skippped in RF Studio
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    Reserved_0x29
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    Reserved_0x2A
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    Reserved_0x2B
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    TEST2 (0x2C)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    TEST1 (0x2D)
+//                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    TEST0 (0x2E)
 //                         |    |    |    |    |    |    |    |    |    |    |    |    |    |    *    *    *    *    *    |    |    *    *    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |
 #define Rx_26MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x22,0xB7,0x55,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 #define Tx_26MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x22,0xB7,0x55,0x8C,0x22,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
-#define Rx_26MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x74,0xAD,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
-#define Tx_26MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x74,0xAD,0x8C,0x22,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+//                                                                                *
+#define Rx_26MHz_EU_869    0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x21,0x74,0xAD,0x8A,0x93,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_26MHz_EU_869    0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x21,0x74,0xAD,0x8C,0x22,0x00,0x23,0x3B,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+
+//                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *
+#define Rx_26MHz_EU_434    0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x10,0xB1,0x3B,0xCA,0x93,0x00,0x22,0xF6,0x50,0x07,0x30,0x18,0x16,0x6C,0x43,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+//                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *
+#define Tx_26MHz_EU_434    0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x10,0xB1,0x3B,0xCA,0x93,0x00,0x22,0xF6,0x50,0x07,0x30,0x18,0x16,0x6C,0x43,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 
 #define Rx_27MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8A,0x93,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 #define Tx_27MHz_NA        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
-#define Rx_27MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x20,0x37,0x77,0x8A,0x93,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
-#define Tx_27MHz_EU        0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x20,0x37,0x77,0x8C,0x22,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 
-// Experimental only
-// Change to GFSK from 2-FSK. Result: None to perhaps slightly negative for CVP receivers.
-//                                                                                                                        *          
-#define Tx_27MHz_NA_E      0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x4B,0x06,0x00,0x21,0x6E,0x2C,0x8C,0x22,0x10,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+//                                                                                *
+#define Rx_27MHz_EU_869    0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x20,0x37,0x77,0x8A,0x93,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+#define Tx_27MHz_EU_869    0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x20,0x37,0x77,0x8C,0x22,0x00,0x23,0x2F,0x47,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+
+//                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *
+#define Rx_27MHz_EU_434    0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x10,0x12,0xF6,0xCA,0x84,0x00,0x22,0xE4,0x47,0x07,0x30,0x18,0x16,0x6C,0x43,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
+//                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *
+#define Tx_27MHz_EU_434    0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x10,0x12,0xF6,0xCA,0x84,0x00,0x22,0xE4,0x47,0x07,0x30,0x18,0x16,0x6C,0x43,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xE9,0x2A,0x00,0x1F,0x40,0x00,0x59,0x7F,0x3F,0x81,0x35,0x09 
 
 // Works
 #if defined(TWENTY_SEVEN_MHZ)
@@ -80,18 +124,32 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 uint8_t initRxData_na[48] = {
 Rx_27MHz_NA
 };
-#pragma message "Info: using Rx_27MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+#ifdef EU869MHz
+#pragma message "Info: using Rx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
-Rx_27MHz_EU
+Rx_27MHz_EU_869
 };
+#else
+#pragma message "Info: using Rx_27MHz_EU_434. For repeater receivers only"
+uint8_t initRxData_eu[48] = {
+Rx_27MHz_EU_434
+};
+#endif
 #pragma message "Info: using Tx_27MHz_NA. Works with CVP and Tam Valley Depot receivers"
 uint8_t initTxData_na[48] = {
 Tx_27MHz_NA
 };
-#pragma message "Info: using Tx_27MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+#ifdef EU869MHz
+#pragma message "Info: using Tx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
-Tx_27MHz_EU
+Tx_27MHz_EU_869
 };
+#else
+#pragma message "Info: using Tx_27MHz_EU_434. For repeater transmitters only"
+uint8_t initTxData_eu[48] = {
+Tx_27MHz_EU_434
+};
+#endif
 #endif
 
 // Works
@@ -100,27 +158,47 @@ Tx_27MHz_EU
 uint8_t initRxData_na[48] = {
 Rx_26MHz_NA
 };
-#pragma message "Info: using Rx_26MHz_EU. Works with Tam Valley Depot EU DRS1 transmitters"
+#ifdef EU869MHz
+#pragma message "Info: using Rx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
-Rx_26MHz_EU
+Rx_26MHz_EU_869
 };
+#else
+#pragma message "Info: using Rx_26MHz_EU_434. Used for repeater receivers only"
+uint8_t initRxData_eu[48] = {
+Rx_26MHz_EU_434
+};
+#endif
 #pragma message "Info: using Tx_26MHz_NA. Works with CVP and Tam Valley Depot recievers"
 uint8_t initTxData_na[48] = {
 Tx_26MHz_NA
 };
-#pragma message "Info: using Tx_26MHz_EU. Works with Tam Valley Depot EU DRS1 receivers"
+#ifdef EU869MHz
+#pragma message "Info: using Tx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
-Tx_26MHz_EU
+Tx_26MHz_EU_869
 };
+#else
+#pragma message "Info: using Tx_26MHz_EU_434. For repeater transmitters only"
+uint8_t initTxData_eu[48] = {
+Tx_26MHz_EU_434
+};
+#endif
 #endif
 
 
 // Channels designations are 0-16.  These are the corresponding values
 // for the CC1101.
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
-uint8_t channels_na[17] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
-                           0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
-uint8_t channels_eu[1]  = {0x00};
+uint8_t channels_na[] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
+                         0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
+#ifdef EU869MHz
+#pragma message "Info: using EU 869MHz channels"
+uint8_t channels_eu[] = {0x00};
+#else
+#pragma message "Info: using EU 434MHz channels"
+uint8_t channels_eu[] = {0x00};
+#endif
 uint8_t channels_na_max = sizeof(channels_na)-1;
 uint8_t channels_max = sizeof(channels_na)+sizeof(channels_eu)-1;
 
@@ -129,11 +207,17 @@ uint8_t channels_max = sizeof(channels_na)+sizeof(channels_eu)-1;
 
 // See Table 4 of swra151a.pdf (0xC0 is the highest level of output @9.5dBM)
 // Removed 0x66 entry (-4.9dBM) per the note in this document
-//dBm                    -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
-uint8_t powers_na[11] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
+//dBm                  -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
+uint8_t powers_na[] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
 // See Table 3 of swra151a.pdf (0xC0 is the highest level of output @9.2dBm)
-// dbm                   -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  2.1   5.0   7.8   8.9   9.2
-uint8_t powers_eu[11] = {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}; 
+#ifdef EU869MHz
+#pragma message "Info: using EU 869MHz power table"
+// dbm                 -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  2.1   5.0   7.8   8.9   9.2
+uint8_t powers_eu[] = {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}; 
+#else
+#pragma message "Info: using EU 434MHz power table"
+uint8_t powers_eu[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0};
+#endif
 
 #define RX      0x34
 #define TX      0x35
