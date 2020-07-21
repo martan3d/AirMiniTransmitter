@@ -124,7 +124,7 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 uint8_t initRxData_na[48] = {
 Rx_27MHz_NA
 };
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using Rx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
 Rx_27MHz_EU_869
@@ -139,7 +139,7 @@ Rx_27MHz_EU_434
 uint8_t initTxData_na[48] = {
 Tx_27MHz_NA
 };
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using Tx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
 Tx_27MHz_EU_869
@@ -158,7 +158,7 @@ Tx_27MHz_EU_434
 uint8_t initRxData_na[48] = {
 Rx_26MHz_NA
 };
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using Rx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
 uint8_t initRxData_eu[48] = {
 Rx_26MHz_EU_869
@@ -173,7 +173,7 @@ Rx_26MHz_EU_434
 uint8_t initTxData_na[48] = {
 Tx_26MHz_NA
 };
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using Tx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
 uint8_t initTxData_eu[48] = {
 Tx_26MHz_EU_869
@@ -192,7 +192,7 @@ Tx_26MHz_EU_434
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
 uint8_t channels_na[] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E,
                          0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37};
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using EU 869MHz channels"
 uint8_t channels_eu[] = {0x00};
 #else
@@ -210,7 +210,7 @@ uint8_t channels_max = sizeof(channels_na)+sizeof(channels_eu)-1;
 //dBm                  -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  2.2   5.0   7.9   9.0   9.4
 uint8_t powers_na[] = {0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0}; 
 // See Table 3 of swra151a.pdf (0xC0 is the highest level of output @9.2dBm)
-#ifdef EU869MHz
+#if defined(EU869MHz)
 #pragma message "Info: using EU 869MHz power table"
 // dbm                 -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  2.1   5.0   7.8   8.9   9.2
 uint8_t powers_eu[] = {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}; 
