@@ -1,5 +1,11 @@
+//////////////////////////////////
+// Global configuration options //
+//////////////////////////////////
+
 // Include only once!
 #ifndef config_h
+//{
+
 #define config_h
 
 /*
@@ -32,33 +38,46 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */ 
 
-//////////////////////////////
-//    vvv User Entry Area vvv
+///////////////////////////////////
+//    vvv User Entry Area Below vvv
 
-// The LAST entry is active!
-// Use the 433MHz ISM band
-#undef EU869MHz
-// Use the 869MHz ISM band
-#define EU869MHz
+////////////////////////
+// Set band of operation
+////////////////////////
+// Use ONLY ONE of these
+#define NAEU_900MHz
+// #define EU_434MHz
+// #define NAEU_2p4GHz
 
-// The LAST entry is active!
-// To set the default North American channel (0)
-#define NA_DEFAULT
-// To set the default European channel (17)
-#undef NA_DEFAULT
-
+//////////////////////////
+// Set Transmitter or Receiver
+//////////////////////////
 // The LAST entry is active!
 // For receiver
 #undef TRANSMIT
 // For transmitter
 #define TRANSMIT
 
+/////////////////////////////////////////////////
+// Set the default channel for NA/EU 900MHz only!
+/////////////////////////////////////////////////
+// The LAST entry is active!
+#define NA_DEFAULT
+// To set the default European channel (17) for 900MHz only!
+#undef NA_DEFAULT
+
+//////////////////////////////////////////
+// Set the transceiver's crystal frequency
+//////////////////////////////////////////
 // The LAST entry is active!
 // For 26MHz transceiver
 #undef TWENTY_SEVEN_MHZ
 // For 27MHz transceivers (e.g., Anaren)
 #define TWENTY_SEVEN_MHZ
 
+////////////////////////////////
+// Set the LCD's default address
+////////////////////////////////
 // The LCD display's default address. 
 // The address range for TI serial drivers 
 // PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
@@ -67,64 +86,147 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // addresses are A2,A1,A0 from left to right on the boards
 #define LCDADDRESSDEFAULT 0x27
 
-//    ^^^ User Entry Area ^^^^
-//////////////////////////////
+//    ^^^ User Entry Area Above ^^^
+///////////////////////////////////
+
+
 
 ////////////////////////////////
 // Determined from defines above
 // Do NOT edit below this line
 ////////////////////////////////
 
-// Explict RECEIVE define/undef
+//////////////////////////////////////////////////////////////////////////////////////////
+// Messages. Most are simply informational to ensure the correct #define's have been used. 
+// Some of the error checking WILL halt compilation with an ERROR.
+#define xstr(x) str(x)
+#define str(x) #x
+// #define DO_PRAGMA(x) _Pragma(str(x))
+//////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////
+// Transmitter or Receiver options
+//////////////////////////////////
 #ifdef TRANSMIT
 #undef RECEIVE
 #else
 #define RECEIVE
 #endif
 
-// Explicit Frequency
+#ifdef TRANSMIT
+//{
+#pragma message "Info: Compiling for Transmitter"
+//}
+#else
+//{
+#ifdef RECEIVE
+//{
+#pragma message "Info: Compiling for Receiver"
+//}
+#endif
+//}
+#endif
+
+////////////////////////////////////////
+// Transceiver crystal frequency options
+////////////////////////////////////////
 #ifdef TWENTY_SEVEN_MHZ
 #undef TWENTY_SIX_MHZ
 #else
 #define TWENTY_SIX_MHZ
 #endif
 
-// Messages. When output duing compilation, THESE ARE NOT ERRORS or WARNINGS! They are simply informational.
-#define xstr(x) str(x)
-#define str(x) #x
-#define DO_PRAGMA(x) _Pragma(str(x))
-
-#ifdef TRANSMIT
-#pragma message "Info: Compiling for Transmitter"
-#endif
-#ifdef RECEIVE
-#pragma message "Info: Compiling for Receiver"
-#endif
-
 #ifdef TWENTY_SEVEN_MHZ
+//{
 #pragma message "Info: Compiling for 27MHz transceivers"
-#endif
+//}
+#else
+//{
 #ifdef TWENTY_SIX_MHZ
+//{
 #pragma message "Info: Compiling for 26MHz transceivers"
+// TWENTY_SIX_MHZ
+//}
 #endif
+//}
+#endif
+
+//////////////////////////
+// Band-dependent settings
+//////////////////////////
+#if ! defined(NAEU_900MHz) & ! defined(EU_434MHz) & ! defined(NAEU_2p4GHz)
+#error "ERROR: must define one of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+#endif
+
+#ifdef NAEU_900MHz
+//{
+
+#pragma message "Info: Using the EU 869MHz/NA 915MHz ISM band"
+
+#undef EU_434MHz
+#undef NAEU_2p4GHz
 
 #ifdef NA_DEFAULT
+//{
 #define CHANNELDEFAULT 0
-#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) " (North America)"
+//}
 #else
+//{
 #define EU_DEFAULT
 #define CHANNELDEFAULT 17
-#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) " (Europe)"
+//}
 #endif
 
-#ifdef EU869MHz
-#pragma message "Info: Using the 869MHz European ISM band"
+//}
 #else
-#define EU434MHz
-#pragma message "Info: Using the 434MHz European ISM band"
+//{
+#ifdef EU_434MHz
+//{
+
+#pragma message "Info: Using the EU 434MHz ISM band"
+
+#undef NAEU_900MHz
+#undef NAEU_2p4GHz
+
+#define CHANNELDEFAULT 0
+
+//}
+#else
+//{
+#ifdef NAEU_2p4GHz
+//{
+
+#pragma message "Info: Using the worldwide 2.4GHz ISM band"
+
+#undef EU_434MHz
+#undef NAEU_2p4GHz
+
+#define CHANNELDEFAULT 0
+
+//}
+#endif
+//}
+#endif
+//}
+#endif
+
+/////////////////
+// Misc. settings
+/////////////////
+#if ! defined(CHANNELDEFAULT)
+#error "ERROR: CHANNELDEFAULT is undefined"
+#endif
+
+#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
+
+#if ! defined(LCDADDRESSDEFAULT)
+#error "ERROR: LCDADDRESSDEFAULT is undefined"
 #endif
 
 #pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 
-// End of entire include
+///////////////////////////
+// End of entire include //
+///////////////////////////
+//}
 #endif
