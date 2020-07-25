@@ -45,9 +45,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set band of operation
 ////////////////////////
 // Use ONLY ONE of these
-#define NAEU_900MHz
+// #define NAEU_900MHz
 // #define EU_434MHz
-// #define NAEU_2p4GHz
+#define NAEU_2p4GHz
 
 //////////////////////////
 // Set Transmitter or Receiver
@@ -162,8 +162,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma message "Info: Using the EU 869MHz/NA 915MHz ISM band"
 
-#undef EU_434MHz
-#undef NAEU_2p4GHz
+#if defined(EU_434MHz) | defined(NAEU_2p4GHz)
+#error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+#endif
 
 #ifdef NA_DEFAULT
 //{
@@ -184,8 +185,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma message "Info: Using the EU 434MHz ISM band"
 
-#undef NAEU_900MHz
-#undef NAEU_2p4GHz
+#if defined(NAEU_2p4GHz)
+#error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+#endif
 
 #define CHANNELDEFAULT 0
 
@@ -196,9 +198,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //{
 
 #pragma message "Info: Using the worldwide 2.4GHz ISM band"
-
-#undef NAEU_900MHz
-#undef EU_434MHz
 
 #define CHANNELDEFAULT 0
 
