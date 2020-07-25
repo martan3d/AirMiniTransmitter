@@ -119,7 +119,6 @@ uint8_t          newIndex     = 2;
 // DEFAULT defines
 extern uint8_t channels_max;     // From spi.c
 extern uint8_t channels_na_max;  // From spi.c
-uint8_t CHANNELMAX=channels_max; // Maximum channel NA & EU
 
 #ifdef TRANSMIT
 #define POWERLEVELDEFAULT 8
@@ -189,11 +188,59 @@ uint64_t startInitialWaitTime;               // The start of the initial wait ti
 uint64_t endInitialWaitTime;                 // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
 uint8_t searchChannelIndex = 0;              // Initialial channel search order index
-uint8_t searchChannels[] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #else
 uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
 #endif
+
 uint8_t bannerInit = 1;                      // Only display the banner the first time inside channel searching
+uint8_t regionNum=0;
+#if defined(NAEU_900MHz)
+//{
+#pragma message "Info: using NA/EU 900MHz frequency-dependent settings"
+#ifdef RECEIVE
+uint8_t searchChannels[] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
+#endif
+#ifdef USE_LCD
+char bannerString[17] = "ProMini Air NA/E";
+char regionString[][2] = {"N","E"}; // Region code: N=North America, E=Europe, W=Worldwide
+#endif
+//}
+#else
+//{
+
+#if defined(EU_434MHz)
+//{
+#pragma message "Info: using EU 434MHz frequency-dependent settings"
+#ifdef RECEIVE
+uint8_t searchChannels[] = {0}; // Channel search order
+#endif
+#ifdef USE_LCD
+char bannerString[17] = "ProMini Air EU";
+char regionString[][2] = {"E"}; // Region code: N=North America, E=Europe, W=Worldwide
+#endif
+//}
+#else
+//{
+
+#if defined(NAEU_2p4GHz)
+//{
+#pragma message "Info: using Worldwide 2.4GHz frequency-dependent settings"
+#ifdef RECEIVE
+uint8_t searchChannels[] = {0,1,2,3,4,5,6,7}; // Channel search order
+#endif
+#ifdef USE_LCD
+char bannerString[17] = "ProMini Air WW";
+char regionString[][2] = {"W"}; // Region code: N=North America, E=Europe, W=Worldwide
+#endif
+//}
+#endif
+
+//}
+#endif
+
+//}
+#endif
+
 
 
 // Changing with CV's
@@ -282,7 +329,6 @@ uint64_t prevLCDTime = 0;                      // Initialize the last time displ
 bool refreshLCD = true;                        // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end null!
-char region[] = "N";                           // Region code: N=North America, E=Europe
 #endif
 
 /******************************************************************************/
@@ -364,13 +410,13 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 void LCD_Banner(uint8_t bannerInit)
 {
   lcd.setCursor(0,0);              // Set initial column, row
-  if (bannerInit) lcd.print("ProMini Air NA/E");   // Banner
+  if (bannerInit) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
-  lcd.print("H:1.0 S:1.7/27MH");   // Show state
+  lcd.print("H:1.0 S:1.8/27MH");   // Show state
 #else
-  lcd.print("H:1.0 S:1.7/26MH");   // Show state
+  lcd.print("H:1.0 S:1.8/26MH");   // Show state
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;
@@ -420,15 +466,19 @@ void LCD_Addr_Ch_PL()
     
   lcd.print(lcd_line);
   lcd.setCursor(0,1); // column, row
+
+#if defined(NAEU_900MHz)
   if (CHANNEL <= channels_na_max)
-     snprintf(region,sizeof(region),"%s","N");
+     regionNum=0;
   else
-     snprintf(region,sizeof(region),"%s","E");
+     regionNum=1;
+#endif
+
 #ifdef TRANSMIT
-  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, region, powerLevel);
+  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, regionString[regionNum], powerLevel);
 #else
-  if (filterModemData) snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, region, 1);
-  else                 snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, region, 0);
+  if (filterModemData) snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], 1);
+  else                 snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], 0);
 #endif
   lcd.print(lcd_line);
   return;
@@ -471,11 +521,15 @@ void LCD_Wait_Period_Over(int status)
   lcd.print(lcd_line);
 
   lcd.setCursor(0,1); // column, row 
+
+#if defined(NAEU_900MHz)
   if (CHANNEL <= channels_na_max)
-     snprintf(region,sizeof(region),"%s","N");
+     regionNum=0;
   else
-     snprintf(region,sizeof(region),"%s","E");
-  snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d(%s)",CHANNEL, region);
+     regionNum=1;
+#endif
+
+  snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d(%s)",CHANNEL, regionString[regionNum]);
   lcd.print(lcd_line);
   prevLCDTime  = getMsClock();
   refreshLCD = true;
@@ -506,7 +560,7 @@ void setup() {
   // Get the CHANNEL # stored in EEPROM and validate it
   // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
   checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 0);      // Validate the channel, it's possible the EEPROM has bad data
-  if(CHANNEL > CHANNELMAX) 
+  if(CHANNEL > channels_max) 
       checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 1);  // Force the EEPROM data to use CHANNEL 0, if the CHANNEL is invalid
   
   // Just flat out set the powerLevel
@@ -736,7 +790,7 @@ void loop() {
 	                            switch(CVnum)
                                     {
                                       case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
-                                          if(CVval <= CHANNELMAX)           // Check for good values
+                                          if(CVval <= channels_max)           // Check for good values
                                             {
                                               checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CVval, 1);  
                                               startModemFlag = 1;
