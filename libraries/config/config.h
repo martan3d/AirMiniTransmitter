@@ -145,7 +145,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef TWENTY_SIX_MHZ
 //{
 #pragma message "Info: Compiling for 26MHz transceivers"
-// TWENTY_SIX_MHZ
 //}
 #endif
 //}
@@ -198,8 +197,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma message "Info: Using the worldwide 2.4GHz ISM band"
 
+#undef NAEU_900MHz
 #undef EU_434MHz
-#undef NAEU_2p4GHz
 
 #define CHANNELDEFAULT 0
 
