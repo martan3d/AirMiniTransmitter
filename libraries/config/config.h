@@ -45,9 +45,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set band of operation
 ////////////////////////
 // Use ONLY ONE of these
-// #define NAEU_900MHz
+#define NAEU_900MHz
 // #define EU_434MHz
-#define NAEU_2p4GHz
+// #define NAEU_2p4GHz
 
 //////////////////////////
 // Set Transmitter or Receiver
