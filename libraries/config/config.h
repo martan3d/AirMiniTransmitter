@@ -45,18 +45,18 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set band of operation
 ////////////////////////
 // Use ONLY ONE of these
-#define NAEU_900MHz
-// #define EU_434MHz
+// #define NAEU_900MHz
+#define EU_434MHz
 // #define NAEU_2p4GHz
 
 //////////////////////////
 // Set Transmitter or Receiver
 //////////////////////////
 // The LAST entry is active!
-// For transmitter
-#define TRANSMIT
 // For receiver
 #undef TRANSMIT
+// For transmitter
+#define TRANSMIT
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
@@ -71,10 +71,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
 // The LAST entry is active!
-// For 26MHz transceiver
-#undef TWENTY_SEVEN_MHZ
 // For 27MHz transceivers (e.g., Anaren)
 #define TWENTY_SEVEN_MHZ
+// For 26MHz transceiver
+#undef TWENTY_SEVEN_MHZ
 
 ////////////////////////////////
 // Set the LCD's default address
