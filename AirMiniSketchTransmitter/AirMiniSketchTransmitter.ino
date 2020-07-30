@@ -198,11 +198,11 @@ uint8_t regionNum=0;
 //{
 #pragma message "Info: using NA/EU 900MHz frequency-dependent settings"
 #ifdef RECEIVE
-uint8_t searchChannels[] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
+uint8_t searchChannels[18] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #endif
 #ifdef USE_LCD
-char bannerString[17] = "ProMini Air NA/E";
-char regionString[][2] = {"N","E"}; // Region code: N=North America, E=Europe, W=Worldwide
+const char *bannerString = "ProMini Air NA/E";
+const char *regionString[] = {"N","E"}; // Region code: N=North America, E=Europe, W=Worldwide
 #endif
 //}
 #else
@@ -212,11 +212,11 @@ char regionString[][2] = {"N","E"}; // Region code: N=North America, E=Europe, W
 //{
 #pragma message "Info: using EU 434MHz frequency-dependent settings"
 #ifdef RECEIVE
-uint8_t searchChannels[] = {0}; // Channel search order
+uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
 #ifdef USE_LCD
-char bannerString[17] = "ProMini Air EU";
-char regionString[][2] = {"E"}; // Region code: N=North America, E=Europe, W=Worldwide
+const char *bannerString = "ProMini Air EU";
+const char *regionString[] = {"E"}; // Region code: N=North America, E=Europe, W=Worldwide
 #endif
 //}
 #else
@@ -226,11 +226,11 @@ char regionString[][2] = {"E"}; // Region code: N=North America, E=Europe, W=Wor
 //{
 #pragma message "Info: using Worldwide 2.4GHz frequency-dependent settings"
 #ifdef RECEIVE
-uint8_t searchChannels[] = {0,1,2,3,4,5,6,7}; // Channel search order
+uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
 #ifdef USE_LCD
-char bannerString[17] = "ProMini Air WW";
-char regionString[][2] = {"W"}; // Region code: N=North America, E=Europe, W=Worldwide
+const char *bannerString = "ProMini Air WW";
+const char *regionString[] = {"W"}; // Region code: N=North America, E=Europe, W=Worldwide
 #endif
 //}
 #endif
@@ -414,9 +414,19 @@ void LCD_Banner(uint8_t bannerInit)
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
+//{
   lcd.print("H:1.0 S:1.8/27MH");   // Show state
+//}
 #else
+//{
+#ifdef TWENTY_SIX_MHZ
   lcd.print("H:1.0 S:1.8/26MH");   // Show state
+#else
+//{
+#error "Undefined crystal frequency"
+//}
+#endif
+//}
 #endif
   prevLCDTime  = getMsClock();     // Set up the previous display time
   refreshLCD = true;

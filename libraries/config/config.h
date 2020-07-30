@@ -53,18 +53,19 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set Transmitter or Receiver
 //////////////////////////
 // The LAST entry is active!
-// For receiver
-#undef TRANSMIT
 // For transmitter
 #define TRANSMIT
+// For receiver
+#undef TRANSMIT
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
 // The LAST entry is active!
-#define NA_DEFAULT
 // To set the default European channel (17) for 900MHz only!
 #undef NA_DEFAULT
+// To set the default to NA channel 0 for 900MHz only!
+#define NA_DEFAULT
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
@@ -136,6 +137,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TWENTY_SIX_MHZ
 #endif
 
+
+
 #ifdef TWENTY_SEVEN_MHZ
 //{
 #pragma message "Info: Compiling for 27MHz transceivers"
@@ -146,6 +149,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //{
 #pragma message "Info: Compiling for 26MHz transceivers"
 //}
+#else
+//{
+#error "Undefined crystal frequency"
+//}
 #endif
 //}
 #endif
@@ -153,7 +160,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////
 // Band-dependent settings
 //////////////////////////
-#if ! defined(NAEU_900MHz) & ! defined(EU_434MHz) & ! defined(NAEU_2p4GHz)
+#if ! defined(NAEU_900MHz) && ! defined(EU_434MHz) && ! defined(NAEU_2p4GHz)
 #error "ERROR: must define one of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
 #endif
 
@@ -162,7 +169,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma message "Info: Using the EU 869MHz/NA 915MHz ISM band"
 
-#if defined(EU_434MHz) | defined(NAEU_2p4GHz)
+#if defined(EU_434MHz) || defined(NAEU_2p4GHz)
 #error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
 #endif
 
