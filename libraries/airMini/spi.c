@@ -365,7 +365,7 @@ const uint8_t powers[1][11] = {{0x12, 0x0E, 0x1D, 0x34, 0x60, 0xB4, 0xC8, 0xC0, 
 //{
 // Based on Table 4 of A2400R24x - User's Manual
 #pragma message "Info: using Worldwide 2.4GHz power table (-16dBm to 1.0dBm)"
-// dBm                   -16.0 -14.0 -12.0 -10.0 -8.0  -6.0  -4.0  -2.0  0.0   +1.0  +1.0
+// dBm                          -16.0 -14.0 -12.0 -10.0 -8.0  -6.0  -4.0  -2.0  0.0   +1.0  +1.0
 const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 0xFE, 0xFF, 0xFF}};
 // NAEU_2p4GHz
 //}
