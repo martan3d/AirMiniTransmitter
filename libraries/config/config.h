@@ -46,35 +46,35 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////
 // Use ONLY ONE of these
 // #define NAEU_900MHz
-#define EU_434MHz
-// #define NAEU_2p4GHz
+// #define EU_434MHz
+#define NAEU_2p4GHz
 
 //////////////////////////
 // Set Transmitter or Receiver
 //////////////////////////
-// The LAST entry is active!
+// Uncomment ONLY ONE
 // For receiver
-#undef TRANSMIT
+#define RECEIVE
 // For transmitter
-#define TRANSMIT
+// #define TRANSMIT
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
-// The LAST entry is active!
+// Uncomment ONLY ONE
 // To set the default European channel (17) for 900MHz only!
-#undef NA_DEFAULT
+#define EU_DEFAULT
 // To set the default to NA channel 0 for 900MHz only!
-#define NA_DEFAULT
+// #define NA_DEFAULT
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
-// The LAST entry is active!
+// Uncomment ONLY ONE
 // For 27MHz transceivers (e.g., Anaren)
-#define TWENTY_SEVEN_MHZ
+// #define TWENTY_SEVEN_MHZ
 // For 26MHz transceiver
-#undef TWENTY_SEVEN_MHZ
+#define TWENTY_SIX_MHZ
 
 ////////////////////////////////
 // Set the LCD's default address
@@ -108,10 +108,16 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////
 // Transmitter or Receiver options
 //////////////////////////////////
-#ifdef TRANSMIT
-#undef RECEIVE
+#if defined(TRANSMIT) && defined (RECEIVE)
+//{
+#error "ERROR: TRANSMIT and RECEIVE are both defined"
+//}
 #else
-#define RECEIVE
+//{
+#if ! defined(TRANSMIT) && ! defined(RECEIVE)
+#error "ERROR: TRANSMIT are RECEIVE are both undefined"
+#endif
+//}
 #endif
 
 #ifdef TRANSMIT
@@ -131,13 +137,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////////////////////
 // Transceiver crystal frequency options
 ////////////////////////////////////////
-#ifdef TWENTY_SEVEN_MHZ
-#undef TWENTY_SIX_MHZ
+#if defined(TWENTY_SEVEN_MHZ) && defined (TWENTY_SIX_MHZ)
+//{
+#error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both defined"
+//}
 #else
-#define TWENTY_SIX_MHZ
+//{
+#if ! defined(TWENTY_SEVEN_MHZ) && ! defined (TWENTY_SIX_MHZ)
+#error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both undefined"
 #endif
-
-
+//}
+#endif
 
 #ifdef TWENTY_SEVEN_MHZ
 //{
@@ -173,14 +183,29 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
 #endif
 
+#if defined(NA_DEFAULT) && defined (EU_DEFAULT)
+//{
+#error "ERROR: NA_DEFAULT and EU_DEFAULT are both defined"
+//}
+#else
+//{
+#if ! defined(NA_DEFAULT) && ! defined (EU_DEFAULT)
+#error "ERROR: NA_DEFAULT and EU_DEFAULT are both undefined"
+#endif
+//}
+#endif
+
 #ifdef NA_DEFAULT
 //{
 #define CHANNELDEFAULT 0
 //}
 #else
 //{
-#define EU_DEFAULT
+#ifdef EU_DEFAULT
+//{
 #define CHANNELDEFAULT 17
+//}
+#endif
 //}
 #endif
 
