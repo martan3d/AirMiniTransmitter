@@ -45,9 +45,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set band of operation
 ////////////////////////
 // Use ONLY ONE of these
-// #define NAEU_900MHz
+#define NAEU_900MHz
 // #define EU_434MHz
-#define NAEU_2p4GHz
+// #define NAEU_2p4GHz
 
 //////////////////////////
 // Set Transmitter or Receiver
@@ -63,17 +63,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////////////////////////////////////
 // Uncomment ONLY ONE
 // To set the default European channel (17) for 900MHz only!
-#define EU_DEFAULT
+// #define EU_DEFAULT
 // To set the default to NA channel 0 for 900MHz only!
-// #define NA_DEFAULT
+#define NA_DEFAULT
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
 // Uncomment ONLY ONE
-// For 27MHz transceivers (e.g., Anaren)
+// For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)
 // #define TWENTY_SEVEN_MHZ
-// For 26MHz transceiver
+// For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)
 #define TWENTY_SIX_MHZ
 
 ////////////////////////////////
@@ -245,15 +245,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////
 #if ! defined(CHANNELDEFAULT)
 #error "ERROR: CHANNELDEFAULT is undefined"
+#else
+#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
 #endif
 
-#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
 
 #if ! defined(LCDADDRESSDEFAULT)
 #error "ERROR: LCDADDRESSDEFAULT is undefined"
+#else
+#pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 #endif
 
-#pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 
 ///////////////////////////
 // End of entire include //
