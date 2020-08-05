@@ -688,6 +688,7 @@ void setup() {
 
   initServoTimer();                           // Master Timer plus servo timer
   initializeSPI();                            // Initialize the SPI interface to the radio
+  delay(10);                                  // Wait a bit for the SPI
   dccInit();                                  // Enable DCC transmit/receive
   startModem(CHANNEL, MODE);                  // Start on this Channel
 
