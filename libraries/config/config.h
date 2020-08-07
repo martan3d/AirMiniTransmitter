@@ -45,8 +45,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set band of operation
 ////////////////////////
 // Use ONLY ONE of these
+// For 896/915MHz EU/NA ISM bands
 #define NAEU_900MHz
+// For EU-only 434MHz ISM band
 // #define EU_434MHz
+// For World-Wide 2.4GHz ISM band
 // #define NAEU_2p4GHz
 
 //////////////////////////
@@ -62,19 +65,19 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
 // Uncomment ONLY ONE
-// To set the default European channel (17) for 900MHz only!
-// #define EU_DEFAULT
-// To set the default to NA channel 0 for 900MHz only!
+// To set the default to NA channel  0 for 869/915MHz ISM bands only!
 #define NA_DEFAULT
+// To set the default to EU channel 17 for 869/915MHz ISM bands only!
+// #define EU_DEFAULT
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
 // Uncomment ONLY ONE
 // For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)
-// #define TWENTY_SEVEN_MHZ
+#define TWENTY_SEVEN_MHZ
 // For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)
-#define TWENTY_SIX_MHZ
+// #define TWENTY_SIX_MHZ
 
 ////////////////////////////////
 // Set the LCD's default address
@@ -86,6 +89,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // O=Open jumper (=High); C=Closed jumper (=Low), 
 // addresses are A2,A1,A0 from left to right on the boards
 #define LCDADDRESSDEFAULT 0x27
+// #define LCDADDRESSDEFAULT 0x3F
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
