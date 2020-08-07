@@ -52,10 +52,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // For World-Wide 2.4GHz ISM band
 // #define NAEU_2p4GHz
 
-//////////////////////////
+//////////////////////////////
 // Set Transmitter or Receiver
-//////////////////////////
-// Uncomment ONLY ONE
+//////////////////////////////
+// Uncomment ONLY ONE #define
 // For receiver
 #define RECEIVE
 // For transmitter
@@ -64,7 +64,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
-// Uncomment ONLY ONE
+// Uncomment ONLY ONE #define
 // To set the default to NA channel  0 for 869/915MHz ISM bands only!
 #define NA_DEFAULT
 // To set the default to EU channel 17 for 869/915MHz ISM bands only!
@@ -73,7 +73,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
-// Uncomment ONLY ONE
+// Uncomment ONLY ONE #define
 // For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)
 #define TWENTY_SEVEN_MHZ
 // For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)
@@ -82,6 +82,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////////////
 // Set the LCD's default address
 ////////////////////////////////
+// Uncomment ONLY ONE #define
 // The LCD display's default address. 
 // The address range for TI serial drivers 
 // PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
