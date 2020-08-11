@@ -46,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////
 // Use ONLY ONE of these
 // For 896/915MHz EU/NA ISM bands
-#define NAEU_900MHz
+// #define NAEU_900MHz
 // For EU-only 434MHz ISM band
 // #define EU_434MHz
 // For World-Wide 2.4GHz ISM band
@@ -57,7 +57,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////
 // Uncomment ONLY ONE #define
 // For receiver
-#define RECEIVE
+// #define RECEIVE
 // For transmitter
 // #define TRANSMIT
 
@@ -66,7 +66,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////////////////////////////////////
 // Uncomment ONLY ONE #define
 // To set the default to NA channel  0 for 869/915MHz ISM bands only!
-#define NA_DEFAULT
+// #define NA_DEFAULT
 // To set the default to EU channel 17 for 869/915MHz ISM bands only!
 // #define EU_DEFAULT
 
@@ -75,7 +75,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////
 // Uncomment ONLY ONE #define
 // For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)
-#define TWENTY_SEVEN_MHZ
+// #define TWENTY_SEVEN_MHZ
 // For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)
 // #define TWENTY_SIX_MHZ
 
@@ -91,6 +91,27 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // addresses are A2,A1,A0 from left to right on the boards
 #define LCDADDRESSDEFAULT 0x27
 // #define LCDADDRESSDEFAULT 0x3F
+
+//////////////////////////////////////////////////////
+// Special settings. You are NOT required to uncomment
+//////////////////////////////////////////////////////
+// The final Long address is (CV17-192)*256+CV18
+// #define AIRMINICV17DEFAULT 227
+// #ifdef TRANSMIT
+// #define AIRMINICV18DEFAULT 40
+// For Base Station Repeater Transmitter
+// #define AIRMINICV18DEFAULT 42
+// #else
+// #define AIRMINICV18DEFAULT 41
+// For Repeater Receiver
+// #define AIRMINICV18DEFAULT 43
+// #endif
+
+// Uncomment for Repeater transmitter?
+// #define AUTOIDLEOFFDEFAULT 0
+
+// For Repeaters
+// #define CHANNELDEFAULT 15
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
@@ -202,13 +223,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef NA_DEFAULT
 //{
+#if ! defined(CHANNELDEFAULT)
 #define CHANNELDEFAULT 0
+#endif
 //}
 #else
 //{
 #ifdef EU_DEFAULT
 //{
+#if ! defined(CHANNELDEFAULT)
 #define CHANNELDEFAULT 17
+#endif
 //}
 #endif
 //}
@@ -226,7 +251,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
 #endif
 
+#if ! defined(CHANNELDEFAULT)
 #define CHANNELDEFAULT 0
+#endif
 
 //}
 #else
@@ -236,7 +263,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma message "Info: Using the worldwide 2.4GHz ISM band"
 
+#if ! defined(CHANNELDEFAULT)
 #define CHANNELDEFAULT 0
+#endif
 
 //}
 #endif
