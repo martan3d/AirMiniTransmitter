@@ -131,20 +131,34 @@ extern uint8_t channels_na_max;  // From spi.c
 #define IDLEPERIODMSDEFAULT 0
 #define FILTERMODEMDATADEFAULT 0
 #define AIRMINICV1DEFAULT 3
-#define AIRMINICV17DEFAULT 227
 
+#if ! defined(AIRMINICV17DEFAULT)
+#define AIRMINICV17DEFAULT 227
+#endif
+#pragma message "Info: Default CV17 is " xstr(AIRMINICV17DEFAULT)
+
+#if ! defined(AIRMINICV18DEFAULT)
+//{
 #ifdef TRANSMIT
 #define AIRMINICV18DEFAULT 40
 #else
 #define AIRMINICV18DEFAULT 41
 #endif
+//}
+#endif
+#pragma message "Info: Default CV18 is " xstr(AIRMINICV18DEFAULT)
 
 #define AIRMINICV29DEFAULT 32
 
 #ifdef RECEIVE
 #define INITIALWAITPERIODSECDEFAULT 1
 #else
+//{
+#if ! defined(AUTOIDLEOFFDEFAULT)
 #define AUTOIDLEOFFDEFAULT 0
+#endif
+#pragma message "Info: Default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
+//}
 #endif
 
 
