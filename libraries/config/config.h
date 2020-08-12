@@ -84,12 +84,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////////////
 // Uncomment ONLY ONE #define
 // The LCD display's default address. 
-// The address range for TI serial drivers 
-// PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
-// PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
 // O=Open jumper (=High); C=Closed jumper (=Low), 
 // addresses are A2,A1,A0 from left to right on the boards
-#define LCDADDRESSDEFAULT 0x27
+// The address range for TI serial drivers 
+// PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
+// #define LCDADDRESSDEFAULT 0x27
+// PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
 // #define LCDADDRESSDEFAULT 0x3F
 
 //////////////////////////////////////////////////////
@@ -97,21 +97,37 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////
 // The final Long address is (CV17-192)*256+CV18
 // #define AIRMINICV17DEFAULT 227
-// #ifdef TRANSMIT
+#ifdef TRANSMIT
 // #define AIRMINICV18DEFAULT 40
 // For Base Station Repeater Transmitter
 // #define AIRMINICV18DEFAULT 42
-// #else
+#else
 // #define AIRMINICV18DEFAULT 41
 // For Repeater Receiver
 // #define AIRMINICV18DEFAULT 43
-// #endif
+#endif
 
-// Uncomment for Repeater transmitter?
-// #define AUTOIDLEOFFDEFAULT 0
+// Uncomment for Base Station repeater transmitter
+// #define AUTOIDLEOFFDEFAULT 1
 
-// For Repeaters
+// For 915MHz NA only Repeaters
 // #define CHANNELDEFAULT 15
+
+////////////////////////////////////////////////////
+// Expert section. Edit only if you really know what
+// you are doing. The defaults seem to work well.
+////////////////////////////////////////////////////
+
+// SPCR value -- Change only if you want to alter
+// the coms speed and other SPI configuration attributes
+// This value sets the communication speed to 512MHz (last
+// two bits)
+// #define SPCRDEFAULT 0x52
+
+// Turn off interrupts in "critical" sections dealing with
+// assignment of messages for transmission. 
+// Change at your own risk.
+// #define DONTUSEINTERRUPTS
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
@@ -290,6 +306,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 #endif
 
+#if defined(SPCRDEFAULT)
+#pragma message "Info: Changed SPCR value to " xstr(SPCRDEFAULT)
+#endif
+
+#if defined(DONTUSEINTERRUPTS)
+#pragma message "Info: NOT turning off critical-section interrupts"
+#else
+#pragma message "Info: turning off critical-section interrupts"
+#endif
 
 ///////////////////////////
 // End of entire include //
