@@ -355,7 +355,7 @@ char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end
 ///////////////////
 bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
     
-#if ! defined(DONTUSEINTERRUPTS)
+#if ! defined(DONTTURNOFFINTERRUPTS)
     cli(); // turn off interrupts
 #endif
     bool retval = false;
@@ -369,7 +369,7 @@ bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
 
     currentIndex = lastMessageExtracted;                                              // Set the variable used by DCCLibrary.c to access the msg ring buffer with no update
     memcpy((void *)&msgExtracted[0], (void *)&msg[currentIndex], sizeof(Message));    // Extract the message into private msg
-#if ! defined(DONTUSEINTERRUPTS)
+#if ! defined(DONTTURNOFFINTERRUPTS)
     sei(); // turn on interrupts
 #endif
 
@@ -746,7 +746,7 @@ void loop() {
 #ifdef TRANSMIT
 //{
 
-#if ! defined(DONTUSEINTERRUPTS)
+#if ! defined(DONTTURNOFFINTERRUPTS)
                      cli(); // Turn off interrupts
 #endif
 
@@ -766,12 +766,6 @@ void loop() {
                         dccptrRepeatCount = 0;
                         lastIdleTime = getMsClock();
 #ifdef DCCLibrary
-/*
-                        msg[newIndex].data[0] = 0xFF;
-                        msg[newIndex].data[1] = 0x00;
-                        msg[newIndex].data[2] = 0xFF;
-                        msg[newIndex].len     = 3;
-*/
                         memcpy((void *)&msg[newIndex],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
                      }
@@ -781,7 +775,7 @@ void loop() {
                      // We do it here to make sure the ISR's don't affect the value
                      lastMessageInserted = newIndex;
 #endif
-#if ! defined(DONTUSEINTERRUPTS)
+#if ! defined(DONTTURNOFFINTERRUPTS)
                      sei(); // Turn interrupts back on
 #endif
 //} TRANSMIT

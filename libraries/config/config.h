@@ -124,10 +124,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // two bits)
 // #define SPCRDEFAULT 0x52
 
-// Turn off interrupts in "critical" sections dealing with
+// Do NOT turn off interrupts in "critical" sections dealing with
 // assignment of messages for transmission. 
 // Change at your own risk.
-// #define DONTUSEINTERRUPTS
+// #define DONTTURNOFFINTERRUPTS
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
@@ -310,10 +310,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma message "Info: Changed SPCR value to " xstr(SPCRDEFAULT)
 #endif
 
-#if defined(DONTUSEINTERRUPTS)
-#pragma message "Info: NOT turning off critical-section interrupts"
+#if ! defined(DONTTURNOFFINTERRUPTS)
+#pragma message "Info: turning off interrupts in critical-sections"
 #else
-#pragma message "Info: turning off critical-section interrupts"
+#pragma message "Info: NOT turning off interrupts in critical-sections"
 #endif
 
 ///////////////////////////
