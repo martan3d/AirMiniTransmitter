@@ -117,6 +117,7 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 //                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *                                       *    *    *    *    *                        *    *    *
 /*
 #define Rx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1A,0x7F,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
+#define Tx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1A,0x7F,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
 */
 
 // 2433MHz Base Frequency, 26MHz Xtal Frequency, 2-FSK, 0 Channel Number, 39.9704kBaud, 50.781250kHz Deviation, 199.554443kHZ Channel Spacing 101.562500kHz RX Filter BW
@@ -342,11 +343,11 @@ uint8_t channels_max = sizeof(channels) - 1;
 #pragma message "Info: using EU 869MHz power table (-30.2dBm to 9.2dBm)"
 // See Table 4 of swra151a.pdf (0xC0 is the highest level of output @9.5dBm)
 // Removed 0x66 entry (-4.9dBm) per the note in this document
-// dBm                   -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  +2.2  +5.0  +7.9  +9.0  +9.4
+// dBm                          -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  +2.2  +5.0  +7.9  +9.0  +9.4
 const uint8_t powers[2][11] = {{0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0},
 // See Table 3 of swra151a.pdf (0xC0 is the highest level of output @9.2dBm)
-// dBm                 -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  +2.1  +5.0  +7.8  +8.9  +9.2
-                      {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}}; 
+// dBm                          -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  +2.1  +5.0  +7.8  +8.9  +9.2
+                               {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}}; 
 // NAEU_900MHz
 //}
 #else
@@ -355,7 +356,7 @@ const uint8_t powers[2][11] = {{0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 
 #if defined(EU_434MHz)
 //{
 #pragma message "Info: using EU 434MHz power table (-30dBm to +10.0dBm)"
-//                       -30.0 -20.0 -15.0 -10.0 0.0   +5.0  +7.0  +10.0 +10.0 +10.0 +10.0
+//                              -30.0 -20.0 -15.0 -10.0 0.0   +5.0  +7.0  +10.0 +10.0 +10.0 +10.0
 const uint8_t powers[1][11] = {{0x12, 0x0E, 0x1D, 0x34, 0x60, 0xB4, 0xC8, 0xC0, 0xC0, 0xC0, 0xC0}};
 // EU_434MHz
 //}
@@ -386,6 +387,7 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define PATABLE 0x3E
 #define CHAN    0x0A
 #define SS      0x04
+#define MISO    0x10 // Pin B4 (b0001 0000)
 #define SNOP    0x3d
 
 #define WRITE_BURST 0x40
@@ -404,6 +406,7 @@ void initializeSPI()
                               //    |
                               //    MISO (P12) is input
     PORTB |= SS;              // 000001 00 disable modem on CSN (P10)
+#if ! defined(SPCRDEFAULT)
     SPCR = 0x52;              // 01010010 Serial Port Control Register setting
 //  SPCR = 0x53;              // 01010011 Serial Port Control Register setting
                               // ||||||||
@@ -414,6 +417,9 @@ void initializeSPI()
                               // ||DORD: MSB first (0)
                               // |SPE: Enable SPI (1)
                               // SPIE: Disable SPI Interrupt (0)
+#else
+    SPCR = SPCRDEFAULT;
+#endif
 
     clr = SPSR;               // Clear out any junk
     clr = SPDR;               // Clear out any junk
@@ -430,6 +436,7 @@ uint8_t clockSPI(uint8_t data)
 void writeReg(uint8_t reg, unsigned int data)
 {
     PORTB &= ~SS;                // select modem (port low)
+    while(PINB & MISO);
 
     clockSPI(reg);              // Channel Command
     clockSPI(data);
@@ -467,17 +474,20 @@ void startModem(uint8_t channel, uint8_t mode)
     sendReceive(STOP);           // send stop command to modem
 
     PORTB &= ~SS;                // select modem (port low)
+    while(PINB & MISO);
     for(i=0; i<48; i++) {
        clockSPI(md[i]);
        }
     PORTB |= SS;                 // disable modem
 
     PORTB &= ~SS;                // select modem (port low)
+    while(PINB & MISO);
     clockSPI(PATABLE);           // Power Command
     clockSPI(powerCode);         // And hardcoded for RX
     PORTB |= SS;                 // disable modem
 
     PORTB &= ~SS;                // select modem (port low)
+    while(PINB & MISO);
     clockSPI(CHAN);              // Channel Command
     clockSPI(channelCode);
     PORTB |= SS;                 // disable modem
@@ -489,6 +499,7 @@ void startModem(uint8_t channel, uint8_t mode)
 uint8_t sendReceive(uint8_t data)
 {
     PORTB &= ~SS;             // select modem (port low)
+    while(PINB & MISO);
     SPDR = data;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     PORTB |= SS;              // disable modem
@@ -500,6 +511,7 @@ uint8_t readReg(uint8_t addr)
     uint8_t ret;
     
     PORTB &= ~SS;             // select modem (port low)
+    while(PINB & MISO);
     SPDR = addr;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     SPDR = 0;                 // generic out, we only want read back
