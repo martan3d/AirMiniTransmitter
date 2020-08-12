@@ -74,15 +74,18 @@ extern bool (*GetNextMessage)(void); // For DCCLibrary
 #define msgSize 32       // The size of the ring buffer. Per Martin's new code
 // Implement a ring buffer
 volatile Message msg[msgSize] = {      // -> to DCCLibrary.c
-    { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3},
-    { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3},
-    { { 0, 0, 0, 0, 0, 0, 0}, 0}
+    { { 0xFF, 0, 0xFF, 0, 0, 0}, 3},
+    { { 0xFF, 0, 0xFF, 0, 0, 0}, 3},
+    { { 0,    0, 0,    0, 0, 0}, 0}
   };      
 // Private msg sent to DCCLibrary.c ISR
 volatile Message msgExtracted[2] = {    // -> to DCCLibrary.c
-    { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3}, // Will be overwritten in NextMessage
-    { { 0xFF, 0, 0xFF, 0, 0, 0, 0}, 3}, // The idle packet we will send in DCCLibrary.c when conditions permit/necessitate
+    { { 0xFF, 0, 0xFF, 0, 0, 0}, 3}, // Will be overwritten in NextMessage
+    { { 0xFF, 0, 0xFF, 0, 0, 0}, 3}, // The idle packet we will send in DCCLibrary.c when conditions permit/necessitate
 };
+
+// Idle message
+const Message msgIdle = { { 0xFF, 0, 0xFF, 0, 0, 0}, 3};
 
 volatile uint8_t lastMessageInserted  = 1;
 volatile uint8_t lastMessageExtracted = 0;
@@ -210,7 +213,7 @@ uint8_t bannerInit = 1;                      // Only display the banner the firs
 uint8_t regionNum=0;
 #if defined(NAEU_900MHz)
 //{
-#pragma message "Info: using NA/EU 900MHz frequency-dependent settings"
+#pragma message "Info: using European 869MHz/North American 915MHz frequency-dependent channels"
 #ifdef RECEIVE
 uint8_t searchChannels[18] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #endif
@@ -224,7 +227,7 @@ const char *regionString[] = {"N","E"}; // Region code: N=North America, E=Europ
 
 #if defined(EU_434MHz)
 //{
-#pragma message "Info: using EU 434MHz frequency-dependent settings"
+#pragma message "Info: using European 434MHz frequency-dependent channels"
 #ifdef RECEIVE
 uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
@@ -238,7 +241,7 @@ const char *regionString[] = {"E"}; // Region code: N=North America, E=Europe, W
 
 #if defined(NAEU_2p4GHz)
 //{
-#pragma message "Info: using Worldwide 2.4GHz frequency-dependent settings"
+#pragma message "Info: using Worldwide 2.4GHz frequency-dependent channels"
 #ifdef RECEIVE
 uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
@@ -352,6 +355,9 @@ char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end
 ///////////////////
 bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
     
+#if ! defined(DONTUSEINTERRUPTS)
+    cli(); // turn off interrupts
+#endif
     bool retval = false;
 
     // Set the last message extracted from the ring buffer so DCCLibrary.c can use it
@@ -363,6 +369,9 @@ bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
 
     currentIndex = lastMessageExtracted;                                              // Set the variable used by DCCLibrary.c to access the msg ring buffer with no update
     memcpy((void *)&msgExtracted[0], (void *)&msg[currentIndex], sizeof(Message));    // Extract the message into private msg
+#if ! defined(DONTUSEINTERRUPTS)
+    sei(); // turn on interrupts
+#endif
 
     return retval;
 }
@@ -731,43 +740,51 @@ void loop() {
                      if (memcmp(sendbuffer,dccptr,sizeof(DCC_MSG))) dccptrRepeatCount=0;  // If they don't match, reset the repeat count
                      else dccptrRepeatCount++;                                            // If they do match, increment the repeat count
 
-#ifdef DCCLibrary
-                     newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
-#endif
-
                      decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
                      memcpy(sendbuffer,dccptr,sizeof(DCC_MSG));
 
 #ifdef TRANSMIT
+//{
+
+#if ! defined(DONTUSEINTERRUPTS)
+                     cli(); // Turn off interrupts
+#endif
+
+#ifdef DCCLibrary
+                     newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
+#endif
+
                      // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
                      if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
                      {                     
-                       for (j=0;j<sizeof(DCC_MSG);j++)          // save for next time compare (memcpy quicker?)
-                       {
 #ifdef DCCLibrary
-                          if (j < sizeof(DCC_MSG)-1)            // Assign msg data to send to DCCLibrary.c
-                             msg[newIndex].data[j] = dccptr[j];
-                          else
-                             msg[newIndex].len     = dccptr[j]; // Assign msg len from the last byte to send to DCCLibrary.c
+                        memcpy((void *)&msg[newIndex],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
-                       }
-                       
                      }
                      else                                       // Send out an idle packet (for keep-alive!)
                      {
                         dccptrRepeatCount = 0;
                         lastIdleTime = getMsClock();
 #ifdef DCCLibrary
+/*
                         msg[newIndex].data[0] = 0xFF;
                         msg[newIndex].data[1] = 0x00;
                         msg[newIndex].data[2] = 0xFF;
                         msg[newIndex].len     = 3;
+*/
+                        memcpy((void *)&msg[newIndex],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
                      }
-#endif
 
 #ifdef DCCLibrary
-                     lastMessageInserted = newIndex;            // Update the last message inserted for comparisons. We do it here to make sure the ISR's don't affect the value
+                     // Update the last message inserted for comparisons. 
+                     // We do it here to make sure the ISR's don't affect the value
+                     lastMessageInserted = newIndex;
+#endif
+#if ! defined(DONTUSEINTERRUPTS)
+                     sei(); // Turn interrupts back on
+#endif
+//} TRANSMIT
 #endif
 
 #ifdef RECEIVE
