@@ -44,73 +44,73 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////
 // Set band of operation
 ////////////////////////
-// Use ONLY ONE of these
-// For 896/915MHz EU/NA ISM bands
+/* Use ONLY ONE #define*/
+/* For 896/915MHz EU/NA ISM bands*/
 // #define NAEU_900MHz
-// For EU-only 434MHz ISM band
+/* For EU-only 434MHz ISM band*/
 // #define EU_434MHz
-// For World-Wide 2.4GHz ISM band
+/* For World-Wide 2.4GHz ISM band*/
 // #define NAEU_2p4GHz
 
 //////////////////////////////
 // Set Transmitter or Receiver
 //////////////////////////////
-// Uncomment ONLY ONE #define
-// For receiver
+/* Uncomment ONLY ONE #define*/
+/* For receiver*/
 // #define RECEIVE
-// For transmitter
+/* For transmitter*/
 // #define TRANSMIT
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
-// Uncomment ONLY ONE #define
-// To set the default to NA channel  0 for 869/915MHz ISM bands only!
+/* Uncomment ONLY ONE #define*/
+/* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
 // #define NA_DEFAULT
-// To set the default to EU channel 17 for 869/915MHz ISM bands only!
+/* To set the default to EU channel 17 for 869/915MHz ISM bands only!*/
 // #define EU_DEFAULT
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
 //////////////////////////////////////////
-// Uncomment ONLY ONE #define
-// For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)
+/* Uncomment ONLY ONE #define*/
+/* For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)*/
 // #define TWENTY_SEVEN_MHZ
-// For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)
+/* For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)*/
 // #define TWENTY_SIX_MHZ
 
 ////////////////////////////////
 // Set the LCD's default address
 ////////////////////////////////
-// Uncomment ONLY ONE #define
-// The LCD display's default address. 
-// O=Open jumper (=High); C=Closed jumper (=Low), 
-// addresses are A2,A1,A0 from left to right on the boards
-// The address range for TI serial drivers 
-// PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and
+/* Uncomment ONLY ONE #define*/
+/* The LCD display's default address.*/
+/* O=Open jumper (=High); C=Closed jumper (=Low),*/
+/* addresses are A2,A1,A0 from left to right on the boards*/
+/* The address range for TI serial drivers */
+/* PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and*/
 // #define LCDADDRESSDEFAULT 0x27
-// PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)
+/* PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)*/
 // #define LCDADDRESSDEFAULT 0x3F
 
 //////////////////////////////////////////////////////
 // Special settings. You are NOT required to uncomment
 //////////////////////////////////////////////////////
-// The final Long address is (CV17-192)*256+CV18
+/* The final Long address is (CV17-192)*256+CV18*/
 // #define AIRMINICV17DEFAULT 227
 #ifdef TRANSMIT
 // #define AIRMINICV18DEFAULT 40
-// For Base Station Repeater Transmitter
+/* For Base Station Repeater Transmitter*/
 // #define AIRMINICV18DEFAULT 42
 #else
 // #define AIRMINICV18DEFAULT 41
-// For Repeater Receiver
+/* For Repeater Receiver*/
 // #define AIRMINICV18DEFAULT 43
 #endif
 
-// Uncomment for Base Station repeater transmitter
+/* Uncomment for Base Station repeater transmitter*/
 // #define AUTOIDLEOFFDEFAULT 1
 
-// For 915MHz NA only Repeaters
+/* For 915MHz NA only Repeaters*/
 // #define CHANNELDEFAULT 15
 
 ////////////////////////////////////////////////////
@@ -118,15 +118,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // you are doing. The defaults seem to work well.
 ////////////////////////////////////////////////////
 
-// SPCR value -- Change only if you want to alter
-// the coms speed and other SPI configuration attributes
-// This value sets the communication speed to 512MHz (last
-// two bits)
+/* SPCR value -- Change only if you want to alter*/
+/* the coms speed and other SPI configuration attributes*/
+/* This value sets the communication speed to 512MHz*/
+/* bit1 and bit0)*/
 // #define SPCRDEFAULT 0x52
 
-// Do NOT turn off interrupts in "critical" sections dealing with
-// assignment of messages for transmission. 
-// Change at your own risk.
+/* Do NOT turn off interrupts in "critical" sections dealing with*/
+/* assignment of messages for transmission.*/
+/* Change at your own risk.*/
 // #define DONTTURNOFFINTERRUPTS
 
 //    ^^^ User Entry Area Above ^^^
