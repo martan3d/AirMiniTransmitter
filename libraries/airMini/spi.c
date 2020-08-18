@@ -403,19 +403,21 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define MISOPIN 12
 #define CSNPIN  10
 volatile uint8_t *csnIntPort; // use port and bitmask to read input at AVR in ISR
-uint8_t csnIntMask; // digitalRead is too slow on AVR
+uint8_t csnIntMask; // digitalWrite is too slow on AVR
+uint8_t csnIntMask_; // digitalWrite is too slow on AVR
 volatile uint8_t *misoIntPort; // use port and bitmask to read input at AVR in ISR
 uint8_t misoIntMask; // digitalRead is too slow on AVR
 
 void initializeSPI()
 {
-    // CSN (P10) PORT# and BitMask
-    csnIntPort = portOutputRegister( digitalPinToPort(CSNPIN) );
-    csnIntMask = digitalPinToBitMask(CSNPIN);
+    // CSN (P10) PORT# and BitMasks
+    csnIntPort  = portOutputRegister( digitalPinToPort(CSNPIN) ); // PORTB
+    csnIntMask  = digitalPinToBitMask(CSNPIN); // High
+    csnIntMask_ = ~csnIntMask; // Low. Saves time, more memory
  
     // MISO (P12) PORT# and BitMask
-    misoIntPort = portInputRegister( digitalPinToPort(MISOPIN) );
-    misoIntMask = digitalPinToBitMask(MISOPIN);
+    misoIntPort = portInputRegister( digitalPinToPort(MISOPIN) ); // PORTB
+    misoIntMask = digitalPinToBitMask(MISOPIN); // High
 
     uint8_t clr;              // Junk variable
                               //   |---------------------------------------------
@@ -455,7 +457,7 @@ uint8_t clockSPI(uint8_t data)
 
 void writeReg(uint8_t reg, unsigned int data)
 {
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     clockSPI(reg);              // Channel Command
@@ -493,7 +495,7 @@ void startModem(uint8_t channel, uint8_t mode)
 
     sendReceive(STOP);           // send stop command to modem
 
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     for(i=0; i<48; i++) {
@@ -501,7 +503,7 @@ void startModem(uint8_t channel, uint8_t mode)
        }
     *csnIntPort |= csnIntMask;   // unselect modem (port high)
 
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     clockSPI(PATABLE);           // Power Command
@@ -509,7 +511,7 @@ void startModem(uint8_t channel, uint8_t mode)
 
     *csnIntPort |= csnIntMask;   // unselect modem (port high)
 
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     clockSPI(CHAN);              // Channel Command
@@ -524,7 +526,7 @@ void startModem(uint8_t channel, uint8_t mode)
 uint8_t sendReceive(uint8_t data)
 {
 
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     SPDR = data;              // RX|TX
@@ -539,7 +541,7 @@ uint8_t readReg(uint8_t addr)
 {
     uint8_t ret;
     
-    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     SPDR = addr;              // RX|TX
