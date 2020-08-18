@@ -40,6 +40,12 @@ This requires #undef TWENTY_SEVEN_MHZ
 
 #include <avr/io.h>
 #include "spi.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+
 
 uint8_t region = 0;
 
@@ -386,17 +392,31 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define STOP    0x36
 #define PATABLE 0x3E
 #define CHAN    0x0A
-#define SS      0x04
-#define MISO    0x10 // Pin B4 (b0001 0000)
+// #define SS      0x04 // Pin PB2 (b0000 0100) // Use digitalPinToBitMask instead!
+// #define MISO    0x10 // Pin PB4 (b0001 0000) // Use digitalPinToBitMask instead!
 #define SNOP    0x3d
 
 #define WRITE_BURST 0x40
 #define READ_SINGLE 0x80
 #define READ_BURST  0xC0
 
+#define MISOPIN 12
+#define CSNPIN  10
+volatile uint8_t *csnIntPort; // use port and bitmask to read input at AVR in ISR
+uint8_t csnIntMask; // digitalRead is too slow on AVR
+volatile uint8_t *misoIntPort; // use port and bitmask to read input at AVR in ISR
+uint8_t misoIntMask; // digitalRead is too slow on AVR
 
 void initializeSPI()
 {
+    // CSN (P10) PORT# and BitMask
+    csnIntPort = portOutputRegister( digitalPinToPort(CSNPIN) );
+    csnIntMask = digitalPinToBitMask(CSNPIN);
+ 
+    // MISO (P12) PORT# and BitMask
+    misoIntPort = portInputRegister( digitalPinToPort(MISOPIN) );
+    misoIntMask = digitalPinToBitMask(MISOPIN);
+
     uint8_t clr;              // Junk variable
                               //   |---------------------------------------------
                               //   | |---------------------------               |
@@ -405,7 +425,7 @@ void initializeSPI()
     DDRB = 0x2f;              // 001011 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
                               //    |
                               //    MISO (P12) is input
-    PORTB |= SS;              // 000001 00 disable modem on CSN (P10)
+    *csnIntPort |= csnIntMask;// unselect modem with CSN (port high, P10, 000001 00)
 #if ! defined(SPCRDEFAULT)
     SPCR = 0x52;              // 01010010 Serial Port Control Register setting
 //  SPCR = 0x53;              // 01010011 Serial Port Control Register setting
@@ -435,13 +455,13 @@ uint8_t clockSPI(uint8_t data)
 
 void writeReg(uint8_t reg, unsigned int data)
 {
-    PORTB &= ~SS;                // select modem (port low)
-    while(PINB & MISO);
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
 
     clockSPI(reg);              // Channel Command
     clockSPI(data);
 
-    PORTB |= SS;
+    *csnIntPort |= csnIntMask;  // unselect modem (port high)
 
 }
 
@@ -473,24 +493,29 @@ void startModem(uint8_t channel, uint8_t mode)
 
     sendReceive(STOP);           // send stop command to modem
 
-    PORTB &= ~SS;                // select modem (port low)
-    while(PINB & MISO);
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+
     for(i=0; i<48; i++) {
        clockSPI(md[i]);
        }
-    PORTB |= SS;                 // disable modem
+    *csnIntPort |= csnIntMask;   // unselect modem (port high)
 
-    PORTB &= ~SS;                // select modem (port low)
-    while(PINB & MISO);
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+
     clockSPI(PATABLE);           // Power Command
     clockSPI(powerCode);         // And hardcoded for RX
-    PORTB |= SS;                 // disable modem
 
-    PORTB &= ~SS;                // select modem (port low)
-    while(PINB & MISO);
+    *csnIntPort |= csnIntMask;   // unselect modem (port high)
+
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+
     clockSPI(CHAN);              // Channel Command
     clockSPI(channelCode);
-    PORTB |= SS;                 // disable modem
+
+    *csnIntPort |= csnIntMask;   // unselect modem (port high)
  
     sendReceive(mode);           // TX or RX mode
 }
@@ -498,11 +523,15 @@ void startModem(uint8_t channel, uint8_t mode)
 
 uint8_t sendReceive(uint8_t data)
 {
-    PORTB &= ~SS;             // select modem (port low)
-    while(PINB & MISO);
+
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+
     SPDR = data;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
-    PORTB |= SS;              // disable modem
+
+    *csnIntPort |= csnIntMask;// unselect modem (port high)
+
     return (SPDR);
 }
 
@@ -510,14 +539,17 @@ uint8_t readReg(uint8_t addr)
 {
     uint8_t ret;
     
-    PORTB &= ~SS;             // select modem (port low)
-    while(PINB & MISO);
+    *csnIntPort &= ~csnIntMask;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+
     SPDR = addr;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     SPDR = 0;                 // generic out, we only want read back
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     ret = SPDR;               // readback
-    PORTB |= SS;              // disable modem
+
+    *csnIntPort |= csnIntMask;// unselect modem (port high)
+
     return (ret);
 }
 
