@@ -1,7 +1,7 @@
 #include "Arduino.h"
 
 
-void SetupDCC(int DCC_OutPin);
+void SetupDCC(uint8_t DCC_OutPin);
 
 
 // buffer for command

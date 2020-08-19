@@ -694,16 +694,15 @@ void setup() {
    ////////////////////
    GetNextMessage = &NextMessage;             // assign a proper function to GetNextMessage that actually does something
 
-   //Set the pins for DCC to "output".
-   pinMode(DCC_PIN,OUTPUT);                   // this is for the DCC Signal output to the modem for transmission
-    
    pinMode(DCC_DIAG0,OUTPUT);                 // 
    digitalWrite(DCC_DIAG0,0);                 // Will use this for diagnostics
 
    pinMode(DCC_DIAG1,OUTPUT);                 //
    digitalWrite(DCC_DIAG1,0);                 // Will use this for diagnostics
 
+   //Set the pin for DCC to "output" and set up DCC timers
    SetupDCC(DCC_PIN);   
+
    /////////////////////
    /////////////////////
    /////////////////////
@@ -1013,7 +1012,7 @@ void loop() {
                    // The modem's output will "stick" to either LOW or HIGH (it's random!) when turned off, 
                    // causing the amplifier to go LOW or HIGH. The Airwire forces output high when no RF 
                    // (or really keep-alive) is received. We will simply ignore the modem data when
-                   // we think it's "bad", and output a pre-defined DC level util we can find some
+                   // we think it's "bad", and output a pre-defined DC level until we can find some
                    // good modem data. This flexibility on the DC level allows us to interact with the 
                    // braking mode that might be set up in the decoder when DC levels are detected.
                    // These decoder options often include the following:

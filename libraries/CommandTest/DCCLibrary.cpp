@@ -51,7 +51,7 @@ byte preamble_count = 16;
 byte outbyte = 0;
 byte cbit = 0x80;
 int byteIndex = 0;
-int outputPin;                  // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
+uint8_t outputPin;                       // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
 
 uint8_t msgExtractedIndex = 0;           // Which of the two extracted messages to use. Normal get = 0, failure to get = 1 (for sending idle/keep-alive(?) packet)
 extern volatile Message msgExtracted[];  // From main
@@ -62,9 +62,10 @@ bool DoNothing(void){return true;}
 bool (*GetNextMessage)(void) = &DoNothing;                  // assign a proper function to send a new message
 
 
-void SetupDCC(int DCC_OutPin){
+void SetupDCC(uint8_t DCC_OutPin){
     
-    outputPin = DCC_OutPin;
+    outputPin = DCC_OutPin; 
+    pinMode(outputPin,OUTPUT); // this is for the DCC Signal output to the modem for transmission
       
     //Setup Timer2.
     //Configures the 8-Bit Timer2 to generate an interrupt at the specified frequency.
