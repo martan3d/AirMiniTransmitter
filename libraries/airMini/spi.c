@@ -120,10 +120,15 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 */
 
 #ifdef ALTERNATIVE2P4
-#pragma message "Based on Table 3 of A2400R24x - User's Manual: 2433MHz Base Frequency, 26MHz Xtal Frequency, 2-FSK 0 Channel Number, 38kBaud, 140kHz Deviation, 310.242kHz Channel spacing, 650kHz RX Filter BW"
-//                                                                                *    *    *    *    *    *    *    *    *    *    *    *                             *                                       *    *    *    *    *                        *    *    *
+#pragma message "Based on Table 3 of A2400R24x - User's Manual: 2433MHz Base Frequency, 26MHz Xtal Frequency, 2-FSK 0 Channel Number, 100kBaud, 140kHz Deviation, 310.242kHz Channel spacing, 650kHz RX Filter BW"
+//                                             *                                  *    *    *    *    *    *    *    *    *    *    *    *                             *                                       *    *    *    *    *                        *    *    *
+#define Rx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1B,0xF8,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
+#define Tx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x47,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1B,0xF8,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
+/*
+// #pragma message "Based on Table 3 of A2400R24x - User's Manual: 2433MHz Base Frequency, 26MHz Xtal Frequency, 2-FSK 0 Channel Number, 38kBaud, 140kHz Deviation, 310.242kHz Channel spacing, 650kHz RX Filter BW"
 #define Rx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1A,0x7F,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
 #define Tx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0x1A,0x7F,0x00,0x23,0x87,0x63,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
+*/
 #else
 #pragma message "2433MHz Base Frequency, 26MHz Xtal Frequency, 2-FSK, 0 Channel Number, 39.9704kBaud, 50.781250kHz Deviation, 199.554443kHZ Channel Spacing 101.562500kHz RX Filter BW"
 #define Rx_26MHz_NAEU_2p4  0x40,0x2E,0x2E,0x0D,0x07,0xD3,0x91,0xFF,0x04,0x32,0x00,0x00,0x06,0x00,0x5D,0x93,0xB1,0xCA,0x93,0x00,0x22,0xF8,0x50,0x07,0x30,0x18,0x16,0x6C,0x03,0x40,0x91,0x87,0x6B,0xF8,0x56,0x10,0xA9,0x0A,0x00,0x11,0x41,0x00,0x59,0x7F,0x3F,0x88,0x31,0x0B
@@ -402,23 +407,42 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 
 #define MISOPIN 12
 #define CSNPIN  10
+#define SCKPIN  13
 volatile uint8_t *csnIntPort; // use port and bitmask to read input at AVR in ISR
 uint8_t csnIntMask; // digitalWrite is too slow on AVR
 uint8_t csnIntMask_; // digitalWrite is too slow on AVR
 volatile uint8_t *misoIntPort; // use port and bitmask to read input at AVR in ISR
 uint8_t misoIntMask; // digitalRead is too slow on AVR
+volatile uint8_t *sckIntPort; // use port and bitmask to read input at AVR in ISR
+uint8_t sckIntMask; // digitalWrite is too slow on AVR
+uint8_t sckIntMask_; // digitalWrite is too slow on AVR
+
+void beginSPI() {
+    *csnIntPort &= csnIntMask_;          // select modem (port low)
+    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+}
+
+void endSPI() {
+    *csnIntPort |= csnIntMask;// unselect modem with CSN (port high, P10, 000001 00)
+    *sckIntPort &= sckIntMask_; // set clock low (port low)
+}
 
 void initializeSPI()
 {
     // CSN (P10) PORT# and BitMasks
-    csnIntPort  = portOutputRegister( digitalPinToPort(CSNPIN) ); // PORTB
+    csnIntPort  = portOutputRegister( digitalPinToPort(CSNPIN) ); // PORTB = *csnIntPort
     csnIntMask  = digitalPinToBitMask(CSNPIN); // High
     csnIntMask_ = ~csnIntMask; // Low. Saves time, more memory
  
     // MISO (P12) PORT# and BitMask
-    misoIntPort = portInputRegister( digitalPinToPort(MISOPIN) ); // PORTB
+    misoIntPort = portInputRegister( digitalPinToPort(MISOPIN) ); // PINB = *misoIntPort
     misoIntMask = digitalPinToBitMask(MISOPIN); // High
 
+    // SCK (P13) PORT# and BitMasks
+    sckIntPort  = portOutputRegister( digitalPinToPort(SCKPIN) ); // PORTB = *sckIntPort
+    sckIntMask  = digitalPinToBitMask(SCKPIN); // High
+    sckIntMask_ = ~sckIntMask; // Low. Saves time, more memory
+ 
     uint8_t clr;              // Junk variable
                               //   |---------------------------------------------
                               //   | |---------------------------               |
@@ -427,7 +451,12 @@ void initializeSPI()
     DDRB = 0x2f;              // 001011 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
                               //    |
                               //    MISO (P12) is input
-    *csnIntPort |= csnIntMask;// unselect modem with CSN (port high, P10, 000001 00)
+
+    *sckIntPort |= sckIntMask; // set clock high (port high)
+    delay(10);
+
+    endSPI();
+
 #if ! defined(SPCRDEFAULT)
     SPCR = 0x52;              // 01010010 Serial Port Control Register setting
 //  SPCR = 0x53;              // 01010011 Serial Port Control Register setting
@@ -457,13 +486,12 @@ uint8_t clockSPI(uint8_t data)
 
 void writeReg(uint8_t reg, unsigned int data)
 {
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     clockSPI(reg);              // Channel Command
     clockSPI(data);
 
-    *csnIntPort |= csnIntMask;  // unselect modem (port high)
+    endSPI();
 
 }
 
@@ -495,29 +523,26 @@ void startModem(uint8_t channel, uint8_t mode)
 
     sendReceive(STOP);           // send stop command to modem
 
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     for(i=0; i<48; i++) {
        clockSPI(md[i]);
        }
-    *csnIntPort |= csnIntMask;   // unselect modem (port high)
+    endSPI();
 
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     clockSPI(PATABLE);           // Power Command
     clockSPI(powerCode);         // And hardcoded for RX
 
-    *csnIntPort |= csnIntMask;   // unselect modem (port high)
+    endSPI();
 
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     clockSPI(CHAN);              // Channel Command
     clockSPI(channelCode);
 
-    *csnIntPort |= csnIntMask;   // unselect modem (port high)
+    endSPI();
  
     sendReceive(mode);           // TX or RX mode
 }
@@ -526,13 +551,12 @@ void startModem(uint8_t channel, uint8_t mode)
 uint8_t sendReceive(uint8_t data)
 {
 
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     SPDR = data;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
 
-    *csnIntPort |= csnIntMask;// unselect modem (port high)
+    endSPI();
 
     return (SPDR);
 }
@@ -541,8 +565,7 @@ uint8_t readReg(uint8_t addr)
 {
     uint8_t ret;
     
-    *csnIntPort &= csnIntMask_;          // select modem (port low)
-    while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
+    beginSPI();
 
     SPDR = addr;              // RX|TX
     while(! (SPSR & 0x80) );  // wait for byte to clock out
@@ -550,7 +573,7 @@ uint8_t readReg(uint8_t addr)
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     ret = SPDR;               // readback
 
-    *csnIntPort |= csnIntMask;// unselect modem (port high)
+    endSPI();
 
     return (ret);
 }
