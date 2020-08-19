@@ -64,11 +64,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
+#ifdef NAEU_900MHz
 /* Uncomment ONLY ONE #define*/
 /* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
 // #define NA_DEFAULT
 /* To set the default to EU channel 17 for 869/915MHz ISM bands only!*/
 // #define EU_DEFAULT
+#endif
 
 //////////////////////////////////////////
 // Set the transceiver's crystal frequency
@@ -87,7 +89,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /* O=Open jumper (=High); C=Closed jumper (=Low),*/
 /* addresses are A2,A1,A0 from left to right on the boards*/
 /* The address range for TI serial drivers */
-/* PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default) and*/
+/* PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default)*/
 // #define LCDADDRESSDEFAULT 0x27
 /* PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)*/
 // #define LCDADDRESSDEFAULT 0x3F
@@ -107,11 +109,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define AIRMINICV18DEFAULT 43
 #endif
 
-/* Uncomment for Base Station repeater transmitter*/
+#ifdef TRANSMIT
+/* Uncomment for Base Station repeater transmitter and any non-terminal repeater transmitters*/
 // #define AUTOIDLEOFFDEFAULT 1
+#endif
 
-/* For 915MHz NA only Repeaters*/
+#ifdef NAEU_900MHz
+/* For 915MHz NA only Repeater transmitters/receivers. Not for European operation!*/
 // #define CHANNELDEFAULT 15
+#endif
 
 ////////////////////////////////////////////////////
 // Expert section. Edit only if you really know what
