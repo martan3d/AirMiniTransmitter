@@ -1048,7 +1048,7 @@ void loop() {
                    if(turnModemOnOff)
                      {
                        dccInit();                             // Reset the DCC state machine, which also resets transitionCount
-                       strobeSPI(MODE);                     // awaken the modem in MODE
+                       strobeSPI(MODE);                       // awaken the modem in MODE
                      }
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }

@@ -525,7 +525,7 @@ void initializeSPI()
 
 uint8_t clockSPI(uint8_t data)
 {
-    SPDR = data;              // RX
+    SPDR = data;              // Send
     while(! (SPSR & 0x80) );  // wait for byte to clock out
     return (SPDR);
 }
@@ -535,7 +535,7 @@ void writeSPI(uint8_t reg, unsigned int data)
 {
     beginSPI();
 
-    clockSPI(reg);              // Channel Command
+    clockSPI(reg);              // recipent address
     clockSPI(data);
 
     endSPI();
@@ -602,7 +602,8 @@ void startModem(uint8_t channel, uint8_t mode)
     clockSPI(channelCode);
     endSPI();
  
-    strobeSPI(mode);           // TX or RX mode
+    if (mode == TX) strobeSPI(SIDLE); // Ensure Modem is in IDLE for TX
+    strobeSPI(mode);                  // TX or RX mode
 }
 
 
