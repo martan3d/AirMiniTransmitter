@@ -38,8 +38,8 @@ extern "C" {
 #define SPI_H_
 
 void initializeSPI();
-uint8_t sendReceive(uint8_t);
-uint8_t readReg(uint8_t addr);
+uint8_t strobeSPI(uint8_t);
+uint8_t readSPI(uint8_t addr);
 void startModem(uint8_t channel, uint8_t mode);
 
 
