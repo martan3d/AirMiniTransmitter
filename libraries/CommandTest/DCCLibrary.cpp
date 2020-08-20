@@ -26,7 +26,7 @@
  
  * ISR() cleaned up a bit - flag now uses LONGPULSE and SHORTPULSE instead of 0 and 1.
  * Message swapping has been implemented as a function, GetNextMessage() which does nothing.
-        As it stands msg[0] ( initially idle ) will always be sent
+        As it stands msgExtracted[0] ( initially idle ) will always be sent
         The sketch should assign a proper function to GetNextMessage to send new messages.
 */
 
@@ -55,8 +55,6 @@ uint8_t outputPin;                       // Arduino pin for DCC out. This pin is
 
 uint8_t msgExtractedIndex = 0;           // Which of the two extracted messages to use. Normal get = 0, failure to get = 1 (for sending idle/keep-alive(?) packet)
 extern volatile Message msgExtracted[];  // From main
-extern volatile Message msg[];           // From main
-extern volatile uint8_t currentIndex;    // From main
 
 bool DoNothing(void){return true;}
 bool (*GetNextMessage)(void) = &DoNothing;                  // assign a proper function to send a new message

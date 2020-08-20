@@ -89,7 +89,6 @@ const Message msgIdle = { { 0xFF, 0, 0xFF, 0, 0, 0}, 3};
 
 volatile uint8_t lastMessageInserted  = 1;
 volatile uint8_t lastMessageExtracted = 0;
-volatile uint8_t currentIndex = 0;      // -> to DCCLibrary.c
 uint8_t          newIndex     = 2;
 
 ///////////////////
@@ -110,7 +109,7 @@ uint8_t          newIndex     = 2;
 #define RXMODE  0x34             // C1101 modem RX mode
 #define RX      0x34
 #define TX      0x35
-#define STOP    0x36
+#define SIDLE   0x36
 
 // Setting up double pass for OPS mode
 #ifdef TRANSMIT
@@ -353,7 +352,7 @@ char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end
 ///////////////////
 ///////////////////
 ///////////////////
-bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
+bool NextMessage(void){  // Sets for DCCLibrary.c's access to msg
     
 #if ! defined(DONTTURNOFFINTERRUPTS)
     cli(); // turn off interrupts
@@ -367,8 +366,7 @@ bool NextMessage(void){  // Sets currentIndex for DCCLibrary.c's access to msg
        retval = true;
     }
 
-    currentIndex = lastMessageExtracted;                                              // Set the variable used by DCCLibrary.c to access the msg ring buffer with no update
-    memcpy((void *)&msgExtracted[0], (void *)&msg[currentIndex], sizeof(Message));    // Extract the message into private msg
+    memcpy((void *)&msgExtracted[0], (void *)&msg[lastMessageExtracted], sizeof(Message));    // Extract the message into private msg
 #if ! defined(DONTTURNOFFINTERRUPTS)
     sei(); // turn on interrupts
 #endif
@@ -945,7 +943,7 @@ void loop() {
 
                                     if(startModemFlag)
                                       {
-                                         sendReceive(STOP);         // Stop the modem
+                                         strobeSPI(SIDLE);         // Stop the modem
                                          dccInit();                 // Reset the DCC state machine, which also resets transitionCount
                                          startModem(CHANNEL, MODE); // Restart on possible-new Airwire Channel and mode (or power level)
                                       }
@@ -1001,11 +999,11 @@ void loop() {
 #endif
 
 #ifdef TRANSMIT
-              sendReceive(MODE);         // keep the radio awake in MODE 
+              strobeSPI(MODE);         // keep the radio awake in MODE 
 #else
               if(useModemData)
                 {
-                   sendReceive(MODE);         // keep the radio awake in MODE 
+                   strobeSPI(MODE);         // keep the radio awake in MODE 
 
                    // If the DCC data collection appears hung up, put the modem to sleep (if we want to)
                    // and just ignore its data for a while...
@@ -1025,7 +1023,7 @@ void loop() {
                    //                                  to 0 (LOW) or non-zero (HIGH).
                    if(((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
                      {
-                       if (turnModemOnOff) sendReceive(STOP);     // send stop command to modem if no DEMUX is available
+                       if (turnModemOnOff) strobeSPI(SIDLE);     // send stop command to modem if no DEMUX is available
                        if(filterModemData) useModemData = 0;      // false use-of-modem-data state
                        DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
                        inactiveStartTime = then;                  // Start inactive timer
@@ -1050,7 +1048,7 @@ void loop() {
                    if(turnModemOnOff)
                      {
                        dccInit();                             // Reset the DCC state machine, which also resets transitionCount
-                       sendReceive(MODE);                     // awaken the modem in MODE
+                       strobeSPI(MODE);                     // awaken the modem in MODE
                      }
                    else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
                 }
@@ -1094,7 +1092,7 @@ void loop() {
                        }
 
                        // Stop the modem
-                       sendReceive(STOP);         
+                       strobeSPI(SIDLE);         
                        // Reset the DCC state machine, which also resets transitionCount
                        dccInit();                 
                        // Restart on Airwire selected and mode (or power level)
