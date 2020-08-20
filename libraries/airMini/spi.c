@@ -418,7 +418,7 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 
 #define RX      0x34
 #define TX      0x35
-#define STOP    0x36
+#define SIDLE   0x36
 #define PATABLE 0x3E
 #define CHAN    0x0A
 #define SNOP    0x3D
@@ -464,7 +464,7 @@ void resetModem() {
     delay(1);
     *ssIntPort &= ssIntMask_;            // set ss low
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
-    sendReceive(SRES);                   // send reset command to modem
+    strobeSPI(SRES);                   // send reset command to modem
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
     *ssIntPort |=  ssIntMask;            // set ss high
 }
@@ -531,7 +531,7 @@ uint8_t clockSPI(uint8_t data)
 }
 
 
-void writeReg(uint8_t reg, unsigned int data)
+void writeSPI(uint8_t reg, unsigned int data)
 {
     beginSPI();
 
@@ -569,8 +569,9 @@ void startModem(uint8_t channel, uint8_t mode)
     }
 
     ////////////////
-    // sendReceive(STOP);                // send stop command to modem (old way)
+    strobeSPI(SIDLE);                // send stop command to modem (old way)
     
+/*
     /////////////////////
     // New Reset sequence
     // This sequence was copied from the ELECHOUSE_CC1101_SRC_DRV.cpp file. It works for the CC2500 as well.
@@ -582,6 +583,7 @@ void startModem(uint8_t channel, uint8_t mode)
 
     resetModem();
     ////////////////
+*/
 
     beginSPI();
 
@@ -604,13 +606,12 @@ void startModem(uint8_t channel, uint8_t mode)
 
     endSPI();
  
-    sendReceive(mode);           // TX or RX mode
+    strobeSPI(mode);           // TX or RX mode
 }
 
 
-uint8_t sendReceive(uint8_t data)
+uint8_t strobeSPI(uint8_t data)
 {
-
     beginSPI();
 
     SPDR = data;              // RX|TX
@@ -621,7 +622,7 @@ uint8_t sendReceive(uint8_t data)
     return (SPDR);
 }
 
-uint8_t readReg(uint8_t addr)
+uint8_t readSPI(uint8_t addr)
 {
     uint8_t ret;
     
