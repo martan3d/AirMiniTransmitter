@@ -433,19 +433,19 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define MISO_PIN 12
 #define MOSI_PIN 11
 #define SS_PIN   10
-volatile uint8_t *ssIntPort; // use port and bitmask to read input at AVR in ISR
-uint8_t ssIntMask; // digitalWrite is too slow on AVR
-uint8_t ssIntMask_; // digitalWrite is too slow on AVR
+volatile uint8_t *ssIntPort;   // use port and bitmask to write output in ISR
+uint8_t ssIntMask;             // digitalWrite is too slow on AVR
+uint8_t ssIntMask_;            // digitalWrite is too slow on AVR
 
-volatile uint8_t *misoIntPort; // use port and bitmask to read input at AVR in ISR
-uint8_t misoIntMask; // digitalRead is too slow on AVR
+volatile uint8_t *misoIntPort; // use port and bitmask to read input in ISR
+uint8_t misoIntMask;           // digitalRead is too slow on AVR
 
-volatile uint8_t *mosiIntPort; // use port and bitmask to read input at AVR in ISR
-uint8_t mosiIntMask; // digitalRead is too slow on AVR
+volatile uint8_t *mosiIntPort; // use port and bitmask to write output in ISR
+uint8_t mosiIntMask;           // digitalWrite is too slow on AVR
 
-volatile uint8_t *sckIntPort; // use port and bitmask to read input at AVR in ISR
-uint8_t sckIntMask; // digitalWrite is too slow on AVR
-uint8_t sckIntMask_; // digitalWrite is too slow on AVR
+volatile uint8_t *sckIntPort;  // use port and bitmask to write output in ISR
+uint8_t sckIntMask;            // digitalWrite is too slow on AVR
+uint8_t sckIntMask_;           // digitalWrite is too slow on AVR
 
 void beginSPI() {
     *ssIntPort &= ssIntMask_;            // select modem (port low)
@@ -453,39 +453,39 @@ void beginSPI() {
 }
 
 void endSPI() {
-    *ssIntPort |= ssIntMask;    // unselect modem with CSN (port high, P10, 000001 00)
-    *sckIntPort &= sckIntMask_; // set clock low (port low)
+    *ssIntPort |= ssIntMask;             // unselect modem (port high)
+    *sckIntPort &= sckIntMask_;          // set clock low (port low)
 }
 
 void resetModem() {
     *ssIntPort &= ssIntMask_;            // set ss low
     delay(1);
-    *ssIntPort |= ssIntMask;            // set ss high
+    *ssIntPort |= ssIntMask;             // set ss high
     delay(1);
     *ssIntPort &= ssIntMask_;            // set ss low
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
-    strobeSPI(SRES);                   // send reset command to modem
+    strobeSPI(SRES);                     // send reset command to modem
     while( *misoIntPort & misoIntMask ); // WAIT while MISO pin is HIGH
     *ssIntPort |=  ssIntMask;            // set ss high
 }
 
 void initializeSPI()
 {
-    // CSN (P10) PORT# and BitMasks
-    ssIntPort  = portOutputRegister( digitalPinToPort(SS_PIN) ); // PORTB = *ssIntPort
+    // CSN (P10) PORT# and BitMasks (output)
+    ssIntPort  = portOutputRegister( digitalPinToPort(SS_PIN) );    // PORTB = *ssIntPort
     ssIntMask  = digitalPinToBitMask(SS_PIN); // High
     ssIntMask_ = ~ssIntMask; // Low. Saves time, more memory
  
-    // MOSI (P11) PORT# and BitMask
-    mosiIntPort = portInputRegister( digitalPinToPort(MOSI_PIN) ); // PINB = *mosiIntPort
+    // MOSI (P11) PORT# and BitMask (output)
+    mosiIntPort = portOutputRegister( digitalPinToPort(MOSI_PIN) ); // PORTB = *mosiIntPort
     mosiIntMask = digitalPinToBitMask(MOSI_PIN); // High
 
-    // MISO (P12) PORT# and BitMask
-    misoIntPort = portInputRegister( digitalPinToPort(MISO_PIN) ); // PINB = *misoIntPort
+    // MISO (P12) PORT# and BitMask (input)
+    misoIntPort = portInputRegister( digitalPinToPort(MISO_PIN) );  // PINB = *misoIntPort
     misoIntMask = digitalPinToBitMask(MISO_PIN); // High
 
-    // SCK (P13) PORT# and BitMasks
-    sckIntPort  = portOutputRegister( digitalPinToPort(SCK_PIN) ); // PORTB = *sckIntPort
+    // SCK (P13) PORT# and BitMasks (output)
+    sckIntPort  = portOutputRegister( digitalPinToPort(SCK_PIN) );  // PORTB = *sckIntPort
     sckIntMask  = digitalPinToBitMask(SCK_PIN); // High
     sckIntMask_ = ~sckIntMask; // Low. Saves time, more memory
  
@@ -586,24 +586,20 @@ void startModem(uint8_t channel, uint8_t mode)
 */
 
     beginSPI();
-
-    for(i=0; i<48; i++) {
+    for(i=0; i<48; i++)
+    {
        clockSPI(md[i]);
-       }
+    }
     endSPI();
 
     beginSPI();
-
     clockSPI(PATABLE);           // Power Command
     clockSPI(powerCode);         // And hardcoded for RX
-
     endSPI();
 
     beginSPI();
-
     clockSPI(CHAN);              // Channel Command
     clockSPI(channelCode);
-
     endSPI();
  
     strobeSPI(mode);           // TX or RX mode
