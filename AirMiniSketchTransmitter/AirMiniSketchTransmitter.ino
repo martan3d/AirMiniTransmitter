@@ -71,9 +71,9 @@ extern bool (*GetNextMessage)(void); // For DCCLibrary
 #endif
 #define DCC_DIAG0  5     // Diagnostic Pin #1
 #define DCC_DIAG1  6     // Diagnostic Pin #2
-#define msgSize 32       // The size of the ring buffer. Per Martin's new code
+#define MAXMSG 32       // The size of the ring buffer. Per Martin's new code
 // Implement a ring buffer
-volatile Message msg[msgSize] = {      // -> to DCCLibrary.c
+volatile Message msg[MAXMSG] = {      // -> to DCCLibrary.c
     { { 0xFF, 0, 0xFF, 0, 0, 0}, 3},
     { { 0xFF, 0, 0xFF, 0, 0, 0}, 3},
     { { 0,    0, 0,    0, 0, 0}, 0}
@@ -362,7 +362,7 @@ bool NextMessage(void){  // Sets for DCCLibrary.c's access to msg
     // Set the last message extracted from the ring buffer so DCCLibrary.c can use it
     if(lastMessageExtracted != lastMessageInserted)  // Update the extract pointer because we have not caught up the the inserted pointer
     {
-       lastMessageExtracted = (lastMessageExtracted+1) % msgSize;
+       lastMessageExtracted = (lastMessageExtracted+1) % MAXMSG;
        retval = true;
     }
 
@@ -748,7 +748,7 @@ void loop() {
 #endif
 
 #ifdef DCCLibrary
-                     newIndex = (lastMessageInserted+1) % msgSize;  // Set the last message inserted into the ring buffer 
+                     newIndex = (lastMessageInserted+1) % MAXMSG;  // Set the last message inserted into the ring buffer 
 #endif
 
                      // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
