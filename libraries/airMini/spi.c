@@ -526,7 +526,7 @@ void initializeSPI()
 uint8_t clockSPI(uint8_t data)
 {
     SPDR = data;              // Send
-    while(! (SPSR & 0x80) );  // wait for byte to clock out
+    while (!(SPSR & (1 << SPIF)));  // wait for byte to clock out
     return (SPDR);
 }
 
@@ -612,7 +612,7 @@ uint8_t strobeSPI(uint8_t data)
     beginSPI();
 
     SPDR = data;              // RX|TX
-    while(! (SPSR & 0x80) );  // wait for byte to clock out
+    while (!(SPSR & (1 << SPIF)));  // wait for byte to clock out
 
     endSPI();
 
@@ -626,9 +626,9 @@ uint8_t readSPI(uint8_t addr)
     beginSPI();
 
     SPDR = addr;              // RX|TX
-    while(! (SPSR & 0x80) );  // wait for byte to clock out
+    while (!(SPSR & (1 << SPIF)));  // wait for byte to clock out
     SPDR = 0;                 // generic out, we only want read back
-    while(! (SPSR & 0x80) );  // wait for byte to clock out
+    while (!(SPSR & (1 << SPIF)));  // wait for byte to clock out
     ret = SPDR;               // readback
 
     endSPI();
