@@ -46,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ////////////////////////
 /* Use ONLY ONE #define*/
 /* For 896/915MHz EU/NA ISM bands*/
-// #define NAEU_900MHz
+#define NAEU_900MHz
 /* For EU-only 434MHz ISM band*/
 // #define EU_434MHz
 /* For World-Wide 2.4GHz ISM band*/
@@ -57,7 +57,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For receiver*/
-// #define RECEIVE
+#define RECEIVE
 /* For transmitter*/
 // #define TRANSMIT
 
@@ -69,7 +69,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
 // #define NA_DEFAULT
 /* To set the default to EU channel 17 for 869/915MHz ISM bands only!*/
-// #define EU_DEFAULT
+#define EU_DEFAULT
 #endif
 
 //////////////////////////////////////////
@@ -77,7 +77,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)*/
-// #define TWENTY_SEVEN_MHZ
+#define TWENTY_SEVEN_MHZ
 /* For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)*/
 // #define TWENTY_SIX_MHZ
 
@@ -90,7 +90,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /* addresses are A2,A1,A0 from left to right on the boards*/
 /* The address range for TI serial drivers */
 /* PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default)*/
-// #define LCDADDRESSDEFAULT 0x27
+#define LCDADDRESSDEFAULT 0x27
 /* PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)*/
 // #define LCDADDRESSDEFAULT 0x3F
 
@@ -134,6 +134,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /* assignment of messages for transmission.*/
 /* Change at your own risk.*/
 // #define DONTTURNOFFINTERRUPTS
+
+/*Test of new 2.4GHz setting*/
+// #define ALTERNATIVE2P4
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
