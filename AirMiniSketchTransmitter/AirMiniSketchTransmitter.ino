@@ -89,7 +89,6 @@ const Message msgIdle = { { 0xFF, 0, 0xFF, 0, 0, 0}, 3};
 
 volatile uint8_t lastMessageInserted  = 1;
 volatile uint8_t lastMessageExtracted = 0;
-uint8_t          newIndex     = 2;
 
 ///////////////////
 ///////////////////
@@ -98,7 +97,12 @@ uint8_t          newIndex     = 2;
 
 
 // Times
-#define INITIALDELAYMS    1000   // Initial processor start-up delay in ms
+// #ifdef TRANSMIT
+// #define INITIALDELAYMS       0   // Initial processor start-up delay in ms
+// #else
+// #define INITIALDELAYMS       0   // Initial processor start-up delay in ms
+// #endif
+
 #define EEPROMDELAYMS      100   // Delay after eeprom write in ms
 #define MILLISEC          4000   // @16Mhz, this is 1ms, 0.001s
 #define QUARTERSEC     1000000   // @16Mhz, this is 0.25s
@@ -199,7 +203,6 @@ uint16_t maxTransitionCount;                 // Maximum number of bad transition
 uint8_t maxTransitionCountLowByte=100;       // High byte of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low byte of maxTransitionCount
 #ifdef RECEIVE
-uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 uint64_t startInitialWaitTime;               // The start of the initial wait time. Will be set in initialization
 uint64_t endInitialWaitTime;                 // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
@@ -208,6 +211,11 @@ uint8_t searchChannelIndex = 0;              // Initialial channel search order 
 uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
 #endif
 
+#ifdef TRANSMIT
+uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
+#else
+uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
+#endif
 uint8_t bannerInit = 1;                      // Only display the banner the first time inside channel searching
 uint8_t regionNum=0;
 #if defined(NAEU_900MHz)
@@ -219,6 +227,7 @@ uint8_t searchChannels[18] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // C
 #ifdef USE_LCD
 const char *bannerString = "ProMini Air NA/E";
 const char *regionString[] = {"N","E"}; // Region code: N=North America, E=Europe, W=Worldwide
+bool lcdInitialized = false;
 #endif
 //}
 #else
@@ -431,7 +440,7 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 void LCD_Banner(uint8_t bannerInit)
 {
   lcd.setCursor(0,0);              // Set initial column, row
-  if (bannerInit) lcd.print(bannerString);   // Banner
+  if (bannerInit==1) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
 #ifdef TWENTY_SEVEN_MHZ
@@ -565,21 +574,13 @@ void LCD_Wait_Period_Over(int status)
   prevLCDTime  = getMsClock();
   refreshLCD = true;
 
-  // Display the banner one time after initialization since the first 
-  // banner might go by too quickly
-  if (bannerInit) 
-  {
-     bannerInit = 0;
-     LCD_Banner(bannerInit);
-  }
-
   return;
 }
 #endif
 
 void setup() {
 
-  delay(INITIALDELAYMS);
+  // delay(INITIALDELAYMS);
 
   DDRB |= 1;        // Use this for debugging if you wish
   initUART(38400);  // More debugging, send serial data out- decoded DCC packets
@@ -668,6 +669,8 @@ void setup() {
   endInitialWaitTime = 
                     startInitialWaitTime
                   + InitialWaitPeriodSEC*SEC; // Initialize the end of the wait time
+#else
+  initialWait = 0;
 #endif
   inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
@@ -679,12 +682,6 @@ void setup() {
   // SET_OUTPUTPIN;                           // Set up the output diagnostic DCC pin. This is our filtered output in Rx mode
   // if(dcLevel) OUTPUT_HIGH;                 // HIGH
   // else OUTPUT_LOW;                         // LOW
-
-#ifdef USE_LCD
-  lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
-  lcd.backlight();                            // Backlight it
-  LCD_Banner(bannerInit);                     // Display the banner on LCD
-#endif
 
 #ifdef DCCLibrary
    ////////////////////
@@ -748,14 +745,14 @@ void loop() {
 #endif
 
 #ifdef DCCLibrary
-                     newIndex = (lastMessageInserted+1) % MAXMSG;  // Set the last message inserted into the ring buffer 
+                     lastMessageInserted = (lastMessageInserted+1) % MAXMSG;  // Set the last message inserted into the ring buffer 
 #endif
 
                      // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
                      if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
                      {                     
 #ifdef DCCLibrary
-                        memcpy((void *)&msg[newIndex],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
+                        memcpy((void *)&msg[lastMessageInserted],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
                      }
                      else                                       // Send out an idle packet (for keep-alive!)
@@ -763,21 +760,14 @@ void loop() {
                         dccptrRepeatCount = 0;
                         lastIdleTime = getMsClock();
 #ifdef DCCLibrary
-                        memcpy((void *)&msg[newIndex],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
+                        memcpy((void *)&msg[lastMessageInserted],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
                      }
-
-#ifdef DCCLibrary
-                     // Update the last message inserted for comparisons. 
-                     // We do it here to make sure the ISR's don't affect the value
-                     lastMessageInserted = newIndex;
-#endif
 #if ! defined(DONTTURNOFFINTERRUPTS)
                      sei(); // Turn interrupts back on
 #endif
 //} TRANSMIT
 #endif
-
 #ifdef RECEIVE
                     if(!useModemData) // If not using modem data, ensure that the output is set to a DC level after coming back from the ISR
                       {
@@ -990,17 +980,36 @@ void loop() {
               then = getMsClock();             // Grab Clock Value for next time
 
 #ifdef USE_LCD
-              if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod))
-                {
-                  LCD_Addr_Ch_PL();                // Update the display of address, chanel #, and power level
+              if (!lcdInitialized) {
+                 lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
+                 lcd.backlight();                            // Backlight it
+                 refreshLCD = true;
+                 bannerInit = 1;
+                 prevLCDTime = then+LCDTimePeriod;
+                 lcdInitialized = true;
+              }
+
+              if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod)) {
+                  if (!bannerInit) LCD_Addr_Ch_PL();           // Update the display of address, chanel #, and power level
+                  else if(!initialWait) {
+                     if (bannerInit==1){
+                        LCD_Banner(bannerInit);
+                        bannerInit = 2;
+                     }
+                     else {
+                        LCD_Banner(bannerInit);
+                        bannerInit = 0;
+                     }
+                  }
                   prevLCDTime = then;              // Slowly... at 1 sec intervals
                   refreshLCD = true;
-                }
+              }
 #endif
 
 #ifdef TRANSMIT
               strobeSPI(MODE);         // keep the radio awake in MODE 
 #else
+//{
               if(useModemData)
                 {
                    strobeSPI(MODE);         // keep the radio awake in MODE 
@@ -1101,6 +1110,7 @@ void loop() {
                     } // end of wait time over
                  } // end of continue to wait
               } // End of special processing for channel search
+//} end of RECEIVE
 #endif
 
               PORTB ^= 1;                      // debug - monitor with logic analyzer
