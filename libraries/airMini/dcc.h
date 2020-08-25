@@ -28,7 +28,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */ 
  
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -40,7 +40,7 @@ extern "C" {
 
 // Define here the input/output pins
 
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
 #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
 #define OUTPUT_PIN PD4  // 5V unipolar DCC diagnostic output, not currently used
 #else
@@ -70,6 +70,6 @@ void DCCuseModemData(uint8_t useModemData_in,uint8_t muxCVval_in);
 
 #endif /* DCC_H_ */
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 }
 #endif

@@ -57,14 +57,14 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For receiver*/
-#define RECEIVE
+#define RECEIVER
 /* For transmitter*/
-// #define TRANSMIT
+// #define TRANSMITTER
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
 /////////////////////////////////////////////////
-#ifdef NAEU_900MHz
+#if defined(NAEU_900MHz)
 /* Uncomment ONLY ONE #define*/
 /* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
 // #define NA_DEFAULT
@@ -99,7 +99,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////
 /* The final Long address is (CV17-192)*256+CV18*/
 // #define AIRMINICV17DEFAULT 227
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
 // #define AIRMINICV18DEFAULT 40
 /* For Base Station Repeater Transmitter*/
 // #define AIRMINICV18DEFAULT 42
@@ -109,12 +109,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define AIRMINICV18DEFAULT 43
 #endif
 
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
 /* Uncomment for Base Station repeater transmitter and any non-terminal repeater transmitters*/
 // #define AUTOIDLEOFFDEFAULT 1
 #endif
 
-#ifdef NAEU_900MHz
+#if defined(NAEU_900MHz)
 /* For 915MHz NA only Repeater transmitters/receivers. Not for European operation!*/
 // #define CHANNELDEFAULT 15
 #endif
@@ -159,143 +159,82 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////
 // Transmitter or Receiver options
 //////////////////////////////////
-#if defined(TRANSMIT) && defined (RECEIVE)
-//{
-#error "ERROR: TRANSMIT and RECEIVE are both defined"
-//}
-#else
-//{
-#if ! defined(TRANSMIT) && ! defined(RECEIVE)
-#error "ERROR: TRANSMIT are RECEIVE are both undefined"
-#endif
-//}
+#if defined(TRANSMITTER) && defined (RECEIVER)
+   #error "ERROR: TRANSMITTER and RECEIVER are both defined"
+#elif ! defined(TRANSMITTER) && ! defined(RECEIVER)
+   #error "ERROR: TRANSMITTER and RECEIVER are both undefined"
 #endif
 
-#ifdef TRANSMIT
-//{
-#pragma message "Info: Compiling for Transmitter"
-//}
-#else
-//{
-#ifdef RECEIVE
-//{
-#pragma message "Info: Compiling for Receiver"
-//}
-#endif
-//}
+#if defined(TRANSMITTER)
+   #pragma message "Info: Compiling for Transmitter"
+#elif defined(RECEIVER)
+   #pragma message "Info: Compiling for Receiver"
 #endif
 
 ////////////////////////////////////////
 // Transceiver crystal frequency options
 ////////////////////////////////////////
 #if defined(TWENTY_SEVEN_MHZ) && defined (TWENTY_SIX_MHZ)
-//{
-#error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both defined"
-//}
-#else
-//{
-#if ! defined(TWENTY_SEVEN_MHZ) && ! defined (TWENTY_SIX_MHZ)
-#error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both undefined"
-#endif
-//}
+   #error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both defined"
+#elif ! defined(TWENTY_SEVEN_MHZ) && ! defined (TWENTY_SIX_MHZ)
+   #error "ERROR: TWENTY_SEVEN_MHZ and TWENTY_SIX_MHZ are both undefined"
 #endif
 
-#ifdef TWENTY_SEVEN_MHZ
-//{
-#pragma message "Info: Compiling for 27MHz transceivers"
-//}
+#if defined(TWENTY_SEVEN_MHZ)
+   #pragma message "Info: Compiling for 27MHz transceivers"
+#elif defined(TWENTY_SIX_MHZ)
+   #pragma message "Info: Compiling for 26MHz transceivers"
 #else
-//{
-#ifdef TWENTY_SIX_MHZ
-//{
-#pragma message "Info: Compiling for 26MHz transceivers"
-//}
-#else
-//{
-#error "Undefined crystal frequency"
-//}
-#endif
-//}
+   #error "Undefined crystal frequency"
 #endif
 
 //////////////////////////
 // Band-dependent settings
 //////////////////////////
 #if ! defined(NAEU_900MHz) && ! defined(EU_434MHz) && ! defined(NAEU_2p4GHz)
-#error "ERROR: must define one of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+   #error "ERROR: must define one of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
 #endif
 
-#ifdef NAEU_900MHz
+#if defined(NAEU_900MHz)
 //{
-
-#pragma message "Info: Using the EU 869MHz/NA 915MHz ISM band"
-
-#if defined(EU_434MHz) || defined(NAEU_2p4GHz)
-#error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
-#endif
-
-#if defined(NA_DEFAULT) && defined (EU_DEFAULT)
-//{
-#error "ERROR: NA_DEFAULT and EU_DEFAULT are both defined"
+   #if defined(EU_434MHz) || defined(NAEU_2p4GHz)
+      #error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+   #endif
+   #pragma message "Info: Using the EU 869MHz/NA 915MHz ISM band"
+   
+   #if defined(NA_DEFAULT) && defined (EU_DEFAULT)
+      #error "ERROR: NA_DEFAULT and EU_DEFAULT are both defined"
+   #elif ! defined(NA_DEFAULT) && ! defined (EU_DEFAULT)
+      #error "ERROR: NA_DEFAULT and EU_DEFAULT are both undefined"
+   #endif
+   
+   #if defined(NA_DEFAULT)
+      #if ! defined(CHANNELDEFAULT)
+        #define CHANNELDEFAULT 0
+      #endif
+   #elif  defined(EU_DEFAULT)
+      #if ! defined(CHANNELDEFAULT)
+        #define CHANNELDEFAULT 17
+      #endif
+   #endif
 //}
-#else
+#elif defined(EU_434MHz)
 //{
-#if ! defined(NA_DEFAULT) && ! defined (EU_DEFAULT)
-#error "ERROR: NA_DEFAULT and EU_DEFAULT are both undefined"
-#endif
-//}
-#endif
+   #if defined(NAEU_2p4GHz)
+      #error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
+   #endif
+   #pragma message "Info: Using the EU 434MHz ISM band"
 
-#ifdef NA_DEFAULT
+   #if ! defined(CHANNELDEFAULT)
+     #define CHANNELDEFAULT 0
+   #endif
+//}
+#elif defined(NAEU_2p4GHz)
 //{
-#if ! defined(CHANNELDEFAULT)
-#define CHANNELDEFAULT 0
-#endif
-//}
-#else
-//{
-#ifdef EU_DEFAULT
-//{
-#if ! defined(CHANNELDEFAULT)
-#define CHANNELDEFAULT 17
-#endif
-//}
-#endif
-//}
-#endif
-
-//}
-#else
-//{
-#ifdef EU_434MHz
-//{
-
-#pragma message "Info: Using the EU 434MHz ISM band"
-
-#if defined(NAEU_2p4GHz)
-#error "ERROR: must define ONLY ONE of the following: NAEU_900MHz, EU_434MHz, and NAEU_2p4GHz"
-#endif
-
-#if ! defined(CHANNELDEFAULT)
-#define CHANNELDEFAULT 0
-#endif
-
-//}
-#else
-//{
-#ifdef NAEU_2p4GHz
-//{
-
-#pragma message "Info: Using the worldwide 2.4GHz ISM band"
-
-#if ! defined(CHANNELDEFAULT)
-#define CHANNELDEFAULT 0
-#endif
-
-//}
-#endif
-//}
-#endif
+   #pragma message "Info: Using the worldwide 2.4GHz ISM band"
+   #if ! defined(CHANNELDEFAULT)
+      #define CHANNELDEFAULT 0
+   #endif
 //}
 #endif
 
@@ -303,26 +242,26 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Misc. settings
 /////////////////
 #if ! defined(CHANNELDEFAULT)
-#error "ERROR: CHANNELDEFAULT is undefined"
+   #error "ERROR: CHANNELDEFAULT is undefined"
 #else
-#pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
+   #pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
 #endif
 
 
 #if ! defined(LCDADDRESSDEFAULT)
-#error "ERROR: LCDADDRESSDEFAULT is undefined"
+   #error "ERROR: LCDADDRESSDEFAULT is undefined"
 #else
-#pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
+   #pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 #endif
 
 #if defined(SPCRDEFAULT)
-#pragma message "Info: Changed SPCR value to " xstr(SPCRDEFAULT)
+   #pragma message "Info: Changed SPCR value to " xstr(SPCRDEFAULT)
 #endif
 
 #if ! defined(DONTTURNOFFINTERRUPTS)
-#pragma message "Info: turning off interrupts in critical-sections"
+   #pragma message "Info: turning off interrupts in critical-sections"
 #else
-#pragma message "Info: NOT turning off interrupts in critical-sections"
+   #pragma message "Info: NOT turning off interrupts in critical-sections"
 #endif
 
 ///////////////////////////

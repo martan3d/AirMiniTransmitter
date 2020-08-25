@@ -118,7 +118,7 @@ void dccInit(void)
   if(dcLevelDCC) OUTPUT_HIGH; // HIGH
   else OUTPUT_LOW;            // LOW
 
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
   EICRA  = 0x05;            // Set both EXT0 and EXT1 to trigger on any change
   EIMSK  = 0x02;            // EXT INT 1 enabled only
 #else
@@ -152,7 +152,7 @@ void DCCuseModemData(uint8_t useModemData_in, uint8_t dcLevel_in)
 ///////////////////////////
 ///////////////////////////
 
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
 // ExtInterrupt on change of state of port pin D3 on atmega328p, DCC input stream
 ISR(INT1_vect)
 #else
@@ -160,7 +160,7 @@ ISR(INT1_vect)
 ISR(INT0_vect)
 #endif
 {
-#ifdef TRANSMIT
+#if defined(TRANSMITTER)
     /** PORTD 8 is EXT IRQ 1 - INPUT FOR DCC from optocoupler
 	    EXT INT1 gives us an IRQ on both a high and a low change of the input stream */
     if(PIND & 0x08)                         // if it's a one, start of pulse

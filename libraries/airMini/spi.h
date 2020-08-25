@@ -28,7 +28,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */ 
  
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -44,6 +44,6 @@ void startModem(uint8_t channel, uint8_t mode);
 
 
 #endif /* SPI_H_ */
-#ifdef __cplusplus
+#if defined(__cplusplus)
 }
 #endif

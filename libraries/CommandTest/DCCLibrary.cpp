@@ -108,7 +108,7 @@ ISR(TIMER2_OVF_vect){
                 preamble_count--;
                 if(preamble_count == 0){      // advance to next state
                     // get next message
-#ifdef SEND_DUPLICATE_PACKETS
+#if defined(SEND_DUPLICATE_PACKETS)
                     GetNextMessage();
                     if (true)                 // Will NOT put in extra preamble pulses if a new msg is NOT ready, just use the old packet
 #else
@@ -121,7 +121,7 @@ ISR(TIMER2_OVF_vect){
                     }
                     else
                     {
-#ifdef SEND_PREAMBLE_PULSES
+#if defined(SEND_PREAMBLE_PULSES)
                       preamble_count++;          // No change in state, just adding extra preamble pulses
 #else
                       state = SEPERATOR;         // Ready to go to next state with new msg
