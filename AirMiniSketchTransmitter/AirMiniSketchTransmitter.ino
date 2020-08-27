@@ -517,8 +517,7 @@ void LCD_Addr_Ch_PL()
 #if defined(TRANSMITTER)
   snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, regionString[regionNum], powerLevel);
 #else
-  if (filterModemData) snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], 1);
-  else                 snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], 0);
+  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], filterModemData);
 #endif
   lcd.print(lcd_line);
   return;
@@ -707,7 +706,7 @@ void setup() {
   initializeSPI();                            // Initialize the SPI interface to the radio
   delay(10);                                  // Wait a bit for the SPI
   dccInit();                                  // Enable DCC transmit/receive
-  startModem(CHANNEL, MODE);                  // Start on this Channel
+  startModem(CHANNEL, MODE);                  // Start radio on this Channel
 
   sei();                                      // enable interrupts
 
@@ -857,6 +856,7 @@ void loop() {
                                           idlePeriod = idlePeriodms * MILLISEC; // Convert to cycles
                                       break;
                                       case  246:  // Set whether to always use modem data
+                                          if (CVval) CVval = 1; // Non-zero reset to 1
                                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, CVval, 1); // Set filterModemData and reset EEPROM values
                                       break;
 #if defined(RECEIVER)
