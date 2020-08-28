@@ -1,5 +1,5 @@
 /*
-AirMiniSketchTransmitter.ino
+AirMiniSketchTransmitter.ino 
 
 Created: Dec  7 12:15:25 EST 2019
 
@@ -43,11 +43,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #undef RECEIVER
 #define DCCLibrary
 #define USE_LCD
-#else
-#define RECEIVER
+#elif defined(RECEIVER)
 #undef DCCLibrary
-#undef USE_LCD
 #define USE_LCD
+#else
+#error "Error: Neither TRANSMITTER or RECEIVER is defined"
 #endif
 
 #if defined(USE_LCD)
@@ -98,9 +98,9 @@ volatile uint8_t lastMessageExtracted = 0;
 
 // Times
 // #if defined(TRANSMITTER)
-// #define INITIALDELAYMS       0   // Initial processor start-up delay in ms
+// #define INITIALDELAYMS       1000   // Initial processor start-up delay in ms
 // #else
-// #define INITIALDELAYMS       0   // Initial processor start-up delay in ms
+// #define INITIALDELAYMS       1000   // Initial processor start-up delay in ms
 // #endif
 
 #define EEPROMDELAYMS      100   // Delay after eeprom write in ms
@@ -289,6 +289,8 @@ uint8_t AirMiniCV29;                         // The AirMini's address, HIGH byte
 uint8_t AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
 uint8_t useMyAddress = 0;                    // Global flag for LCD
 
+#define ISSET 0b10101010
+
 // EEPROM data for persistence after turn-off of the AirMini
 uint8_t  EEMEM EEisSetCHANNEL;               // Stored RF channel is set
 uint8_t  EEMEM EECHANNEL;                    // Stored RF channel #
@@ -416,15 +418,16 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
    uint8_t isSet; 
    if (EEisSetTargetPtr != (const uint8_t *)NULL) isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
    else isSet = 0; // Bad if you get here!
-   if (!isSet || forceDefault)
+   if ((isSet != ISSET) || forceDefault)
    {
       *TargetPtr = defaultValue; 
       eeprom_busy_wait();
-      eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)1 );
+      eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_busy_wait();
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
+      eeprom_busy_wait();
    }
    else
    {
@@ -672,6 +675,10 @@ void setup() {
   initialWait = 0;
 #endif
   inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
+
+#if defined(USE_LCD)
+  prevLCDTime = getMsClock()+LCDTimePeriod;
+#endif
 
   ///////////////////////////////////////////////
   // Set up the hardware and related variables //
@@ -980,7 +987,7 @@ void loop() {
               then = getMsClock();             // Grab Clock Value for next time
 
 #if defined(USE_LCD)
-              if (!lcdInitialized) {
+              if (!lcdInitialized && ((then-prevLCDTime) >= LCDTimePeriod)) {
                  lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
                  lcd.backlight();                            // Backlight it
                  refreshLCD = true;
