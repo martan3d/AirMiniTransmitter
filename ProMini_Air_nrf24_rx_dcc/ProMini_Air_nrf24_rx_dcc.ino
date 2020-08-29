@@ -2,7 +2,7 @@
 #define DEBUG
 
 #ifdef DEBUG
-#define PRINT_MAX 64
+#define PRINT_MAX 129
 int print_count = 0;
 #endif
 

@@ -22,12 +22,12 @@ uint8_t payload[32]={3,0xFF,0,0xFF}; // initialize with idle message
 const byte slaveAddress[5] = {'R','x','A','A','A'};
 
 void setup() {
-#if DEBUG
+#ifdef DEBUG
    Serial.begin(115200);
 #endif
 
    radio.begin();
-#if DEBUG
+#ifdef DEBUG
    if (radio.isChipConnected()) Serial.print("The chip is connected\n");
    else Serial.print("The chip is NOT connected\n");
 #endif
@@ -37,11 +37,11 @@ void setup() {
    radio.setRetries(0,0); // delay, count
    radio.enableDynamicPayloads();
    radio.enableDynamicAck(); // Added
-   radio.setPALevel(RF24_PA_MAX,0);
+   radio.setPALevel(RF24_PA_MAX,1);
    radio.openWritingPipe(slaveAddress);
    radio.stopListening();
     
-#if DEBUG
+#ifdef DEBUG
    Serial.println("tx: setup: radio ready");
 #endif
 
@@ -50,7 +50,7 @@ void setup() {
    // Call the main DCC Init function to enable the DCC Receiver
    Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
 
-#if DEBUG
+#ifdef DEBUG
    Serial.println("tx: setup: Dcc ready");
 #endif
    delay(5000);
@@ -75,7 +75,7 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
     for(uint8_t i=0; i<payload[0]; i++) payload[i+1] = Msg->Data[i];
     // interrupts();
     radio.write( payload, payload[0]+1, 1 ); // NOACK
-#if DEBUG
+#ifdef DEBUG
     printMsgSerial();
 #endif
 }
