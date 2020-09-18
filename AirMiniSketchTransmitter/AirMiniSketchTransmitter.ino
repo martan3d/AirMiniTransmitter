@@ -349,6 +349,7 @@ uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
 uint8_t EEMEM EELCDAddress;                    // Stored LCD address
 // uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
 uint8_t LCDAddress;                            // The I2C address of the LCD
+bool LCDFound = false;                         // Whether a valid lcd was found
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
 uint64_t LCDTimePeriod=2*SEC;                  // Set up the LCD re-display time interval, 2 s
@@ -678,6 +679,7 @@ void setup() {
 
 #if defined(USE_LCD)
   prevLCDTime = getMsClock()+LCDTimePeriod;
+  Wire.begin(); // Wire communication begin
 #endif
 
   ///////////////////////////////////////////////
@@ -906,13 +908,16 @@ void loop() {
                                       case  8:  // Full EEPROM Reset and reboot!
                                            if (CVval==8) {
 #if defined(USE_LCD)
-                                              lcd.clear();
-                                              lcd.setCursor(0,0); // column, row
-                                              snprintf(lcd_line,sizeof(lcd_line),"Keep Power ON!");
-                                              lcd.print(lcd_line);
-                                              lcd.setCursor(0,1); // column, row
-                                              snprintf(lcd_line,sizeof(lcd_line),"Factory Reset...");
-                                              lcd.print(lcd_line);
+                                              if (LCDFound) 
+                                              {
+                                                 lcd.clear();
+                                                 lcd.setCursor(0,0); // column, row
+                                                 snprintf(lcd_line,sizeof(lcd_line),"Keep Power ON!");
+                                                 lcd.print(lcd_line);
+                                                 lcd.setCursor(0,1); // column, row
+                                                 snprintf(lcd_line,sizeof(lcd_line),"Factory Reset...");
+                                                 lcd.print(lcd_line);
+                                              }
 #endif
                                               eepromClear();
                                               reboot(); // No need for sei, you're starting over...
@@ -935,7 +940,7 @@ void loop() {
                                     } // end of switch(CVnum) 
 
 #if defined(USE_LCD)
-                                    LCD_CVval_Status(CVnum,CVval);
+                                    if (LCDFound) LCD_CVval_Status(CVnum,CVval);
 #endif
 
                                     if(startModemFlag)
@@ -988,12 +993,39 @@ void loop() {
 
 #if defined(USE_LCD)
               if (!lcdInitialized && ((then-prevLCDTime) >= LCDTimePeriod)) {
-                 lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
-                 lcd.backlight();                            // Backlight it
-                 refreshLCD = true;
-                 whichBanner = INITIAL;
-                 prevLCDTime = then+LCDTimePeriod;
+
                  lcdInitialized = true;
+
+                 // Scan for I2C devices
+                 byte nDevices = 0;
+                 byte address;
+                 byte error;
+                 for (address = 1; address < 127; address++ )
+                 {
+                    // The i2c_scanner uses the return value of
+                    // the Write.endTransmisstion to see if
+                    // a device did acknowledge to the address.
+                    Wire.beginTransmission(address);
+                    error = Wire.endTransmission();
+                
+                    if (error == 0)
+                    {
+                      nDevices++;
+                      LCDAddress = address;
+                    }
+                 }
+
+                 if (nDevices == 1)
+                 {
+                    LCDFound = true;
+                    lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
+                    lcd.backlight();                            // Backlight it
+                    refreshLCD = true;
+                    whichBanner = INITIAL;
+                    prevLCDTime = then+LCDTimePeriod;
+                 }
+                 else LCDFound = false;
+
               }
 
               if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod)) {
@@ -1077,7 +1109,7 @@ void loop() {
                  {
                     initialWait = 0; 
 #if defined(USE_LCD)
-                    LCD_Wait_Period_Over(1);
+                    if (LCDFound) LCD_Wait_Period_Over(1);
 #endif
                  }
                  else  // Othewise, continue to wait
@@ -1086,7 +1118,7 @@ void loop() {
                     if (then > endInitialWaitTime) 
                     {
 #if defined(USE_LCD)
-                       LCD_Wait_Period_Over(0);
+                       if (LCDFound) LCD_Wait_Period_Over(0);
 #endif
                        if (++searchChannelIndex <= sizeof(searchChannels))
                        // Keep searching...
