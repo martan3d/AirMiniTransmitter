@@ -81,19 +81,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /* For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)*/
 // #define TWENTY_SIX_MHZ
 
-////////////////////////////////
-// Set the LCD's default address
-////////////////////////////////
-/* Uncomment ONLY ONE #define*/
-/* The LCD display's default address.*/
-/* O=Open jumper (=High); C=Closed jumper (=Low),*/
-/* addresses are A2,A1,A0 from left to right on the boards*/
-/* The address range for TI serial drivers */
-/* PC8574:  0x20(CCC=LLL) to 0x27(OOO=HHH)(default)*/
-#define LCDADDRESSDEFAULT 0x27
-/* PC8574A: 0x38(CCC=LLL) to 0x3F(OOO=HHH)(default)*/
-// #define LCDADDRESSDEFAULT 0x3F
-
 //////////////////////////////////////////////////////
 // Special settings. You are NOT required to uncomment
 //////////////////////////////////////////////////////
@@ -245,13 +232,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
    #error "ERROR: CHANNELDEFAULT is undefined"
 #else
    #pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
-#endif
-
-
-#if ! defined(LCDADDRESSDEFAULT)
-   #error "ERROR: LCDADDRESSDEFAULT is undefined"
-#else
-   #pragma message "Info: Default LCD address is " xstr(LCDADDRESSDEFAULT)
 #endif
 
 #if defined(SPCRDEFAULT)

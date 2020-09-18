@@ -345,9 +345,6 @@ uint8_t  EEMEM EEAutoIdleOff;       // Stored AirMini decoder configuration vari
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
 #if defined(USE_LCD)
-uint8_t EEMEM EEisSetLCDAddress;               // Stored LCD address set?
-uint8_t EEMEM EELCDAddress;                    // Stored LCD address
-// uint8_t EEMEM EELCDAddressDefault;             // Stored LCD address default
 uint8_t LCDAddress;                            // The I2C address of the LCD
 bool LCDFound = false;                         // Whether a valid lcd was found
 #define LCDCOLUMNS 16                          // Number of LCD columns
@@ -644,10 +641,6 @@ void setup() {
   // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
   checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  AUTOIDLEOFFDEFAULT, 0);  // Set AutoIdleOff
 #endif
-#if defined(USE_LCD)
-  // eeprom_update_byte(&EELCDAddressDefault, LCDADDRESSDEFAULT );
-  checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  LCDADDRESSDEFAULT, 0);  // Set LCDAddress
-#endif
 
   /////////////////////////////////
   // Initialization of variables //
@@ -879,12 +872,6 @@ void loop() {
 #if defined(TRANSMITTER)
                                       case  244:  // Turn off automatic IDLE insertion
                                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  CVval, 1); 
-                                      break;
-#endif
-#if defined(USE_LCD)
-                                      case  243:  // Reset the LCD address
-                                           checkSetDefaultEE(&LCDAddress, &EEisSetLCDAddress, &EELCDAddress,  CVval, 1);  // Set LCD address for the NEXT boot
-                                           CVStatus = PENDING;
                                       break;
 #endif
                                       case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
