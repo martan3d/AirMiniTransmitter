@@ -1,9 +1,10 @@
-  // nrf24 - receiver    12 Mar 2018
+// nrf24 - receiver    12 Mar 2018
 #define DEBUG
 
 #ifdef DEBUG
 #define PRINT_MAX 129
 int print_count = 0;
+uint8_t whatChannel;
 #endif
 
 #include <SPI.h>
@@ -12,11 +13,11 @@ int print_count = 0;
 #include <RF24.h>
 #include <avr/io.h>
 
-   // use digital pins 6 and 5 for DCC out
-   // use digital pin D3
+// use digital pins 6 and 5 for DCC out
+// use digital pin D3
 #define OUTPUT_PIN PD3
 
-    //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
+//Timer frequency is 2MHz for ( /8 prescale from 16MHz )
 #define TIMER_SHORT 0x8D  // 58usec pulse length
 #define TIMER_LONG  0x1B  // 116usec pulse length
 
@@ -29,13 +30,20 @@ byte every_second_isr = 0;  // pulse up or down
 #define SEPERATOR 1
 #define SENDBYTE  2
 
-// RF24 radio(9,10);
+RF24 radio(9,10);
 // RF24 radio(9,10,1000000);
-RF24 radio(9,10,500000);
+// RF24 radio(9,10,500000);
 // RF24 radio(9,10,250000);
 
-const byte thisSlaveAddress[5] = {'R','x','A','A','A'};
-byte dataReceived[32];
+const uint64_t pipe00 = 0xE8E8F0F0A0LL;
+const uint64_t pipe01 = 0xE8E8F0F0A1LL;
+const uint64_t pipe02 = 0xA2LL;  
+const uint64_t pipe03 = 0xA3LL;
+const uint64_t pipe04 = 0xA4LL;
+const uint64_t pipe05 = 0xA5LL;
+const uint64_t pipe06 = 0xA6LL;
+// const byte thisSlaveAddress[5] = {'R','x','A','A','A'};
+byte dataReceived[33];
 
 byte state = PREAMBLE;
 byte preamble_count = 16;
@@ -61,6 +69,16 @@ const Message msgIdle =
 volatile uint8_t msgIndex = 0;
 volatile uint8_t msgIndexInserted = 0; // runs from 0 to MAXMSG-1
 int byteIndex = 0;
+
+void printmsgSerial() {
+  Serial.print("rx: loop: msg["); Serial.print(msgIndexInserted,HEX); Serial.print("]:\n");
+  Serial.print(" whatChannel: "); Serial.print(whatChannel,DEC); Serial.print("\n");
+  Serial.print(" len: "); Serial.print(msg[msgIndexInserted].len,HEX); Serial.print("\n");
+  for(byte i=0; i<msg[msgIndexInserted].len; i++) {
+     Serial.print(" data["); Serial.print(i,HEX); Serial.print("]: ");
+     Serial.print(msg[msgIndexInserted].data[i],HEX); Serial.print("\n");
+  }
+}
 
 // Output timer
 // Setup Timer2.
@@ -117,6 +135,10 @@ ISR(TIMER2_OVF_vect) {
              msgIndex = msgIndexInserted;
              memcpy((void *)&msg[msgIndexInserted], (void *)&msgIdle, sizeof(Message)); // copy the idle message
           }
+#if 0
+     if (!print_count) printmsgSerial();
+     print_count = (print_count+1) % PRINT_MAX;
+#endif
           byteIndex = 0; //start msg with byte 0
         }
         break;
@@ -188,7 +210,8 @@ void setup(void)
    radio.setDataRate(RF24_1MBPS);
    radio.enableDynamicPayloads();
    radio.enableDynamicAck(); // Added. Not sure it's necessary on the rx side
-   radio.openReadingPipe(1, thisSlaveAddress);
+   radio.openWritingPipe(pipe00);
+   radio.openReadingPipe(1, pipe01);
    radio.startListening();
 
 #ifdef DEBUG
@@ -197,25 +220,21 @@ void setup(void)
    delay(5000);
 }
 
-void printmsgSerial() {
-  Serial.print("rx: loop: msg["); Serial.print(msgIndexInserted,HEX); Serial.print("]:\n");
-  Serial.print(" len: "); Serial.print(msg[msgIndexInserted].len,HEX); Serial.print("\n");
-  for(byte i=0; i<msg[msgIndexInserted].len; i++) {
-     Serial.print(" data["); Serial.print(i,HEX); Serial.print("]: ");
-     Serial.print(msg[msgIndexInserted].data[i],HEX); Serial.print("\n");
-  }
-}
 
 void loop(){
 
   // delay(100);
   // while(!radio.available());
-  if ( radio.available() ) {
-     radio.read( &dataReceived, sizeof(dataReceived) );
+  uint8_t len;
+  if ( radio.available(&whatChannel) ) {
+     // radio.read( &dataReceived, sizeof(dataReceived) );
+     len = radio.getDynamicPayloadSize();
+     radio.read( &dataReceived, len );
      noInterrupts();
      msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
      msg[msgIndexInserted].len = dataReceived[0];
-     for(byte i=0; i<msg[msgIndexInserted].len; i++) msg[msgIndexInserted].data[i]=dataReceived[i+1];
+     // for(byte i=0; i<msg[msgIndexInserted].len; i++) msg[msgIndexInserted].data[i]=dataReceived[i+1];
+     memcpy((void *)&msg[msgIndexInserted].data[0],(void *)&dataReceived[1],dataReceived[0]);
      interrupts();
 #ifdef DEBUG
      if (!print_count) printmsgSerial();
