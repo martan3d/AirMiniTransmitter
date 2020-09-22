@@ -672,7 +672,6 @@ void setup() {
 
 #if defined(USE_LCD)
   prevLCDTime = getMsClock()+LCDTimePeriod;
-  Wire.begin(); // Wire communication begin
 #endif
 
   ///////////////////////////////////////////////
@@ -984,6 +983,7 @@ void loop() {
                  lcdInitialized = true;
 
                  // Scan for I2C devices
+                 Wire.begin(); // Wire communication begin
                  byte nDevices = 0;
                  byte address;
                  byte error;
