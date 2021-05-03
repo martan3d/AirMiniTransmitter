@@ -66,44 +66,11 @@ uint8_t * getDCC()
 
 uint8_t decodeDCCPacket( DCC_MSG * dccptr)
 {
-	uint8_t l;
-	
-	l = dccptr->Size;       // length of packet
-	
-	switch(l)
-	{
-		case 3:             // three bytes
-		        SendByte(dccptr->Data[0]);
-		        SendByte(dccptr->Data[1]);
-		        SendByte(dccptr->Data[2]);
-		        break;
-				
-		case 4:
-		        SendByte(dccptr->Data[0]);      // debug out the serial port
-		        SendByte(dccptr->Data[1]);
-		        SendByte(dccptr->Data[2]);
-		        SendByte(dccptr->Data[3]);
-			break;
-				
-		case 5:
-		        SendByte(dccptr->Data[0]);
-		        SendByte(dccptr->Data[1]);
-		        SendByte(dccptr->Data[2]);
-		        SendByte(dccptr->Data[3]);
-		        SendByte(dccptr->Data[4]);
-		        break;
 
-		case 6:
-		        SendByte(dccptr->Data[0]);
-		        SendByte(dccptr->Data[1]);
-		        SendByte(dccptr->Data[2]);
-		        SendByte(dccptr->Data[3]);
-		        SendByte(dccptr->Data[4]);
-		        SendByte(dccptr->Data[5]);
-		        break;
-	}
+   for (uint8_t i = 0; i < dccptr->Size ; i++)
+      SendByte(dccptr->Data[i]);
+   return dccptr->Size;
 
-        return l;
 }
 
 void dccInit(void)
@@ -254,83 +221,22 @@ ISR(INT0_vect)
             {
                 State = PREAMBLE;                           // Got everything, next time will be start of new DCC packet coming in
                 transitionCountDCC = 0;                        // Reset the transition count
-                
-                switch(byteCounter)
+
+                errorByte  = buffer[0];                 // VERY IMPORTANT!
+                for(uint8_t i = 1; i < byteCounter-1; i++)
+                    errorByte ^= buffer[i];                 // All sorts of stuff flies around on the bus
+
+                if (errorByte == buffer[byteCounter-1])
                 {
-                  case 3:
-                    errorByte  = buffer[0];                 // VERY IMPORTANT!
-                    errorByte ^= buffer[1];                 // All sorts of stuff flies around on the bus
-                    
-                    if (errorByte == buffer[2])
-                    {
-                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
-                        buffer[sizeof(DCC_MSG)] = 0;
+                    buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
+                    buffer[sizeof(DCC_MSG)] = 0;
 
-                        for (i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
-                            dccbuff[i] = buffer[i];
+                    for (i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
+                        dccbuff[i] = buffer[i];
 
-                        transitionCountDCC = 0;                // Reset the transition count
-                        setScheduledTask(TASK1);            // Schedule the background task
-                    }
-                  break;
-                
-                  case 4:
-                    errorByte  = buffer[0];                 // XOR across all 
-                    errorByte ^= buffer[1];
-                    errorByte ^= buffer[2];                 // be VERY picky about what we accept
-                    
-                    if (errorByte == buffer[3])
-                    {
-                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
-                        buffer[sizeof(DCC_MSG)] = 0;
-                                                            // move out of operations buffer into background buffer
-                        for (i=0;i<sizeof(DCC_MSG);i++)
-                            dccbuff[i] = buffer[i];
-
-                        transitionCountDCC = 0;            // Reset the transition count
-                        setScheduledTask(TASK1);        // Schedule the background task
-                    }                        
-                  break;
-                
-                  case 5:
-                    errorByte  = buffer[0];                 // Compute checksum (xor) across all
-                    errorByte ^= buffer[1];
-                    errorByte ^= buffer[2];
-                    errorByte ^= buffer[3];
-
-                    if (errorByte == buffer[4])             // if it matches, valid message came in
-                    {
-                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
-                        buffer[sizeof(DCC_MSG)] = 0;
-
-                        for (i=0;i<sizeof(DCC_MSG);i++)
-                            dccbuff[i] = buffer[i];
-
-                        transitionCountDCC = 0;                // Reset the transition count
-                        setScheduledTask(TASK1);            // Schedule the background task
-                    }
-                  break;
-
-                  case 6:
-                    errorByte  = buffer[0];                 // Compute checksum (xor) across all
-                    errorByte ^= buffer[1];
-                    errorByte ^= buffer[2];
-                    errorByte ^= buffer[3];
-                    errorByte ^= buffer[4];
-
-                    if (errorByte == buffer[5])             // if it matches, valid message came in
-                    {
-                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
-                        buffer[sizeof(DCC_MSG)] = 0;
-
-                        for (i=0;i<sizeof(DCC_MSG);i++)
-                            dccbuff[i] = buffer[i];
-
-                        transitionCountDCC = 0;                // Reset the transition count
-                        setScheduledTask(TASK1);            // Schedule the background task
-                    }
-                  break;
-                } // end of switch
+                    transitionCountDCC = 0;                // Reset the transition count
+                    setScheduledTask(TASK1);            // Schedule the background task
+                }
             }
             else  // Get next Byte
             {

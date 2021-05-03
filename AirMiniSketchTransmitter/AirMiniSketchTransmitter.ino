@@ -172,6 +172,7 @@ extern uint8_t channels_na_max;  // From spi.c
 uint64_t now;
 uint64_t then;
 
+DCC_MSG *dccMsg;
 uint8_t sendbuffer[sizeof(DCC_MSG)];
 uint8_t modemCVResetCount=0;
 uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
@@ -287,7 +288,7 @@ uint8_t AirMiniCV18;                         // The AirMini's address, LOW byte
 
 uint8_t AirMiniCV29;                         // The AirMini's address, HIGH byte
 uint8_t AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
-uint8_t useMyAddress = 0;                    // Global flag for LCD
+uint8_t printDCC = 1;                        // Global flag for LCD for DCC msg display
 
 #define ISSET 0b10101010
 
@@ -446,12 +447,12 @@ void LCD_Banner()
   lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-  lcd.print("H:1.0 S:1.9/27MH");   // Show state
+  lcd.print("H:1.0 S:2.0/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-  lcd.print("H:1.0 S:1.9/26MH");   // Show state
+  lcd.print("H:1.0 S:2.0/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -474,24 +475,8 @@ void LCD_Addr_Ch_PL()
   int AirMiniAddress_int = (int)AirMiniAddress;
   // snprintf(lcd_line,sizeof(lcd_line),"Addr: %d",AirMiniAddress_int);
   */
-  if(useMyAddress) 
+  if(printDCC) 
   {
-     useMyAddress = 0;
-     if(AirMiniCV29Bit5) 
-     {
-        int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(L)",AirMiniAddress_int);
-     }
-     else
-     {
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
-        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(S)",AirMiniCV1);
-     }
-  }
-  else
-  {
-     useMyAddress = 1;
      uint8_t tmp = dccptr[0]&0b11000000;
      if ((tmp==0b11000000) && (dccptr[0]!=0b11111111))
      {
@@ -504,22 +489,53 @@ void LCD_Addr_Ch_PL()
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptr[0]);
      }
   }
+  else
+  {
+     if(AirMiniCV29Bit5) 
+     {
+        int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
+        // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(L)",AirMiniAddress_int);
+     }
+     else
+     {
+        // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
+        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(S)",AirMiniCV1);
+     }
+  }
     
   lcd.print(lcd_line);
   lcd.setCursor(0,1); // column, row
 
-#if defined(NAEU_900MHz)
-  if (CHANNEL <= channels_na_max)
-     regionNum=0;
+  if (printDCC) 
+  {
+     printDCC = 0;
+     lcd_line[0] = 'D';
+     lcd_line[1] = 'C';
+     lcd_line[2] = 'C';
+     lcd_line[3] = ':';
+     lcd_line[4] = ' ';
+     dccMsg = (DCC_MSG*) dccptr;
+     for(uint8_t i = 0; i < dccMsg->Size; i++) {
+        snprintf(&lcd_line[i+5],2,"%X", dccMsg->Data[i]);
+     }
+  }
   else
-     regionNum=1;
+  {
+     printDCC = 1;
+#if defined(NAEU_900MHz)
+     if (CHANNEL <= channels_na_max)
+        regionNum=0;
+     else
+        regionNum=1;
 #endif
 
 #if defined(TRANSMITTER)
-  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, regionString[regionNum], powerLevel);
+     snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) PL:%d", CHANNEL, regionString[regionNum], powerLevel);
 #else
-  snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], filterModemData);
+     snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], filterModemData);
 #endif
+  }
   lcd.print(lcd_line);
   return;
 }
