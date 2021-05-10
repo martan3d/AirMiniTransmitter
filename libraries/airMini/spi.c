@@ -434,7 +434,7 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define MOSI_PIN 11
 #define SS_PIN   10
 
-uint8_t spifIntMask = 1 << SPIF; // SPIF interrupt mask
+#define SPIFINTMASK (1 << SPIF) // SPIF interrupt mask
 
 volatile uint8_t *ssIntPort;   // use port and bitmask to write output in ISR
 uint8_t ssIntMask;             // digitalWrite is too slow on AVR
@@ -529,7 +529,7 @@ void initializeSPI()
 uint8_t clockSPI(uint8_t data)
 {
     SPDR = data;              // Send
-    while (!(SPSR & spifIntMask));  // wait for byte to clock out
+    while (!(SPSR & SPIFINTMASK));  // wait for byte to clock out
     return (SPDR);
 }
 
@@ -615,7 +615,7 @@ uint8_t strobeSPI(uint8_t data)
     beginSPI();
 
     SPDR = data;              // RX|TX
-    while (!(SPSR & spifIntMask));  // wait for byte to clock out
+    while (!(SPSR & SPIFINTMASK));  // wait for byte to clock out
 
     endSPI();
 
@@ -629,9 +629,9 @@ uint8_t readSPI(uint8_t addr)
     beginSPI();
 
     SPDR = addr;              // RX|TX
-    while (!(SPSR & spifIntMask));  // wait for byte to clock out
+    while (!(SPSR & SPIFINTMASK));  // wait for byte to clock out
     SPDR = 0;                 // generic out, we only want read back
-    while (!(SPSR & spifIntMask));  // wait for byte to clock out
+    while (!(SPSR & SPIFINTMASK));  // wait for byte to clock out
     ret = SPDR;               // readback
 
     endSPI();

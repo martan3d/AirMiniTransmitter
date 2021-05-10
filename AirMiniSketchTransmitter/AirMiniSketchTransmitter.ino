@@ -514,10 +514,10 @@ void LCD_Addr_Ch_PL()
      lcd_line[1] = 'C';
      lcd_line[2] = 'C';
      lcd_line[3] = ':';
-     lcd_line[4] = ' ';
+//   lcd_line[4] = ' ';
      dccMsg = (DCC_MSG*) dccptr;
      for(uint8_t i = 0; i < dccMsg->Size; i++) {
-        snprintf(&lcd_line[i+5],2,"%X", dccMsg->Data[i]);
+        snprintf(&lcd_line[2*i+4],3,"%02X", dccMsg->Data[i]);
      }
   }
   else
