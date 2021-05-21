@@ -177,7 +177,7 @@ uint8_t sendbuffer[sizeof(DCC_MSG)];
 uint8_t modemCVResetCount=0;
 uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
-uint8_t * dccptr;
+uint8_t *dccptr;
 uint8_t dccptrRepeatCount = 0;
 uint8_t dccptrRepeatCountMax = 2;
 uint8_t j;
@@ -447,12 +447,12 @@ void LCD_Banner()
   lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-  lcd.print("H:1.0 S:2.0/27MH");   // Show state
+  lcd.print("H:1.0 S:2.1/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-  lcd.print("H:1.0 S:2.0/26MH");   // Show state
+  lcd.print("H:1.0 S:2.1/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -713,6 +713,9 @@ void setup() {
 
    //Set the pin for DCC to "output" and set up DCC timers
    SetupDCC(DCC_PIN);   
+
+   // Experimental: Initially clear TASK1
+   clearScheduledTask(TASK1);
 
    /////////////////////
    /////////////////////
