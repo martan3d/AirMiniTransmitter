@@ -104,10 +104,10 @@ volatile uint8_t lastMessageExtracted = 0;
 // #endif
 
 #define EEPROMDELAYMS      100   // Delay after eeprom write in ms
-#define MILLISEC          4000   // @16Mhz, this is 1ms, 0.001s
-#define QUARTERSEC     1000000   // @16Mhz, this is 0.25s
-#define SEC            4000000   // @16Mhz, this is 1.00s
-#define BACKGROUNDTIME   32000   // @16Mhz, this is 8ms
+#define MILLISEC          1000   //    1 msec. Units: us
+#define QUARTERSEC      250000   // 0.25  sec. Units: us
+#define SEC            1000000   // 1.00  sec. Units: us
+#define BACKGROUNDTIME    8000   //    8 msec. Units: us
 
 // CC1101 codes
 #define RXMODE  0x34             // C1101 modem RX mode
@@ -196,7 +196,7 @@ volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem
 uint64_t idlePeriod = 0;                     // 0 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
-uint64_t tooLong  = 4000000;                 // 1 sec, changed to variable that might be changed by SW
+uint64_t tooLong  = 2*SEC;                   // 1 sec, changed to variable that might be changed by SW
 uint64_t sleepTime = 0;                      // 0 sec, changed to variable that might be changed by SW
 uint64_t timeOfValidDCC;                     // Time stamp of the last valid DCC packet
 uint64_t inactiveStartTime;                  // Time stamp if when modem data is ignored
@@ -352,7 +352,7 @@ bool LCDFound = false;                         // Whether a valid lcd was found
 #define LCDROWS 2                              // Number of LCD rows 
 uint64_t LCDTimePeriod=2*SEC;                  // Set up the LCD re-display time interval, 2 s
 uint64_t prevLCDTime = 0;                      // Initialize the last time displayed
-bool refreshLCD = true;                        // Whether to refresh
+bool refreshLCD = false;                        // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end null!
 #endif
@@ -447,12 +447,12 @@ void LCD_Banner()
   lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-  lcd.print("H:1.0 S:2.1/27MH");   // Show state
+  lcd.print("H:1.0 S:2.2/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-  lcd.print("H:1.0 S:2.1/26MH");   // Show state
+  lcd.print("H:1.0 S:2.2/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -460,7 +460,7 @@ void LCD_Banner()
 #endif
 //}
 #endif
-  prevLCDTime  = getMsClock();     // Set up the previous display time
+  prevLCDTime  = micros();     // Set up the previous display time
   refreshLCD = true;
 }
 
@@ -514,9 +514,9 @@ void LCD_Addr_Ch_PL()
      lcd_line[1] = 'C';
      lcd_line[2] = 'C';
      lcd_line[3] = ':';
-//   lcd_line[4] = ' ';
      dccMsg = (DCC_MSG*) dccptr;
-     for(uint8_t i = 0; i < dccMsg->Size; i++) {
+     for(uint8_t i = 0; i < dccMsg->Size; i++) 
+     {
         snprintf(&lcd_line[2*i+4],3,"%02X", dccMsg->Data[i]);
      }
   }
@@ -557,7 +557,7 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
     break;
   }
   lcd.print(lcd_line);
-  prevLCDTime  = getMsClock();
+  prevLCDTime  = micros();
   refreshLCD = true;
   return;
 }
@@ -587,14 +587,15 @@ void LCD_Wait_Period_Over(int status)
 
   snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d(%s)",CHANNEL, regionString[regionNum]);
   lcd.print(lcd_line);
-  prevLCDTime  = getMsClock();
+  prevLCDTime  = micros();
   refreshLCD = true;
 
   return;
 }
 #endif
 
-void setup() {
+void setup() 
+{
 
   // delay(INITIALDELAYMS);
 
@@ -673,7 +674,7 @@ void setup() {
   memset(dccptrAirMiniCVReset,0,sizeof(dccptrAirMiniCVReset));  // Initialize the reset dccptr for CV setting
 
   // Set up slow-time variables
-  then = getMsClock();                        // Grab Current Clock value for the loop below
+  then = micros();                            // Grab Current Clock value for the loop below
   timeOfValidDCC = then;                      // Initialize the valid DCC data time
 #if defined(RECEIVER)
   initialWait = 1;
@@ -684,10 +685,10 @@ void setup() {
 #else
   initialWait = 0;
 #endif
-  inactiveStartTime = then + BACKGROUNDTIME;  // Initialize the modem idle time into the future
+  inactiveStartTime = micros() + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
 #if defined(USE_LCD)
-  prevLCDTime = getMsClock()+LCDTimePeriod;
+  prevLCDTime = micros()+LCDTimePeriod;
 #endif
 
   ///////////////////////////////////////////////
@@ -734,8 +735,8 @@ void setup() {
 // End of setup
 
 
-void loop() {
-
+void loop()
+{
 
         /* Check High Priority Tasks First */
 
@@ -768,7 +769,7 @@ void loop() {
 #endif
 
                      // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
-                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)getMsClock() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
+                     if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)micros() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
                      {                     
 #if defined(DCCLibrary)
                         memcpy((void *)&msg[lastMessageInserted],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
@@ -777,7 +778,7 @@ void loop() {
                      else                                       // Send out an idle packet (for keep-alive!)
                      {
                         dccptrRepeatCount = 0;
-                        lastIdleTime = getMsClock();
+                        lastIdleTime = micros();
 #if defined(DCCLibrary)
                         memcpy((void *)&msg[lastMessageInserted],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
@@ -974,7 +975,7 @@ void loop() {
                    // End ofSpecial processing for AirMini OPS mode //
                    ///////////////////////////////////////////////////
 
-                   timeOfValidDCC = getMsClock();  // Grab Current Clock value for the checking below
+                   timeOfValidDCC = micros();  // Grab Current Clock value for the checking below
                    clearScheduledTask(TASK1);      // all done, come back next time we are needed
   
                   break; // TASK1 break
@@ -982,182 +983,190 @@ void loop() {
 
          /**** After checking highest priority stuff, check for the timed tasks ****/
 
-        now = getMsClock() - then;             // How long has it been since we have come by last?
+        now = micros() - then;             // How long has it been since we have come by last?
 
 #if defined(RECEIVER)
         if(!useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
-          {
-            if(dcLevel) OUTPUT_HIGH;           // HIGH
-            else OUTPUT_LOW;                   // LOW
-          }
+        {
+          if(dcLevel) OUTPUT_HIGH;           // HIGH
+          else OUTPUT_LOW;                   // LOW
+        }
 #endif
         
-         if( now > BACKGROUNDTIME )            // Check for Time Scheduled Tasks
-           {                                   // A priority Schedule could be implemented in here if needed
-              then = getMsClock();             // Grab Clock Value for next time
+        if( now > BACKGROUNDTIME )            // Check for Time Scheduled Tasks
+        {                                   // A priority Schedule could be implemented in here if needed
+           then = micros();             // Grab Clock Value for next time
 
 #if defined(USE_LCD)
-              if (!lcdInitialized && ((then-prevLCDTime) >= LCDTimePeriod)) {
+           if (!lcdInitialized && ((then-prevLCDTime) >= LCDTimePeriod)) 
+           {
 
-                 lcdInitialized = true;
+              lcdInitialized = true;
 
-                 // Scan for I2C devices
-                 Wire.begin(); // Wire communication begin
-                 byte nDevices = 0;
-                 byte address;
-                 byte error;
-                 for (address = 1; address < 127; address++ )
+              // Scan for I2C devices
+              Wire.begin(); // Wire communication begin
+              byte nDevices = 0;
+              byte address;
+              byte error;
+              for (address = 1; address < 127; address++ )
+              {
+                 // The i2c_scanner uses the return value of
+                 // the Write.endTransmisstion to see if
+                 // a device did acknowledge to the address.
+                 Wire.beginTransmission(address);
+                 error = Wire.endTransmission();
+             
+                 if (error == 0)
                  {
-                    // The i2c_scanner uses the return value of
-                    // the Write.endTransmisstion to see if
-                    // a device did acknowledge to the address.
-                    Wire.beginTransmission(address);
-                    error = Wire.endTransmission();
-                
-                    if (error == 0)
-                    {
-                      nDevices++;
-                      LCDAddress = address;
-                    }
+                   nDevices++;
+                   LCDAddress = address;
                  }
-
-                 if (nDevices == 1)
-                 {
-                    LCDFound = true;
-                    lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
-                    lcd.backlight();                            // Backlight it
-                    refreshLCD = true;
-                    whichBanner = INITIAL;
-                    prevLCDTime = then+LCDTimePeriod;
-                 }
-                 else LCDFound = false;
-
               }
 
-              if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod)) {
-                  if (whichBanner==NONE) LCD_Addr_Ch_PL();           // Update the display of address, chanel #, and power level
-                  else if(!initialWait) {
-                     if (whichBanner==INITIAL){
-                        LCD_Banner();
-                        whichBanner = INFO;
-                     }
-                     else {
-                        LCD_Banner();
-                        whichBanner = NONE;
-                     }
+              if (nDevices == 1)
+              {
+                 LCDFound = true;
+                 refreshLCD = true;
+                 lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
+                 lcd.backlight();                            // Backlight it
+                 whichBanner = INITIAL;
+                 prevLCDTime = then+LCDTimePeriod;
+              }
+              else 
+              {
+                 LCDFound = false;
+                 refreshLCD = false;
+              }
+
+           }
+
+           if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod)) 
+           {
+               if (whichBanner==NONE) LCD_Addr_Ch_PL();           // Update the display of address, chanel #, and power level
+               else if(!initialWait) {
+                  if (whichBanner==INITIAL){
+                     LCD_Banner();
+                     whichBanner = INFO;
                   }
-                  prevLCDTime = then;              // Slowly... at 1 sec intervals
-                  refreshLCD = true;
-              }
+                  else {
+                     LCD_Banner();
+                     whichBanner = NONE;
+                  }
+               }
+               prevLCDTime = then;              // Slowly... at 1 sec intervals
+               refreshLCD = true;
+           }
 #endif
 
 #if defined(TRANSMITTER)
-              strobeSPI(MODE);         // keep the radio awake in MODE 
+           strobeSPI(MODE);         // keep the radio awake in MODE 
 #else
 //{
-              if(useModemData)
+           if(useModemData)
+           {
+              strobeSPI(MODE);         // keep the radio awake in MODE 
+
+              // If the DCC data collection appears hung up, put the modem to sleep (if we want to)
+              // and just ignore its data for a while...
+              // The modem's output will "stick" to either LOW or HIGH (it's random!) when turned off, 
+              // causing the amplifier to go LOW or HIGH. The Airwire forces output high when no RF 
+              // (or really keep-alive) is received. We will simply ignore the modem data when
+              // we think it's "bad", and output a pre-defined DC level until we can find some
+              // good modem data. This flexibility on the DC level allows us to interact with the 
+              // braking mode that might be set up in the decoder when DC levels are detected.
+              // These decoder options often include the following:
+              //    DC HIGH or LOW: Stop. Sometimes this is the decoder default, but might not be what you want!
+              //    DC HIGH or LOW: Continue. This option is usually what we want since we don't want 
+              //                    the loco to stop in some remote/possibly-inaccessible location (tunnels!)
+              //    DC HIGH: continue; LOW: Stop. This is tricky stuff. This option is used to automatically stop locos
+              //                                  on certain track sections. Might be useful since you can dynamically
+              //                                  reset the DC level by accessing the AirMini on 9000 and set CV1017 
+              //                                  to 0 (LOW) or non-zero (HIGH).
+              if(((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
                 {
-                   strobeSPI(MODE);         // keep the radio awake in MODE 
-
-                   // If the DCC data collection appears hung up, put the modem to sleep (if we want to)
-                   // and just ignore its data for a while...
-                   // The modem's output will "stick" to either LOW or HIGH (it's random!) when turned off, 
-                   // causing the amplifier to go LOW or HIGH. The Airwire forces output high when no RF 
-                   // (or really keep-alive) is received. We will simply ignore the modem data when
-                   // we think it's "bad", and output a pre-defined DC level until we can find some
-                   // good modem data. This flexibility on the DC level allows us to interact with the 
-                   // braking mode that might be set up in the decoder when DC levels are detected.
-                   // These decoder options often include the following:
-                   //    DC HIGH or LOW: Stop. Sometimes this is the decoder default, but might not be what you want!
-                   //    DC HIGH or LOW: Continue. This option is usually what we want since we don't want 
-                   //                    the loco to stop in some remote/possibly-inaccessible location (tunnels!)
-                   //    DC HIGH: continue; LOW: Stop. This is tricky stuff. This option is used to automatically stop locos
-                   //                                  on certain track sections. Might be useful since you can dynamically
-                   //                                  reset the DC level by accessing the AirMini on 9000 and set CV1017 
-                   //                                  to 0 (LOW) or non-zero (HIGH).
-                   if(((then-timeOfValidDCC) >= tooLong) && (getTransitionCount() > maxTransitionCount))
-                     {
-                       if (turnModemOnOff) strobeSPI(SIDLE);     // send stop command to modem if no DEMUX is available
-                       if(filterModemData) useModemData = 0;      // false use-of-modem-data state
-                       DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
-                       inactiveStartTime = then;                  // Start inactive timer
-                     }
-
-                     if(!useModemData) // If not using modem data, ensure the output is set to a DC level
-                       {
-                         if(dcLevel) OUTPUT_HIGH;             // HIGH
-                         else OUTPUT_LOW;                     // LOW
-                       }
-
-                }
-              // After sleeping for a while, wake up the modem and try to collect a valid DCC signal
-              // Note the logic allows for possibility that the modem is left on 
-              // and a valid DCC packet is found during the sleep time.
-              else if(((sleepTime||turnModemOnOff) && ((then-inactiveStartTime) >= sleepTime)) || ((then-timeOfValidDCC) < tooLong))
-                {
-                   useModemData = 1;                          // Active use-of-modem-data state
-                   DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
-                   timeOfValidDCC = then;                     // Start over on the DCC timing
-                   inactiveStartTime = then + BACKGROUNDTIME; // start the modem inactive timer sometime in the future
-                   if(turnModemOnOff)
-                     {
-                       dccInit();                             // Reset the DCC state machine, which also resets transitionCount
-                       strobeSPI(MODE);                       // awaken the modem in MODE
-                     }
-                   else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
+                  if (turnModemOnOff) strobeSPI(SIDLE);     // send stop command to modem if no DEMUX is available
+                  if(filterModemData) useModemData = 0;      // false use-of-modem-data state
+                  DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
+                  inactiveStartTime = then;                  // Start inactive timer
                 }
 
-              // Special processing for channel search
-              if (initialWait) 
+                if(!useModemData) // If not using modem data, ensure the output is set to a DC level
+                  {
+                    if(dcLevel) OUTPUT_HIGH;             // HIGH
+                    else OUTPUT_LOW;                     // LOW
+                  }
+
+           }
+           // After sleeping for a while, wake up the modem and try to collect a valid DCC signal
+           // Note the logic allows for possibility that the modem is left on 
+           // and a valid DCC packet is found during the sleep time.
+           else if(((sleepTime||turnModemOnOff) && ((then-inactiveStartTime) >= sleepTime)) || ((then-timeOfValidDCC) < tooLong))
+           {
+              useModemData = 1;                          // Active use-of-modem-data state
+              DCCuseModemData(useModemData,dcLevel);     // Tell the DCC code if you are or are not using modem data
+              timeOfValidDCC = then;                     // Start over on the DCC timing
+              inactiveStartTime = then + BACKGROUNDTIME; // start the modem inactive timer sometime in the future
+              if(turnModemOnOff)
+                {
+                  dccInit();                             // Reset the DCC state machine, which also resets transitionCount
+                  strobeSPI(MODE);                       // awaken the modem in MODE
+                }
+              else resetTransitionCount(0);              // While we haven't reset the DCC state machine, do restart transitionCount
+           }
+
+           // Special processing for channel search
+           if (initialWait) 
+           {
+              // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
+              if (timeOfValidDCC > startInitialWaitTime) 
               {
-                 // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
-                 if (timeOfValidDCC > startInitialWaitTime) 
-                 {
-                    initialWait = 0; 
+                 initialWait = 0; 
 #if defined(USE_LCD)
-                    if (LCDFound) LCD_Wait_Period_Over(1);
+                 if (LCDFound) LCD_Wait_Period_Over(1);
 #endif
-                 }
-                 else  // Othewise, continue to wait
+              }
+              else  // Othewise, continue to wait
+              {
+                 // If it's too long, then reset the modem to the next channel
+                 if (then > endInitialWaitTime) 
                  {
-                    // If it's too long, then reset the modem to the next channel
-                    if (then > endInitialWaitTime) 
+#if defined(USE_LCD)
+                    if (LCDFound) LCD_Wait_Period_Over(0);
+#endif
+                    if (++searchChannelIndex <= sizeof(searchChannels))
+                    // Keep searching...
                     {
-#if defined(USE_LCD)
-                       if (LCDFound) LCD_Wait_Period_Over(0);
-#endif
-                       if (++searchChannelIndex <= sizeof(searchChannels))
-                       // Keep searching...
-                       {
-                          // Update the seach channel and endInitialWaitTime
-                          CHANNEL = searchChannels[searchChannelIndex-1];
-                          // Re-initialize the start of the wait time
-                          startInitialWaitTime = then;      
-                          // Re-initialize the end of the wait time
-                          endInitialWaitTime = 
-                              startInitialWaitTime
-                              + InitialWaitPeriodSEC*SEC; 
-                       }
-                       else 
-                       // Last resort
-                       {
-                          initialWait = 0;
-                          CHANNEL=CHANNELDEFAULT;    // Reset to the last resort channel
-                       }
+                       // Update the seach channel and endInitialWaitTime
+                       CHANNEL = searchChannels[searchChannelIndex-1];
+                       // Re-initialize the start of the wait time
+                       startInitialWaitTime = then;      
+                       // Re-initialize the end of the wait time
+                       endInitialWaitTime = 
+                           startInitialWaitTime
+                           + InitialWaitPeriodSEC*SEC; 
+                    }
+                    else 
+                    // Last resort
+                    {
+                       initialWait = 0;
+                       CHANNEL=CHANNELDEFAULT;    // Reset to the last resort channel
+                    }
 
-                       // Stop the modem
-                       strobeSPI(SIDLE);         
-                       // Reset the DCC state machine, which also resets transitionCount
-                       dccInit();                 
-                       // Restart on Airwire selected and mode (or power level)
-                       startModem(CHANNEL, MODE); 
+                    // Stop the modem
+                    strobeSPI(SIDLE);         
+                    // Reset the DCC state machine, which also resets transitionCount
+                    dccInit();                 
+                    // Restart on Airwire selected and mode (or power level)
+                    startModem(CHANNEL, MODE); 
 
-                    } // end of wait time over
-                 } // end of continue to wait
-              } // End of special processing for channel search
+                 } // end of wait time over
+              } // end of continue to wait
+           } // End of special processing for channel search
 //} end of RECEIVER
 #endif
 
-              PORTB ^= 1;                      // debug - monitor with logic analyzer
-          }
+           PORTB ^= 1;                      // debug - monitor with logic analyzer
+
+       } // end of if( now > BACKGROUNDTIME )
+
 }
