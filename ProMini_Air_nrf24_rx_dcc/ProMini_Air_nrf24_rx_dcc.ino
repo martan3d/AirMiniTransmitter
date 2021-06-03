@@ -22,8 +22,8 @@ uint8_t whatChannel;
 #define TIMER_LONG  0x1B  // 116usec pulse length
 
 byte last_timer = TIMER_SHORT; // store last timer value
-byte flag = 0; // used for short or long pulse
 byte every_second_isr = 0;  // pulse up or down
+byte timer_val = TIMER_SHORT; // The timer value
 
 // definitions for state machine
 #define PREAMBLE 0
@@ -124,7 +124,7 @@ ISR(TIMER2_OVF_vect) {
 
     switch (state)  {
       case PREAMBLE:
-        flag = 1; // short pulse
+        timer_val = TIMER_SHORT;
         preamble_count--;
         if (preamble_count == 0)  {  // advance to next state
           state = SEPERATOR;
@@ -143,7 +143,7 @@ ISR(TIMER2_OVF_vect) {
         }
         break;
       case SEPERATOR:
-        flag = 0; // long pulse
+        timer_val = TIMER_LONG;
         // then advance to next state
         state = SENDBYTE;
         // goto next byte ...
@@ -152,9 +152,9 @@ ISR(TIMER2_OVF_vect) {
         break;
       case SENDBYTE:
         if (outbyte & cbit)  {
-          flag = 1;  // send short pulse
+          timer_val = TIMER_SHORT;
         }  else  {
-          flag = 0;  // send long pulse
+          timer_val = TIMER_LONG;
         }
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next byte?
@@ -172,15 +172,10 @@ ISR(TIMER2_OVF_vect) {
     } // end of switch
 
     // Set up output timer
-    if (flag)  {  // if data==1 then short pulse
-      latency = TCNT2;
-      TCNT2 = latency + TIMER_SHORT;
-      last_timer = TIMER_SHORT;
-    }  else  {   // long pulse
-      latency = TCNT2;
-      TCNT2 = latency + TIMER_LONG;
-      last_timer = TIMER_LONG;
-    }
+    latency = TCNT2;
+    TCNT2 = latency + timer_val;
+    last_timer = timer_val;
+
 
   } // end of else ! every_seocnd_isr
 
