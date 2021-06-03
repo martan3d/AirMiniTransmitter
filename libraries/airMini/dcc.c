@@ -237,8 +237,9 @@ ISR(INT0_vect)
                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
                        buffer[sizeof(DCC_MSG)] = 0;
    
-                       for (i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
-                           dccbuff[i] = buffer[i];
+                       // for (i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
+                       //     dccbuff[i] = buffer[i];
+                       memcpy((void *)&dccbuff, (void *)&buffer, sizeof(DCC_MSG));    // Extract the message into private msg
    
                        transitionCountDCC = 0;                // Reset the transition count
                        setScheduledTask(TASK1);            // Schedule the background task
