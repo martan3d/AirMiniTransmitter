@@ -216,14 +216,13 @@ NmraDcc Dcc;
 
 // definitions for state machine
 byte last_timer = TIMER_SHORT; // store last timer value
+byte timer_val = TIMER_LONG; // The timer value
 byte every_second_isr = 0;  // pulse up or down
-byte timer_val = TIMER_SHORT; // The timer value
 
 enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
 byte preamble_count = 16;
 byte outbyte = 0;
 byte cbit = 0x80;
-
 int byteIndex = 0;
 
 ///////////
@@ -578,11 +577,7 @@ ISR(TIMER2_OVF_vect) {
         outbyte = msg[msgIndex].Data[byteIndex];
         break;
       case SENDBYTE:
-        if (outbyte & cbit)  {
-          timer_val = TIMER_SHORT;
-        }  else  {
-          timer_val = TIMER_LONG;
-        }
+        timer_val = (outbyte & cbit) ? TIMER_SHORT : TIMER_LONG;
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next byte?
           byteIndex++;
