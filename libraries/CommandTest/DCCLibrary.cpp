@@ -38,20 +38,16 @@
 #define SHORTPULSE  1
 
 byte last_timer = TIMER_SHORT;  // store last timer value
-byte flag = LONGPULSE;          // used for short or long pulse
+byte timer_val = TIMER_LONG;  // store last timer value
 byte every_second_isr = 0;      // pulse up or down
 
-// definitions for state machine
-#define PREAMBLE 0
-#define SEPERATOR 1
-#define SENDBYTE  2
-
-byte state = PREAMBLE;
+enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
 byte preamble_count = 16;
 byte outbyte = 0;
 byte cbit = 0x80;
 int byteIndex = 0;
-uint8_t outputPin;                       // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
+
+uint8_t OUTPUT_PIN;                       // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
 
 uint8_t msgExtractedIndex = 0;           // Which of the two extracted messages to use. Normal get = 0, failure to get = 1 (for sending idle/keep-alive(?) packet)
 extern volatile Message msgExtracted[];  // From main
@@ -62,8 +58,9 @@ bool (*GetNextMessage)(void) = &DoNothing;                  // assign a proper f
 
 void SetupDCC(uint8_t DCC_OutPin){
     
-    outputPin = DCC_OutPin; 
-    pinMode(outputPin,OUTPUT); // this is for the DCC Signal output to the modem for transmission
+    OUTPUT_PIN = DCC_OutPin; 
+    // pinMode(OUTPUT_PIN,OUTPUT); // this is for the DCC Signal output to the modem for transmission
+    DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
       
     //Setup Timer2.
     //Configures the 8-Bit Timer2 to generate an interrupt at the specified frequency.
@@ -91,7 +88,8 @@ ISR(TIMER2_OVF_vect){
     
     // for every second interupt just toggle signal
     if(every_second_isr){
-        digitalWrite(outputPin,1);
+        // digitalWrite(OUTPUT_PIN,1);
+        PORTD |= (1<<OUTPUT_PIN);  // OUTPUT_PIN High
         every_second_isr = 0;
         
         // set timer to last value
@@ -99,12 +97,13 @@ ISR(TIMER2_OVF_vect){
         TCNT2 = latency + last_timer;
       
     }else{                                    // != every second interrupt, advance bit or state
-        digitalWrite(outputPin,0);
+        // digitalWrite(OUTPUT_PIN,0);
+        PORTD &= ~(1<<OUTPUT_PIN);  // OUTPUT_PIN Low
         every_second_isr = 1;
         
         switch(state)  {
             case PREAMBLE:
-                flag = SHORTPULSE;
+                timer_val = TIMER_SHORT;
                 preamble_count--;
                 if(preamble_count == 0){      // advance to next state
                     // get next message
@@ -132,7 +131,7 @@ ISR(TIMER2_OVF_vect){
                 }
                 break;
             case SEPERATOR:
-                flag = LONGPULSE;
+                timer_val = TIMER_LONG;
                 // then advance to next state
                 state = SENDBYTE;
                 // goto next byte ...
@@ -140,7 +139,7 @@ ISR(TIMER2_OVF_vect){
                 outbyte = msgExtracted[msgExtractedIndex].data[byteIndex];
                 break;
             case SENDBYTE:
-                flag = (outbyte & cbit)? SHORTPULSE : LONGPULSE;
+                timer_val = (outbyte & cbit)? TIMER_SHORT : TIMER_LONG;
                 cbit = cbit >> 1;
                 if(cbit == 0){  // last bit sent, is there a next byte?
                     byteIndex++;
@@ -155,16 +154,10 @@ ISR(TIMER2_OVF_vect){
                 }
                 break;
         }
-        
-        if(flag == SHORTPULSE){
-            latency = TCNT2;
-            TCNT2 = latency + TIMER_SHORT;
-            last_timer = TIMER_SHORT;
-        }else{
-            latency = TCNT2;
-            TCNT2 = latency + TIMER_LONG;
-            last_timer = TIMER_LONG;
-        }
+        // Set up output timer
+        latency = TCNT2;
+        TCNT2 = latency + timer_val;
+        last_timer = timer_val;
     }
 }
 
