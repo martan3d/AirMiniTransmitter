@@ -38,9 +38,9 @@ extern "C" {
 #define SPI_H_
 
 void initializeSPI();
-uint8_t strobeSPI(uint8_t);
-uint8_t readSPI(uint8_t addr);
-void startModem(uint8_t channel, uint8_t mode);
+unsigned char strobeSPI(unsigned char);
+unsigned char readSPI(unsigned char addr);
+void startModem(unsigned char channel, unsigned char mode);
 
 
 #endif /* SPI_H_ */

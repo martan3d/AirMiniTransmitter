@@ -47,9 +47,9 @@ This requires #undef TWENTY_SEVEN_MHZ
 #endif
 
 
-uint8_t region = 0;
+unsigned char region = 0;
 
-uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
+unsigned char powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
 
 // init[RT]xData settings.
 //                         Burst mode
@@ -198,13 +198,13 @@ uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Settin
 //{
 #pragma message "Info: using Rx_27MHz_NA_915. Works with CVP transmitters"
 #pragma message "Info: using Rx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
-uint8_t initRxData[2][48] = {
+unsigned char initRxData[2][48] = {
 {Rx_27MHz_NA_915},
 {Rx_27MHz_EU_869}
 };
 #pragma message "Info: using Tx_27MHz_NA_915. Works with CVP and Tam Valley Depot receivers"
 #pragma message "Info: using Tx_27MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
-uint8_t initTxData[2][48] = {
+unsigned char initTxData[2][48] = {
 {Tx_27MHz_NA_915},
 {Tx_27MHz_EU_869}
 };
@@ -216,11 +216,11 @@ uint8_t initTxData[2][48] = {
 #if defined(EU_434MHz)
 //{
 #pragma message "Info: using Rx_27MHz_EU_434. For repeater receivers only"
-uint8_t initRxData[1][48] = {
+unsigned char initRxData[1][48] = {
 {Rx_27MHz_EU_434}
 };
 #pragma message "Info: using Tx_27MHz_EU_434. For repeater transmitters only"
-uint8_t initTxData[1][48] = {
+unsigned char initTxData[1][48] = {
 {Tx_27MHz_EU_434}
 };
 // EU_434MHz
@@ -231,11 +231,11 @@ uint8_t initTxData[1][48] = {
 #if defined(NAEU_2p4GHz)
 //{
 #pragma message "Info: using Rx_27MHz_NAEU_2p4. For repeater receivers only"
-uint8_t initRxData[1][48] = {
+unsigned char initRxData[1][48] = {
 {Rx_27MHz_NAEU_2p4}
 };
 #pragma message "Info: using Tx_27MHz_NAEU_2p4. For repeater transmitters only"
-uint8_t initTxData[1][48] = {
+unsigned char initTxData[1][48] = {
 {Tx_27MHz_NAEU_2p4}
 };
 // NAEU_2p4GHz
@@ -263,13 +263,13 @@ uint8_t initTxData[1][48] = {
 //{
 #pragma message "Info: using Rx_26MHz_NA_915. Works with CVP transmitters"
 #pragma message "Info: using Rx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 transmitters"
-uint8_t initRxData[2][48] = {
+unsigned char initRxData[2][48] = {
 {Rx_26MHz_NA_915},
 {Rx_26MHz_EU_869}
 };
 #pragma message "Info: using Tx_26MHz_NA_915. Works with CVP and Tam Valley Depot receivers"
 #pragma message "Info: using Tx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
-uint8_t initTxData[1][48] = {
+unsigned char initTxData[1][48] = {
 {Tx_26MHz_NA_915},
 {Tx_26MHz_EU_869}
 };
@@ -281,11 +281,11 @@ uint8_t initTxData[1][48] = {
 #if defined(EU_434MHz)
 //{
 #pragma message "Info: using Rx_26MHz_EU_434. For repeater receivers only"
-uint8_t initRxData[1][48] = {
+unsigned char initRxData[1][48] = {
 {Rx_26MHz_EU_434}
 };
 #pragma message "Info: using Tx_26MHz_EU_434. For repeater transmitters only"
-uint8_t initTxData[1][48] = {
+unsigned char initTxData[1][48] = {
 {Tx_26MHz_EU_434}
 };
 // EU_434MHz
@@ -296,11 +296,11 @@ uint8_t initTxData[1][48] = {
 #if defined(NAEU_2p4GHz)
 //{
 #pragma message "Info: using Rx_26MHz_NAEU_2p4. For repeater receivers only"
-uint8_t initRxData[1][48] = {
+unsigned char initRxData[1][48] = {
 {Rx_26MHz_NAEU_2p4}
 };
 #pragma message "Info: using Tx_26MHz_NAEU_2p4. For repeater transmitters only"
-uint8_t initTxData[1][48] = {
+unsigned char initTxData[1][48] = {
 {Tx_26MHz_NAEU_2p4}
 };
 // NAEU_2p4GHz
@@ -334,10 +334,10 @@ uint8_t initTxData[1][48] = {
 // for the CC1101.
 // Note: corrected channel 15(0x89 -> 0x09 for a frequency of approximately 904.87MHz)
 #pragma message "Info: using NA 915MHz and EU 869MHz channels (0-17)"
-const uint8_t channels[18] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E, // NA (0-8)
+const unsigned char channels[18] = {0x4B, 0x45, 0x33, 0x27, 0x1B, 0x15, 0x0F, 0x03, 0x5E, // NA (0-8)
                               0x58, 0x52, 0x3E, 0x39, 0x2C, 0x21, 0x09, 0x37,       // NA (9-16)
                               0x00};                                                // EU (17)
-uint8_t channels_na_max = 16;
+unsigned char channels_na_max = 16;
 // NAEU_900MHz
 //}
 #else
@@ -346,7 +346,7 @@ uint8_t channels_na_max = 16;
 #if defined(EU_434MHz)
 //{
 #pragma message "Info: using EU 434MHz channel (0-7)"
-const uint8_t channels[8] = {0x04,0x00,0x05,0x01,0x06,0x02,0x07,0x03}; // EU (0-7) -4,+5,-4,+5,-4,+5,-4. Largest avg step sep w/ smallest rms
+const unsigned char channels[8] = {0x04,0x00,0x05,0x01,0x06,0x02,0x07,0x03}; // EU (0-7) -4,+5,-4,+5,-4,+5,-4. Largest avg step sep w/ smallest rms
 // EU_434MHz
 //}
 #else
@@ -355,7 +355,7 @@ const uint8_t channels[8] = {0x04,0x00,0x05,0x01,0x06,0x02,0x07,0x03}; // EU (0-
 #if defined(NAEU_2p4GHz)
 //{
 #pragma message "Info: using Worldwide 2.4GHz channels (0-7)"
-const uint8_t channels[8] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}; // W (0-7)
+const unsigned char channels[8] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}; // W (0-7)
 // NAEU_2p4GHz
 //}
 #endif
@@ -367,7 +367,7 @@ const uint8_t channels[8] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}; //
 // NAEU_900MHz
 //}
 #endif
-uint8_t channels_max = sizeof(channels) - 1;
+unsigned char channels_max = sizeof(channels) - 1;
 
 // Transmitter power settings are designated 0-10.  These are the corresponding
 // PATABLE entries to set these powers.
@@ -379,7 +379,7 @@ uint8_t channels_max = sizeof(channels) - 1;
 // See Table 4 of swra151a.pdf (0xC0 is the highest level of output @9.5dBm)
 // Removed 0x66 entry (-4.9dBm) per the note in this document
 // dBm                          -29.8 -22.8 -16.1 -9.7  -4.7  -0.6  +2.2  +5.0  +7.9  +9.0  +9.4
-const uint8_t powers[2][11] = {{0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0},
+const unsigned char powers[2][11] = {{0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 0xC4, 0xC1, 0xC0},
 // See Table 3 of swra151a.pdf (0xC0 is the highest level of output @9.2dBm)
 // dBm                          -30.2 -23.0 -16.4 -9.8  -4.8  -0.5  +2.1  +5.0  +7.8  +8.9  +9.2
                                {0x03, 0x15, 0x1C, 0x27, 0x57, 0x8E, 0x8A, 0x81, 0xC8, 0xC5, 0xC4}}; 
@@ -392,7 +392,7 @@ const uint8_t powers[2][11] = {{0x03, 0x15, 0x1C, 0x27, 0x56, 0x8E, 0x89, 0xCD, 
 //{
 #pragma message "Info: using EU 434MHz power table (-30dBm to +10.0dBm)"
 //                              -30.0 -20.0 -15.0 -10.0 0.0   +5.0  +7.0  +10.0 +10.0 +10.0 +10.0
-const uint8_t powers[1][11] = {{0x12, 0x0E, 0x1D, 0x34, 0x60, 0xB4, 0xC8, 0xC0, 0xC0, 0xC0, 0xC0}};
+const unsigned char powers[1][11] = {{0x12, 0x0E, 0x1D, 0x34, 0x60, 0xB4, 0xC8, 0xC0, 0xC0, 0xC0, 0xC0}};
 // EU_434MHz
 //}
 #else
@@ -403,7 +403,7 @@ const uint8_t powers[1][11] = {{0x12, 0x0E, 0x1D, 0x34, 0x60, 0xB4, 0xC8, 0xC0, 
 // Based on Table 4 of A2400R24x - User's Manual
 #pragma message "Info: using Worldwide 2.4GHz power table (-16dBm to 1.0dBm)"
 // dBm                          -16.0 -14.0 -12.0 -10.0 -8.0  -6.0  -4.0  -2.0  0.0   +1.0  +1.0
-const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 0xFE, 0xFF, 0xFF}};
+const unsigned char powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 0xFE, 0xFF, 0xFF}};
 // NAEU_2p4GHz
 //}
 #endif
@@ -433,22 +433,30 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define MISO_PIN 12
 #define MOSI_PIN 11
 #define SS_PIN   10
+#define PIN_9     9
+#define PIN_8     8
 
 #define SPIFINTMASK (1 << SPIF) // SPIF interrupt mask
 
-volatile uint8_t *ssIntPort;   // use port and bitmask to write output in ISR
-uint8_t ssIntMask;             // digitalWrite is too slow on AVR
-uint8_t ssIntMask_;            // digitalWrite is too slow on AVR
+volatile unsigned char *pin8IntPort;   // use port and bitmask to write output in ISR
+unsigned char pin8IntMask;             // digitalWrite is too slow on AVR
 
-volatile uint8_t *misoIntPort; // use port and bitmask to read input in ISR
-uint8_t misoIntMask;           // digitalRead is too slow on AVR
+volatile unsigned char *pin9IntPort;   // use port and bitmask to write output in ISR
+unsigned char pin9IntMask;             // digitalWrite is too slow on AVR
 
-volatile uint8_t *mosiIntPort; // use port and bitmask to write output in ISR
-uint8_t mosiIntMask;           // digitalWrite is too slow on AVR
+volatile unsigned char *ssIntPort;   // use port and bitmask to write output in ISR
+unsigned char ssIntMask;             // digitalWrite is too slow on AVR
+unsigned char ssIntMask_;            // digitalWrite is too slow on AVR
 
-volatile uint8_t *sckIntPort;  // use port and bitmask to write output in ISR
-uint8_t sckIntMask;            // digitalWrite is too slow on AVR
-uint8_t sckIntMask_;           // digitalWrite is too slow on AVR
+volatile unsigned char *misoIntPort; // use port and bitmask to read input in ISR
+unsigned char misoIntMask;           // digitalRead is too slow on AVR
+
+volatile unsigned char *mosiIntPort; // use port and bitmask to write output in ISR
+unsigned char mosiIntMask;           // digitalWrite is too slow on AVR
+
+volatile unsigned char *sckIntPort;  // use port and bitmask to write output in ISR
+unsigned char sckIntMask;            // digitalWrite is too slow on AVR
+unsigned char sckIntMask_;           // digitalWrite is too slow on AVR
 
 void beginSPI() {
     *ssIntPort &= ssIntMask_;            // select modem (port low)
@@ -474,6 +482,14 @@ void resetModem() {
 
 void initializeSPI()
 {
+    // PIN8 (P8) PORT# and BitMasks (output) - Unused
+    pin8IntPort  = portOutputRegister( digitalPinToPort(PIN_8) );    // PORTB = *ssIntPort
+    pin8IntMask  = digitalPinToBitMask(PIN_8); // High
+
+    // PIN9 (P9) PORT# and BitMasks (output) - Unused
+    pin9IntPort  = portOutputRegister( digitalPinToPort(PIN_9) );    // PORTB = *ssIntPort
+    pin9IntMask  = digitalPinToBitMask(PIN_9); // High
+
     // CSN (P10) PORT# and BitMasks (output)
     ssIntPort  = portOutputRegister( digitalPinToPort(SS_PIN) );    // PORTB = *ssIntPort
     ssIntMask  = digitalPinToBitMask(SS_PIN); // High
@@ -492,11 +508,11 @@ void initializeSPI()
     sckIntMask  = digitalPinToBitMask(SCK_PIN); // High
     sckIntMask_ = ~sckIntMask; // Low. Saves time, more memory
  
-                              //   |---------------------------------------------
-                              //   | |---------------------------               |
-                              //   | ||--------------           |               |
-                              //   | ||             |           |               |
-    DDRB = 0x2f;              // 001011 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
+                              //   |-----------------------------------------------
+                              //   | |-----------------------------               |
+                              //   | ||----------------           |               |
+                              //   | ||               |           |               |
+    DDRB = 0x2f;              // 00101111 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
                               //    |
                               //    MISO (P12) is input
 
@@ -521,12 +537,12 @@ void initializeSPI()
     SPCR = SPCRDEFAULT;
 #endif
 
-    uint8_t junk;              // Junk variable
+    unsigned char junk;              // Junk variable
     junk = SPSR;               // Clear out any junk
     junk = SPDR;               // Clear out any junk
 }
 
-uint8_t clockSPI(uint8_t data)
+unsigned char clockSPI(unsigned char data)
 {
     SPDR = data;              // Send
     while (!(SPSR & SPIFINTMASK));  // wait for byte to clock out
@@ -534,7 +550,7 @@ uint8_t clockSPI(uint8_t data)
 }
 
 
-void writeSPI(uint8_t reg, unsigned int data)
+void writeSPI(unsigned char reg, unsigned int data)
 {
     beginSPI();
 
@@ -546,13 +562,13 @@ void writeSPI(uint8_t reg, unsigned int data)
 }
 
 
-void startModem(uint8_t channel, uint8_t mode)
+void startModem(unsigned char channel, unsigned char mode)
 {
-    uint8_t i;
-    uint8_t *md;
-    uint8_t channelCode;
-    uint8_t powerCode;
-    uint8_t channel_l = channel % (channels_max+1); // Error checking on channel
+    unsigned char i;
+    unsigned char *md;
+    unsigned char channelCode;
+    unsigned char powerCode;
+    unsigned char channel_l = channel % (channels_max+1); // Error checking on channel
     // Select the region
 #if defined(NAEU_900MHz)
     if (channel_l <= channels_na_max)
@@ -610,7 +626,7 @@ void startModem(uint8_t channel, uint8_t mode)
 }
 
 
-uint8_t strobeSPI(uint8_t data)
+unsigned char strobeSPI(unsigned char data)
 {
     beginSPI();
 
@@ -622,9 +638,9 @@ uint8_t strobeSPI(uint8_t data)
     return (SPDR);
 }
 
-uint8_t readSPI(uint8_t addr)
+unsigned char readSPI(unsigned char addr)
 {
-    uint8_t ret;
+    unsigned char ret;
     
     beginSPI();
 
