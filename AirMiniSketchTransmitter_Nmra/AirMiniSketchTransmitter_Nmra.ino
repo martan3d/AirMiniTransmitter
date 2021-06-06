@@ -306,8 +306,112 @@ const char *regionString[] = {"W"}; // Region code: N=North America, E=Europe, W
 //}
 #endif
 
-// TRANSMITTER and RECEIVER
 ///////////////////////////
+// RECEIVER and TRANSMITTER
+
+
+// Changing with CV's
+unsigned short CVnum;                              // CV numbers consume 10 bits
+unsigned char CVval;                               // CV values consume only 8 bits
+unsigned char CHANNEL;                             // Airwire Channel for both TX/RX, may change in SW. Do NOT initialize
+volatile unsigned char turnModemOnOff;             // Do NOT intialize, in EEPROM
+unsigned char turnModemOnOff_in;                   // Non-volatile version
+volatile unsigned char dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
+extern unsigned char powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
+unsigned char dcLevel_in;                          // Non-volatile version
+
+unsigned char AirMiniCV1;                          // The AirMini's address, HIGH unsigned char
+
+unsigned char AirMiniCV17;                         // The AirMini's address, HIGH unsigned char
+unsigned char AirMiniCV17tmp;                      // The AirMini's address, HIGH unsigned char, temporary value until CV18 is reassigned in ops mode
+
+unsigned char AirMiniCV18;                         // The AirMini's address, LOW unsigned char
+
+unsigned char AirMiniCV29;                         // The AirMini's address, HIGH unsigned char
+unsigned char AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
+unsigned char printDCC = 1;                        // Global flag for LCD for DCC msg display
+
+/////////////////////
+// Start: EEPROM data
+/////////////////////
+
+#define ISSET 0b10101010
+
+unsigned char SET_DEFAULT = 1;
+unsigned char EEFirst = 0;  // Store the first time
+
+// EEPROM data for persistence after turn-off of the AirMini
+unsigned char  EEisSetCHANNEL = 1;               // Stored RF channel is set
+unsigned char  EECHANNEL = 2;                    // Stored RF channel #
+// unsigned char  EECHANNELDefault;             // Stored RF channel #
+
+unsigned char  EEisSetturnModemOnOff = 3;        // Stored modem turn on/off is set
+unsigned char  EEturnModemOnOff = 4;             // Stored modem turn on/off
+// unsigned char  EEturnModemOnOffDefault;      // Stored modem turn on/off
+
+unsigned char  EEisSetdcLevel = 5;               // Stored DC output level is set
+unsigned char  EEdcLevel = 6;                    // Stored DC output level if modem turned off
+// unsigned char  EEdcLevelDefault;             // Stored DC output level if modem turned off
+
+unsigned char  EEisSetpowerLevel = 7;            // Stored DC output power level is set
+unsigned char  EEpowerLevel = 8;                 // Stored DC output power level 
+// unsigned char  EEpowerLevelDefault;          // Stored DC output power level 
+
+unsigned char  EEisSetidlePeriodms = 9;          // Stored idlePeriodms set flag
+unsigned char  EEidlePeriodms = 10;               // Stored idlePeriod in ms
+// unsigned char  EEidlePeriodmsDefault;        // Stored idlePeriod in ms
+
+unsigned char  EEisSetfilterModemData = 11;       // Stored idlePeriodms set flag
+unsigned char  EEfilterModemData = 12;            // Stored idlePeriod in ms
+// unsigned char  EEfilterModemDataDefault;     // Stored idlePeriod in ms
+
+unsigned char  EEisSetAirMiniCV1 = 13;            // Stored AirMini decoder short address is set
+unsigned char  EEAirMiniCV1 = 14;                 // Stored AirMini decoder short address
+// unsigned char  EEAirMiniCV1Default;          // Stored AirMini decoder short address
+
+unsigned char  EEisSetAirMiniCV17 = 15;           // Stored AirMini decoder high unsigned char address is set
+unsigned char  EEAirMiniCV17 = 16;                // Stored AirMini decoder high unsigned char address
+// unsigned char  EEAirMiniCV17Default;
+
+unsigned char  EEisSetAirMiniCV18 = 17;           // Stored AirMini decoder low unsigned char address is set
+unsigned char  EEAirMiniCV18 = 18;                // Stored AirMini decoder low unsigned char address
+// unsigned char  EEAirMiniCV18Default;         // Stored AirMini decoder low unsigned char address
+
+unsigned char  EEisSetAirMiniCV29 = 19;           // Stored AirMini decoder configuration variable is set
+unsigned char  EEAirMiniCV29 = 20;                // Stored AirMini decoder configuration variable
+// unsigned char  EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
+
+#if defined(RECEIVER)
+unsigned char  EEisSetInitialWaitPeriodSEC = 21;  // Stored AirMini decoder configuration variable
+unsigned char  EEInitialWaitPeriodSEC = 22;       // Stored AirMini decoder configuration variable
+// unsigned char  EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+#else
+unsigned char  EEisSetAutoIdleOff = 23;  // Stored AirMini decoder configuration variable
+unsigned char  EEAutoIdleOff = 24;       // Stored AirMini decoder configuration variable
+// unsigned char  EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
+#endif
+
+///////////////////
+// End: EEPROM data
+///////////////////
+
+enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
+
+#if defined(USE_LCD)
+unsigned char LCDAddress;                     // The I2C address of the LCD
+bool LCDFound = false;               // Whether a valid lcd was found
+#define LCDCOLUMNS 16                // Number of LCD columns
+#define LCDROWS 2                    // Number of LCD rows 
+unsigned long LCDTimePeriod=2UL*SEC; // Set up the LCD re-display time interval, 2 s
+unsigned long prevLCDTime = 0;       // Initialize the last time displayed
+bool refreshLCD = false;             // Whether to refresh
+LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
+char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
+#endif
+
+///////////////////
+// Start of code //
+///////////////////
 
 extern void notifyDccMsg( DCC_MSG * Msg ) {
 
@@ -357,7 +461,19 @@ ISR(TIMER2_OVF_vect) {
   // for every second interupt just toggle signal
   if (every_second_isr)  {
 
+#if defined(RECEIVER)
+    if(useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
+    {
+       OUTPUT_HIGH; // Output high
+    }
+    else
+    {
+       if(dcLevel) OUTPUT_HIGH;           // HIGH
+       else OUTPUT_LOW;                   // LOW
+    }
+#else
     OUTPUT_HIGH; // Output high
+#endif
     every_second_isr = 0;
     // set timer to last value
     latency = TCNT2;
@@ -365,7 +481,19 @@ ISR(TIMER2_OVF_vect) {
 
   }  else  {  // != every second interrupt, advance bit or state
 
-    OUTPUT_LOW; // Output low
+#if defined(RECEIVER)
+    if(useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
+    {
+       OUTPUT_LOW; // Output high
+    }
+    else
+    {
+       if(dcLevel) OUTPUT_HIGH;           // HIGH
+       else OUTPUT_LOW;                   // LOW
+    }
+#else
+    OUTPUT_LOW; // Output high
+#endif
     every_second_isr = 1;
 
     switch (state)  {
@@ -420,101 +548,6 @@ ISR(TIMER2_OVF_vect) {
 
 } // End of ISR
 
-///////////////////////////
-// RECEIVER and TRANSMITTER
-
-
-// Changing with CV's
-unsigned short CVnum;                              // CV numbers consume 10 bits
-unsigned char CVval;                               // CV values consume only 8 bits
-unsigned char CHANNEL;                             // Airwire Channel for both TX/RX, may change in SW. Do NOT initialize
-volatile unsigned char turnModemOnOff;             // Do NOT intialize, in EEPROM
-unsigned char turnModemOnOff_in;                   // Non-volatile version
-volatile unsigned char dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
-extern unsigned char powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
-unsigned char dcLevel_in;                          // Non-volatile version
-
-unsigned char AirMiniCV1;                          // The AirMini's address, HIGH unsigned char
-
-unsigned char AirMiniCV17;                         // The AirMini's address, HIGH unsigned char
-unsigned char AirMiniCV17tmp;                      // The AirMini's address, HIGH unsigned char, temporary value until CV18 is reassigned in ops mode
-
-unsigned char AirMiniCV18;                         // The AirMini's address, LOW unsigned char
-
-unsigned char AirMiniCV29;                         // The AirMini's address, HIGH unsigned char
-unsigned char AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
-unsigned char printDCC = 1;                        // Global flag for LCD for DCC msg display
-
-#define ISSET 0b10101010
-
-// EEPROM data for persistence after turn-off of the AirMini
-unsigned char  EEMEM EEisSetCHANNEL = 0;               // Stored RF channel is set
-unsigned char  EEMEM EECHANNEL = 1;                    // Stored RF channel #
-// unsigned char  EEMEM EECHANNELDefault;             // Stored RF channel #
-
-unsigned char  EEMEM EEisSetturnModemOnOff = 2;        // Stored modem turn on/off is set
-unsigned char  EEMEM EEturnModemOnOff = 3;             // Stored modem turn on/off
-// unsigned char  EEMEM EEturnModemOnOffDefault;      // Stored modem turn on/off
-
-unsigned char  EEMEM EEisSetdcLevel = 4;               // Stored DC output level is set
-unsigned char  EEMEM EEdcLevel = 5;                    // Stored DC output level if modem turned off
-// unsigned char  EEMEM EEdcLevelDefault;             // Stored DC output level if modem turned off
-
-unsigned char  EEMEM EEisSetpowerLevel = 5;            // Stored DC output power level is set
-unsigned char  EEMEM EEpowerLevel = 6;                 // Stored DC output power level 
-// unsigned char  EEMEM EEpowerLevelDefault;          // Stored DC output power level 
-
-unsigned char  EEMEM EEisSetidlePeriodms = 7;          // Stored idlePeriodms set flag
-unsigned char  EEMEM EEidlePeriodms = 8;               // Stored idlePeriod in ms
-// unsigned char  EEMEM EEidlePeriodmsDefault;        // Stored idlePeriod in ms
-
-unsigned char  EEMEM EEisSetfilterModemData = 9;       // Stored idlePeriodms set flag
-unsigned char  EEMEM EEfilterModemData = 10;            // Stored idlePeriod in ms
-// unsigned char  EEMEM EEfilterModemDataDefault;     // Stored idlePeriod in ms
-
-unsigned char  EEMEM EEisSetAirMiniCV1 = 11;            // Stored AirMini decoder short address is set
-unsigned char  EEMEM EEAirMiniCV1 = 12;                 // Stored AirMini decoder short address
-// unsigned char  EEMEM EEAirMiniCV1Default;          // Stored AirMini decoder short address
-
-unsigned char  EEMEM EEisSetAirMiniCV17 = 12;           // Stored AirMini decoder high unsigned char address is set
-unsigned char  EEMEM EEAirMiniCV17 = 13;                // Stored AirMini decoder high unsigned char address
-// unsigned char  EEMEM EEAirMiniCV17Default;
-
-unsigned char  EEMEM EEisSetAirMiniCV18 = 14;           // Stored AirMini decoder low unsigned char address is set
-unsigned char  EEMEM EEAirMiniCV18 = 15;                // Stored AirMini decoder low unsigned char address
-// unsigned char  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low unsigned char address
-
-unsigned char  EEMEM EEisSetAirMiniCV29 = 16;           // Stored AirMini decoder configuration variable is set
-unsigned char  EEMEM EEAirMiniCV29 = 17;                // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
-
-#if defined(RECEIVER)
-unsigned char  EEMEM EEisSetInitialWaitPeriodSEC = 18;  // Stored AirMini decoder configuration variable
-unsigned char  EEMEM EEInitialWaitPeriodSEC = 19;       // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
-#else
-unsigned char  EEMEM EEisSetAutoIdleOff = 20;  // Stored AirMini decoder configuration variable
-unsigned char  EEMEM EEAutoIdleOff = 21;       // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
-#endif
-
-enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
-
-#if defined(USE_LCD)
-unsigned char LCDAddress;                     // The I2C address of the LCD
-bool LCDFound = false;               // Whether a valid lcd was found
-#define LCDCOLUMNS 16                // Number of LCD columns
-#define LCDROWS 2                    // Number of LCD rows 
-unsigned long LCDTimePeriod=2UL*SEC; // Set up the LCD re-display time interval, 2 s
-unsigned long prevLCDTime = 0;       // Initialize the last time displayed
-bool refreshLCD = false;             // Whether to refresh
-LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
-char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
-#endif
-
-///////////////////
-// Start of code //
-///////////////////
 void printMsgSerial() {
 
    Serial.print("msg["); Serial.print(msgIndexInserted,HEX); Serial.print("]:\n");
@@ -565,23 +598,67 @@ void checkSetDefault(unsigned char *TargetPtr, const unsigned char *EEisSetTarge
 
 }
 
+// Function, based on the value of forceDefault:
+//    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
+//    - FALSE:  extract and use EEPROM data, if previously-set, to set the TargetPtr's value
 void checkSetDefaultEE(unsigned char *TargetPtr, const unsigned char *EEisSetTargetPtr, const unsigned char *EETargetPtr, unsigned char defaultValue, unsigned char forceDefault)
 {
-   unsigned char isSet; 
-   if (EEisSetTargetPtr != (const unsigned char *)NULL) isSet = (unsigned char)eeprom_read_byte((const unsigned char *)EEisSetTargetPtr);
-   else isSet = 0; // Bad if you get here!
+   unsigned char isSet, isSet_Save; 
+   eeprom_busy_wait();
+   isSet = (unsigned char)eeprom_read_byte((const unsigned char *)EEisSetTargetPtr);
    if ((isSet != ISSET) || forceDefault)
    {
+      isSet_Save = isSet;
       *TargetPtr = defaultValue; 
       eeprom_busy_wait();
+
       eeprom_update_byte( (unsigned char *)EEisSetTargetPtr, (const unsigned char)ISSET );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_busy_wait();
+      for (unsigned char i = 0; i < 10; i++)
+      {
+         isSet = (unsigned char)eeprom_read_byte((const unsigned char *)EEisSetTargetPtr);
+         if (isSet != ISSET)
+         {
+#if defined(DEBUG)
+            Serial.print("ISSET error: isSet, ISSET = ");
+            Serial.print(isSet);
+            Serial.print(", ");
+            Serial.print(ISSET);
+            Serial.print("\n");
+            delay(10);
+#endif
+            eeprom_update_byte( (unsigned char *)EEisSetTargetPtr, (const unsigned char)ISSET );
+            eeprom_busy_wait();
+         }
+         else break;
+      }
+
       eeprom_update_byte( (unsigned char *)EETargetPtr, defaultValue );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_busy_wait();
+
+      for (unsigned char i = 0; i < 10; i++)
+      {
+         *TargetPtr = (unsigned char)eeprom_read_byte((const unsigned char *)EETargetPtr);
+         if (*TargetPtr != defaultValue)
+         {
 #if defined(DEBUG)
-   Serial.print("   Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, defaultValue: ");
+            Serial.print("TargetPtr error: *TgtPtr, defaultValue = ");
+            Serial.print(*TargetPtr);
+            Serial.print(", ");
+            Serial.print(defaultValue);
+            Serial.print("\n");
+            delay(10);
+#endif
+            eeprom_update_byte( (unsigned char *)EETargetPtr, defaultValue );
+            eeprom_busy_wait();
+         }
+         else break;
+      }
+
+#if defined(DEBUG)
+   Serial.print("   Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue (Orig isSet): ");
    Serial.print(*TargetPtr);
    Serial.print(" <");
    Serial.print(*EEisSetTargetPtr);
@@ -592,16 +669,19 @@ void checkSetDefaultEE(unsigned char *TargetPtr, const unsigned char *EEisSetTar
    Serial.print(" ");
    Serial.print(isSet);
    Serial.print(" ");
+   Serial.print(forceDefault);
+   Serial.print(" ");
    Serial.print(defaultValue);
-   Serial.print("\n");
+   Serial.print(" (");
+   Serial.print(isSet_Save);
+   Serial.print(")\n");
 #endif
    }
    else
    {
-      if(EETargetPtr != (const unsigned char *)NULL) *TargetPtr = (unsigned char)eeprom_read_byte((const unsigned char *)EETargetPtr);
-      else *TargetPtr = defaultValue;  // Bad if you get here!
+      *TargetPtr = (unsigned char)eeprom_read_byte((const unsigned char *)EETargetPtr);
 #if defined(DEBUG)
-   Serial.print("No Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, defaultValue: ");
+   Serial.print("No Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue: ");
    Serial.print(*TargetPtr);
    Serial.print(" <");
    Serial.print(*EEisSetTargetPtr);
@@ -611,6 +691,8 @@ void checkSetDefaultEE(unsigned char *TargetPtr, const unsigned char *EEisSetTar
    Serial.print(ISSET);
    Serial.print(" ");
    Serial.print(isSet);
+   Serial.print(" ");
+   Serial.print(forceDefault);
    Serial.print(" ");
    Serial.print(defaultValue);
    Serial.print("\n");
@@ -785,71 +867,108 @@ void setup()
    Serial.begin(115200);
 #endif
 
-   ////////////////////////////////////////////////
-   // Let's get the slow EEPROM stuff done first //
-   ////////////////////////////////////////////////
+   ///////////////////////////////////////////////////////
+   // Start: Let's get the slow EEPROM stuff done first //
+   ///////////////////////////////////////////////////////
+
+#if defined(DEBUG)
+   Serial.print("Initial SET_DEFAULT: "); Serial.print(SET_DEFAULT); Serial.print("\n");
+#endif
+   SET_DEFAULT = (unsigned char)eeprom_read_byte((const unsigned char *)EEFirst);
+   if (SET_DEFAULT != ISSET) SET_DEFAULT = 1;
+   else SET_DEFAULT = 0;
+   eeprom_busy_wait();
+#if defined(DEBUG)
+   Serial.print("Final SET_DEFAULT: "); Serial.print(SET_DEFAULT); Serial.print("\n");
+   delay(100);
+#endif
 
    // Get the CHANNEL # stored in EEPROM and validate it
    // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
-   checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (unsigned char)CHANNELDEFAULT, 0);      // Validate the channel, it's possible the EEPROM has bad data
+   // checkSetDefault(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (unsigned char)CHANNELDEFAULT, SET_DEFAULT);      // Validate the channel, it's possible the EEPROM has bad data
+   checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (unsigned char)CHANNELDEFAULT, SET_DEFAULT);      // Validate the channel, it's possible the EEPROM has bad data
+   // checkSetDefault(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (unsigned char)CHANNELDEFAULT, SET_DEFAULT);      // Validate the channel, it's possible the EEPROM has bad data
    if(CHANNEL > channels_max) 
       checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (unsigned char)CHANNELDEFAULT, 1);  // Force the EEPROM data to use CHANNEL 0, if the CHANNEL is invalid
   
    // Just flat out set the powerLevel
    // eeprom_update_byte(&EEpowerLevelDefault, POWERLEVELDEFAULT );
+   // checkSetDefault(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (unsigned char)POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
    checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (unsigned char)POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
+   // checkSetDefault(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (unsigned char)POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
 
    // Set the alternate DC output level to HIGH or LOW (i.e., bad CC1101 data)
    // The level of this output can be used by some decoders. The default is HIGH.
    // eeprom_update_byte(&EEdcLevelDefault, DCLEVEL_INDEFAULT );
-   checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, (unsigned char)DCLEVEL_INDEFAULT, 0);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   // checkSetDefault(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, (unsigned char)DCLEVEL_INDEFAULT, SET_DEFAULT);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, (unsigned char)DCLEVEL_INDEFAULT, SET_DEFAULT);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   // checkSetDefault(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, (unsigned char)DCLEVEL_INDEFAULT, SET_DEFAULT);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
    dcLevel = (volatile unsigned char)dcLevel_in;                                  // Since dcLevel is volatile we need a proxy unsigned char 
 
    // Turn the modem OFF/ON option. For use if bad modem data is detected in RX mode
    // eeprom_update_byte(&EEturnModemOnOffDefault, TURNMODEMON_INDEFAULT );
-   checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (unsigned char)TURNMODEMON_INDEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   // checkSetDefault(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (unsigned char)TURNMODEMON_INDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (unsigned char)TURNMODEMON_INDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
+   // checkSetDefault(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (unsigned char)TURNMODEMON_INDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
    turnModemOnOff = (volatile unsigned char)turnModemOnOff_in;                                    // Needed to use a proxy variable since turnModemOnOff is volatile unsigned char
 
    // Set the DCC time-out period for sending IDLE packets. Used along with duplicate DCC packet detection for inserting IDLE packets
    // eeprom_update_byte(&EEidlePeriodmsDefault, IDLEPERIODMSDEFAULT );
-   checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, (unsigned char)IDLEPERIODMSDEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 0 ms
+   // checkSetDefault(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, (unsigned char)IDLEPERIODMSDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 ms
+   checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, (unsigned char)IDLEPERIODMSDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 ms
+   // checkSetDefault(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, (unsigned char)IDLEPERIODMSDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 ms
    idlePeriod = (unsigned long)idlePeriodms * MILLISEC;                                 // Convert to time counts
 
    // Set whether to always use modem data on transmit
    // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
-   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, (unsigned char)FILTERMODEMDATADEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 0 
+   // checkSetDefault(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, (unsigned char)FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
+   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, (unsigned char)FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
+   // checkSetDefault(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, (unsigned char)FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
 
    // Get up addressing-related CV's from EEPROM, or if not set set them in EEPROM
    // eeprom_update_byte(&EEAirMiniCV1Default, AIRMINICV1DEFAULT );
-   checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    (unsigned char)AIRMINICV1DEFAULT, 0);  // Short address. By default, not using
+   // checkSetDefault(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    (unsigned char)AIRMINICV1DEFAULT, SET_DEFAULT);  // Short address. By default, not using
+   checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    (unsigned char)AIRMINICV1DEFAULT, SET_DEFAULT);  // Short address. By default, not using
+   // checkSetDefault(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    (unsigned char)AIRMINICV1DEFAULT, SET_DEFAULT);  // Short address. By default, not using
 
    // eeprom_update_byte(&EEAirMiniCV17Default, AIRMINICV17DEFAULT );
-   checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (unsigned char)AIRMINICV17DEFAULT, 0);  // High unsigned char to set final address to 9000
+   // checkSetDefault(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (unsigned char)AIRMINICV17DEFAULT, SET_DEFAULT);  // High unsigned char to set final address to 9000
+   checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (unsigned char)AIRMINICV17DEFAULT, SET_DEFAULT);  // High unsigned char to set final address to 9000
+   // checkSetDefault(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (unsigned char)AIRMINICV17DEFAULT, SET_DEFAULT);  // High unsigned char to set final address to 9000
    AirMiniCV17tmp = AirMiniCV17;                                                  // Due to the special nature of CV17 paired with CV18
 
    // eeprom_update_byte(&EEAirMiniCV18Default, AIRMINICV18DEFAULT );
-   checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (unsigned char)AIRMINICV18DEFAULT, 0);  // Low unsigned char to set final address to 9000/9001 for transmitter/receiver
+   // checkSetDefault(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (unsigned char)AIRMINICV18DEFAULT, SET_DEFAULT);  // Low unsigned char to set final address to 9000/9001 for transmitter/receiver
+   checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (unsigned char)AIRMINICV18DEFAULT, SET_DEFAULT);  // Low unsigned char to set final address to 9000/9001 for transmitter/receiver
+   // checkSetDefault(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (unsigned char)AIRMINICV18DEFAULT, SET_DEFAULT);  // Low unsigned char to set final address to 9000/9001 for transmitter/receiver
 
    // eeprom_update_byte(&EEAirMiniCV29Default, AIRMINICV29DEFAULT );
-   checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  (unsigned char)AIRMINICV29DEFAULT, 0);  // Set CV29 so that it will use a long address
+   // checkSetDefault(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  (unsigned char)AIRMINICV29DEFAULT, SET_DEFAULT);  // Set CV29 so that it will use a long address
+   checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  (unsigned char)AIRMINICV29DEFAULT, SET_DEFAULT);  // Set CV29 so that it will use a long address
+   // checkSetDefault(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  (unsigned char)AIRMINICV29DEFAULT, SET_DEFAULT);  // Set CV29 so that it will use a long address
    AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
 #if defined(RECEIVER)
    // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
-#ifdef DEBUG
-   Serial.print("Before:\n");
-   checkSetDefault(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, 0);  // Wait time in sec
-#endif
-   checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, 0);  // Wait time in sec
-#ifdef DEBUG
-   Serial.print("After:\n");
-   checkSetDefault(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, 0);  // Wait time in sec
-#endif
+   // checkSetDefault(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
+   checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
+   // checkSetDefault(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
    // checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (unsigned char)INITIALWAITPERIODSECDEFAULT, 1);  // Wait time in sec
 #else
    // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
-   checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (unsigned char)AUTOIDLEOFFDEFAULT, 0);  // Set AutoIdleOff
+   // checkSetDefault(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (unsigned char)AUTOIDLEOFFDEFAULT, SET_DEFAULT);  // Set AutoIdleOff
+   checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (unsigned char)AUTOIDLEOFFDEFAULT, SET_DEFAULT);  // Set AutoIdleOff
+   // checkSetDefault(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (unsigned char)AUTOIDLEOFFDEFAULT, SET_DEFAULT);  // Set AutoIdleOff
 #endif
+
+   // Now set to not first time
+   eeprom_update_byte( (unsigned char *)EEFirst, (const unsigned char)ISSET);
+   eeprom_busy_wait();
+
+   /////////////////////////////////////////////////////
+   // End: Let's get the slow EEPROM stuff done first //
+   /////////////////////////////////////////////////////
+
 
    /////////////////////////////////
    // Initialization of variables //
@@ -882,7 +1001,6 @@ void setup()
    // Set up the input and output pins
 
    ///////////////////////////
-   ///////////////////////////
    // TRANSMITTER and RECEIVER
 
 #if defined(DEBUG)
@@ -898,12 +1016,10 @@ void setup()
 
    // TRANSMITTER and RECEIVER
    ///////////////////////////
-   ///////////////////////////
 
 
    // Final timing-sensitive set-ups
 
-   ///////////////////////////
    ///////////////////////////
    // TRANSMITTER and RECEIVER
 
@@ -934,7 +1050,6 @@ void setup()
    SetupTimer2(); // Set up interrupt Timer 2
 
    // TRANSMITTER and RECEIVER
-   ///////////////////////////
    ///////////////////////////
 
    // Start the coms with the modem
@@ -1156,7 +1271,6 @@ void loop()
                          strobeSPI(SIDLE);         // Stop the modem
                          // Call the main DCC Init function to enable the DCC Receiver
                          // Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
-                         timeOfValidDCC = millis();
                          startModem(CHANNEL, MODE); // Restart on possible-new Airwire Channel and mode (or power level)
                       }
 
@@ -1311,12 +1425,12 @@ void loop()
            {
              // Call the main DCC Init function to enable the DCC Receiver
              // Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
-             timeOfValidDCC = millis();
              strobeSPI(MODE);                       // awaken the modem in MODE
            }
          else 
          {
-             timeOfValidDCC = millis();
+             // timeOfValidDCC = millis();
+             ;;
          }
       }
 
@@ -1372,7 +1486,6 @@ void loop()
                strobeSPI(SIDLE);         
                // Call the main DCC Init function to enable the DCC Receiver
                // Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
-               timeOfValidDCC = startInitialWaitTime;
                // Restart on Airwire selected and mode (or power level)
                startModem(CHANNEL, MODE); 
 
