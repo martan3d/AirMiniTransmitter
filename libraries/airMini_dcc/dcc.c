@@ -36,39 +36,34 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "servotimer.h"
 #include "dcc.h"
 
-#define PREAMBLE 0
-#define START_BIT 1
-#define DATA 2
-#define END_BIT 3
+enum {PREAMBLE, START_BIT, DATA, END_BIT} State = PREAMBLE;
 
 // Any variables that are used between the ISR and other functions are declared volatile
-unsigned int i;
-int16_t usec;
-int16_t dnow;
-int16_t BitCount;
-int8_t  State;
-uint8_t dataByte;
-uint8_t byteCounter;
-uint8_t buffer[sizeof(DCC_MSG)+1];
-uint8_t DccBitVal = 0;
-uint8_t errorByte = 0;
-uint8_t dccbuff[sizeof(DCC_MSG)];
-volatile uint16_t transitionCountDCC = 0; // count the number of transitions before a valid state change
-volatile uint8_t useModemDataDCC = 1;     // Initial setting for use-of-modem-data state
-volatile uint8_t dcLevelDCC = 1;          // The output level (HIGH or LOW) output if modem data is invalid
+unsigned short usec;
+unsigned short dnow;
+unsigned short BitCount;
+unsigned char dataByte;
+unsigned char byteCounter;
+unsigned char buffer[sizeof(DCC_MSG)+1];
+unsigned char DccBitVal = 0;
+unsigned char errorByte = 0;
+unsigned char dccbuff[sizeof(DCC_MSG)];
+volatile unsigned short transitionCountDCC = 0; // count the number of transitions before a valid state change
+volatile unsigned char useModemDataDCC = 1;     // Initial setting for use-of-modem-data state
+volatile unsigned char dcLevelDCC = 1;          // The output level (HIGH or LOW) output if modem data is invalid
 
-const uint8_t servotable[] = { 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 8, 8, 8, 10, 10, 10 };
+const unsigned char servotable[] = { 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 8, 8, 8, 10, 10, 10 };
 
-uint8_t * getDCC()
+unsigned char * getDCC()
 {
      return(dccbuff);
 }
 
-uint8_t decodeDCCPacket( DCC_MSG * dccptr)
+unsigned char decodeDCCPacket( DCC_MSG * dccptr)
 {
 
    if ((3 <= dccptr->Size) && (dccptr->Size <= 6)) {
-      for (uint8_t i = 0; i < dccptr->Size ; i++)
+      for (unsigned char i = 0; i < dccptr->Size ; i++)
          SendByte(dccptr->Data[i]);
    }
    return dccptr->Size;
@@ -102,19 +97,19 @@ void dccInit(void)
 // Some access functions //
 ///////////////////////////
 // Access function to get transitionCountDCC
-uint16_t getTransitionCount(void) 
+unsigned short getTransitionCount(void) 
 {
    return transitionCountDCC;
 }
 
 // Access function to reset transitionCountDCC
-void resetTransitionCount(uint16_t count) 
+void resetTransitionCount(unsigned short count) 
 {
    transitionCountDCC = count;
 }
 
 // Access function to set using modem data state and the DC output value if not using modem data
-void DCCuseModemData(uint8_t useModemData_in, uint8_t dcLevel_in)
+void DCCuseModemData(unsigned char useModemData_in, unsigned char dcLevel_in)
 {
    useModemDataDCC = useModemData_in;
    dcLevelDCC = dcLevel_in;
@@ -229,7 +224,7 @@ ISR(INT0_vect)
                 if ((3 <= byteCounter) && ((byteCounter <= 6))) 
                 {
                    errorByte  = buffer[0];                 // VERY IMPORTANT!
-                   for(uint8_t i = 1; i < byteCounter-1; i++)
+                   for(unsigned char i = 1; i < byteCounter-1; i++)
                        errorByte ^= buffer[i];                 // All sorts of stuff flies around on the bus
    
                    if (errorByte == buffer[byteCounter-1])
@@ -237,7 +232,7 @@ ISR(INT0_vect)
                        buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
                        buffer[sizeof(DCC_MSG)] = 0;
    
-                       // for (i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
+                       // for (unsigned char i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
                        //     dccbuff[i] = buffer[i];
                        memcpy((void *)&dccbuff, (void *)&buffer, sizeof(DCC_MSG));    // Extract the message into private msg
    
