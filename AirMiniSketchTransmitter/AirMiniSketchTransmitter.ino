@@ -29,7 +29,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define DEBUG
+#undef DEBUG
 
 #include <EEPROM.h>
 #include <dcc.h>
@@ -292,58 +292,69 @@ unsigned char AirMiniCV29;                         // The AirMini's address, HIG
 unsigned char AirMiniCV29Bit5;                     // The value of AirMiniCV29, bit 5
 unsigned char printDCC = 1;                        // Global flag for LCD for DCC msg display
 
+/////////////////////
+// Start: EEPROM data
+/////////////////////
+
 #define ISSET 0b10101010
 
+unsigned char SET_DEFAULT = 1;
+unsigned char EEFirst = 0;  // Store the first time
+
 // EEPROM data for persistence after turn-off of the AirMini
-unsigned char  EEMEM EEisSetCHANNEL;               // Stored RF channel is set
-unsigned char  EEMEM EECHANNEL;                    // Stored RF channel #
-// unsigned char  EEMEM EECHANNELDefault;             // Stored RF channel #
+unsigned char  EEisSetCHANNEL = 1;               // Stored RF channel is set
+unsigned char  EECHANNEL = 2;                    // Stored RF channel #
+// unsigned char  EECHANNELDefault;             // Stored RF channel #
 
-unsigned char  EEMEM EEisSetturnModemOnOff;        // Stored modem turn on/off is set
-unsigned char  EEMEM EEturnModemOnOff;             // Stored modem turn on/off
-// unsigned char  EEMEM EEturnModemOnOffDefault;      // Stored modem turn on/off
+unsigned char  EEisSetturnModemOnOff = 3;        // Stored modem turn on/off is set
+unsigned char  EEturnModemOnOff = 4;             // Stored modem turn on/off
+// unsigned char  EEturnModemOnOffDefault;      // Stored modem turn on/off
 
-unsigned char  EEMEM EEisSetdcLevel;               // Stored DC output level is set
-unsigned char  EEMEM EEdcLevel;                    // Stored DC output level if modem turned off
-// unsigned char  EEMEM EEdcLevelDefault;             // Stored DC output level if modem turned off
+unsigned char  EEisSetdcLevel = 5;               // Stored DC output level is set
+unsigned char  EEdcLevel = 6;                    // Stored DC output level if modem turned off
+// unsigned char  EEdcLevelDefault;             // Stored DC output level if modem turned off
 
-unsigned char  EEMEM EEisSetpowerLevel;            // Stored DC output power level is set
-unsigned char  EEMEM EEpowerLevel;                 // Stored DC output power level 
-// unsigned char  EEMEM EEpowerLevelDefault;          // Stored DC output power level 
+unsigned char  EEisSetpowerLevel = 7;            // Stored DC output power level is set
+unsigned char  EEpowerLevel = 8;                 // Stored DC output power level 
+// unsigned char  EEpowerLevelDefault;          // Stored DC output power level 
 
-unsigned char  EEMEM EEisSetidlePeriodms;          // Stored idlePeriodms set flag
-unsigned char  EEMEM EEidlePeriodms;               // Stored idlePeriod in ms
-// unsigned char  EEMEM EEidlePeriodmsDefault;        // Stored idlePeriod in ms
+unsigned char  EEisSetidlePeriodms = 9;          // Stored idlePeriodms set flag
+unsigned char  EEidlePeriodms = 10;               // Stored idlePeriod in ms
+// unsigned char  EEidlePeriodmsDefault;        // Stored idlePeriod in ms
 
-unsigned char  EEMEM EEisSetfilterModemData;       // Stored idlePeriodms set flag
-unsigned char  EEMEM EEfilterModemData;            // Stored idlePeriod in ms
-// unsigned char  EEMEM EEfilterModemDataDefault;     // Stored idlePeriod in ms
+unsigned char  EEisSetfilterModemData = 11;       // Stored idlePeriodms set flag
+unsigned char  EEfilterModemData = 12;            // Stored idlePeriod in ms
+// unsigned char  EEfilterModemDataDefault;     // Stored idlePeriod in ms
 
-unsigned char  EEMEM EEisSetAirMiniCV1;            // Stored AirMini decoder short address is set
-unsigned char  EEMEM EEAirMiniCV1;                 // Stored AirMini decoder short address
-// unsigned char  EEMEM EEAirMiniCV1Default;          // Stored AirMini decoder short address
+unsigned char  EEisSetAirMiniCV1 = 13;            // Stored AirMini decoder short address is set
+unsigned char  EEAirMiniCV1 = 14;                 // Stored AirMini decoder short address
+// unsigned char  EEAirMiniCV1Default;          // Stored AirMini decoder short address
 
-unsigned char  EEMEM EEisSetAirMiniCV17;           // Stored AirMini decoder high unsigned char address is set
-unsigned char  EEMEM EEAirMiniCV17;                // Stored AirMini decoder high unsigned char address
-// unsigned char  EEMEM EEAirMiniCV17Default;
+unsigned char  EEisSetAirMiniCV17 = 15;           // Stored AirMini decoder high unsigned char address is set
+unsigned char  EEAirMiniCV17 = 16;                // Stored AirMini decoder high unsigned char address
+// unsigned char  EEAirMiniCV17Default;
 
-unsigned char  EEMEM EEisSetAirMiniCV18;           // Stored AirMini decoder low unsigned char address is set
-unsigned char  EEMEM EEAirMiniCV18;                // Stored AirMini decoder low unsigned char address
-// unsigned char  EEMEM EEAirMiniCV18Default;         // Stored AirMini decoder low unsigned char address
+unsigned char  EEisSetAirMiniCV18 = 17;           // Stored AirMini decoder low unsigned char address is set
+unsigned char  EEAirMiniCV18 = 18;                // Stored AirMini decoder low unsigned char address
+// unsigned char  EEAirMiniCV18Default;         // Stored AirMini decoder low unsigned char address
 
-unsigned char  EEMEM EEisSetAirMiniCV29;           // Stored AirMini decoder configuration variable is set
-unsigned char  EEMEM EEAirMiniCV29;                // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
+unsigned char  EEisSetAirMiniCV29 = 19;           // Stored AirMini decoder configuration variable is set
+unsigned char  EEAirMiniCV29 = 20;                // Stored AirMini decoder configuration variable
+// unsigned char  EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
 
 #if defined(RECEIVER)
-unsigned char  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
-unsigned char  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+unsigned char  EEisSetInitialWaitPeriodSEC = 21;  // Stored AirMini decoder configuration variable
+unsigned char  EEInitialWaitPeriodSEC = 22;       // Stored AirMini decoder configuration variable
+// unsigned char  EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
 #else
-unsigned char  EEMEM EEisSetAutoIdleOff;  // Stored AirMini decoder configuration variable
-unsigned char  EEMEM EEAutoIdleOff;       // Stored AirMini decoder configuration variable
-// unsigned char  EEMEM EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
+unsigned char  EEisSetAutoIdleOff = 23;  // Stored AirMini decoder configuration variable
+unsigned char  EEAutoIdleOff = 24;       // Stored AirMini decoder configuration variable
+// unsigned char  EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
 #endif
+
+///////////////////
+// End: EEPROM data
+///////////////////
 
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
@@ -642,9 +653,14 @@ void setup()
    // DDRB |= 1;        // Use this for debugging if you wish
    // initUART(38400);  // More debugging, send serial data out- decoded DCC packets
 
-   ////////////////////////////////////////////////
-   // Let's get the slow EEPROM stuff done first //
-   ////////////////////////////////////////////////
+   ///////////////////////////////////////////////////////
+   // Start: Let's get the slow EEPROM stuff done first //
+   ///////////////////////////////////////////////////////
+
+   SET_DEFAULT = (unsigned char)eeprom_read_byte((const unsigned char *)EEFirst);
+   if (SET_DEFAULT != ISSET) SET_DEFAULT = 1;
+   else SET_DEFAULT = 0;
+   eeprom_busy_wait();
 
    // Get the CHANNEL # stored in EEPROM and validate it
    // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
@@ -698,6 +714,16 @@ void setup()
    // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
    checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (unsigned char)AUTOIDLEOFFDEFAULT, 0);  // Set AutoIdleOff
 #endif
+
+   // Now set to not first time
+   eeprom_update_byte( (unsigned char *)EEFirst, (const unsigned char)ISSET);
+   eeprom_busy_wait();
+
+   /////////////////////////////////////////////////////
+   // End: Let's get the slow EEPROM stuff done first //
+   /////////////////////////////////////////////////////
+
+
 
    /////////////////////////////////
    // Initialization of variables //
