@@ -29,7 +29,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define DEBUG
+#undef DEBUG
 
 #include <config.h>
 #include <EEPROM.h>
@@ -462,15 +462,8 @@ ISR(TIMER2_OVF_vect) {
   if (every_second_isr)  {
 
 #if defined(RECEIVER)
-    if(useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
-    {
+    if(useModemData)        // If not using modem data, the level is set elsewhere
        OUTPUT_HIGH; // Output high
-    }
-    else
-    {
-       if(dcLevel) OUTPUT_HIGH;           // HIGH
-       else OUTPUT_LOW;                   // LOW
-    }
 #else
     OUTPUT_HIGH; // Output high
 #endif
@@ -482,15 +475,8 @@ ISR(TIMER2_OVF_vect) {
   }  else  {  // != every second interrupt, advance bit or state
 
 #if defined(RECEIVER)
-    if(useModemData)        // If not using modem data, ensure the output is set to DC after coming back from the ISR
-    {
+    if(useModemData)        // If not using modem data, the level is set elsewhere
        OUTPUT_LOW; // Output high
-    }
-    else
-    {
-       if(dcLevel) OUTPUT_HIGH;           // HIGH
-       else OUTPUT_LOW;                   // LOW
-    }
 #else
     OUTPUT_LOW; // Output high
 #endif
