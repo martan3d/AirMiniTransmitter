@@ -3,7 +3,7 @@ AirMiniSketchTransmitter.ino
 
 Created: Dec  7 12:15:25 EST 2019
 
-Copyright (c) 2019-2020, Martin Sant and Darrell Lamm
+Copyright (c) 2019-2021, Martin Sant and Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -29,8 +29,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#undef DEBUG
-
+#include <config.h>
 #include <EEPROM.h>
 #include <dcc.h>
 #include <spi.h>

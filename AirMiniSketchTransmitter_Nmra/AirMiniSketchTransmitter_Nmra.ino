@@ -1,9 +1,10 @@
 /*
-AirMiniSketchTransmitter.ino 
+AirMiniSketchTransmitter_Nmra.ino 
 
-Created: Dec  7 12:15:25 EST 2019
+Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
+as a starting point
 
-Copyright (c) 2019-2020, Martin Sant and Darrell Lamm
+Copyright (c) 2021, Martin Sant and Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -28,8 +29,6 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#undef DEBUG
 
 #include <config.h>
 #include <EEPROM.h>

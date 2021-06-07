@@ -40,6 +40,20 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ///////////////////////////////////
 //    vvv User Entry Area Below vvv
+///////////////////////////////////
+
+/////////////////////
+// Set the DEBUG Flag
+/////////////////////
+/* 
+Turn on/off Serial output for
+the Arduino (or other) monitor.
+Turning DEBUG on will increase
+the size of the firmware, possibly
+reducing reliability. Use with
+caution or for development only.
+*/
+#undef DEBUG
 
 ////////////////////////
 // Set band of operation
@@ -67,9 +81,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(NAEU_900MHz)
 /* Uncomment ONLY ONE #define*/
 /* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
-// #define NA_DEFAULT
+#define NA_DEFAULT
 /* To set the default to EU channel 17 for 869/915MHz ISM bands only!*/
-#define EU_DEFAULT
+// #define EU_DEFAULT
 #endif
 
 //////////////////////////////////////////
