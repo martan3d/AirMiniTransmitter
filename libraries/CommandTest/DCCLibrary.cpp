@@ -37,8 +37,9 @@
 #define LONGPULSE   0
 #define SHORTPULSE  1
 
-byte last_timer = TIMER_SHORT;  // store last timer value
-byte timer_val = TIMER_LONG;  // store last timer value
+// byte last_timer = TIMER_SHORT;  // store last timer value
+// byte timer_val = TIMER_LONG;  // store last timer value
+byte timer_val = TIMER_SHORT;  // store last timer value
 byte every_second_isr = 0;      // pulse up or down
 
 enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
@@ -84,7 +85,7 @@ ISR(TIMER2_OVF_vect){
     //due to interrupt latency and the work in this function
     //Reload the timer and correct for latency.
     // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
-    byte latency;
+    // byte latency;
     
     // for every second interupt just toggle signal
     if(every_second_isr){
@@ -93,8 +94,8 @@ ISR(TIMER2_OVF_vect){
         every_second_isr = 0;
         
         // set timer to last value
-        latency = TCNT2;
-        TCNT2 = latency + last_timer;
+        // latency = TCNT2;
+        // TCNT2 = latency + last_timer;
       
     }else{                                    // != every second interrupt, advance bit or state
         // digitalWrite(OUTPUT_PIN,0);
@@ -155,9 +156,11 @@ ISR(TIMER2_OVF_vect){
                 break;
         }
         // Set up output timer
-        latency = TCNT2;
-        TCNT2 = latency + timer_val;
-        last_timer = timer_val;
+        // latency = TCNT2;
+        // TCNT2 = latency + timer_val;
+        // last_timer = timer_val;
     }
+
+    TCNT2 += timer_val;
 }
 

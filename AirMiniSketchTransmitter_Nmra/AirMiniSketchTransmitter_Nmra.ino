@@ -103,8 +103,9 @@ NmraDcc Dcc;
 
 
 // definitions for state machine
-unsigned char last_timer = TIMER_SHORT; // store last timer value
-unsigned char timer_val = TIMER_LONG; // The timer value
+// unsigned char last_timer = TIMER_SHORT; // store last timer value
+// unsigned char timer_val = TIMER_LONG; // The timer value
+unsigned char timer_val = TIMER_SHORT; // The timer value
 unsigned char every_second_isr = 0;  // pulse up or down
 
 enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
@@ -455,7 +456,8 @@ ISR(TIMER2_OVF_vect) {
   //due to interrupt latency and the work in this function
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
-  unsigned char latency;
+
+  // unsigned char latency;
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
@@ -468,8 +470,8 @@ ISR(TIMER2_OVF_vect) {
 #endif
     every_second_isr = 0;
     // set timer to last value
-    latency = TCNT2;
-    TCNT2 = latency + last_timer;
+    // latency = TCNT2;
+    // TCNT2 = latency + last_timer;
 
   }  else  {  // != every second interrupt, advance bit or state
 
@@ -524,12 +526,14 @@ ISR(TIMER2_OVF_vect) {
     } // end of switch
 
     // Set up output timer
-    latency = TCNT2;
-    TCNT2 = latency + timer_val;
-    last_timer = timer_val;
-
+    // latency = TCNT2;
+    // TCNT2 = latency + timer_val;
+    // last_timer = timer_val;
 
   } // end of else ! every_seocnd_isr
+
+  // Set up output timer. It is only reset every second ISR.
+  TCNT2 += timer_val;
 
 } // End of ISR
 
