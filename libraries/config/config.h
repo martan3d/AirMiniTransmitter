@@ -47,10 +47,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 /////////////////////
 /* 
 Turn on/off Serial output for
-the Arduino (or other) monitor.
+the Arduino (or other) serial monitor.
 Turning DEBUG on will increase
 the size of the firmware, possibly
-reducing reliability. Use with
+reducing reliability due to low
+residual memory available. Use with
 caution or for development only.
 */
 #undef DEBUG
@@ -156,6 +157,13 @@ caution or for development only.
 #define str(x) #x
 // #define DO_PRAGMA(x) _Pragma(str(x))
 //////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////
+// Debug options
+////////////////
+#if defined(DEBUG)
+   #pragma message "Info: Compiling debug code, which MAY result in code instability due to low memory."
+#endif
 
 //////////////////////////////////
 // Transmitter or Receiver options
