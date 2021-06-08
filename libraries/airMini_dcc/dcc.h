@@ -54,19 +54,20 @@ extern "C" {
 #define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
 
 #define DCCMAXLEN 6 // This is the maximum # of bytes of a DCC packet (not 5!)
+#define MAX_DCC_MESSAGE_LEN 6    // including XOR-Byte
 typedef struct
 {
-    unsigned char Data[DCCMAXLEN];
-    unsigned char Size;
-	
+    uint8_t Size;
+    uint8_t PreambleBits ;
+    uint8_t Data[MAX_DCC_MESSAGE_LEN];
 } DCC_MSG ;
 
 void dccInit(void);
-unsigned char * getDCC();
-unsigned char decodeDCCPacket( DCC_MSG * dccptr);
-unsigned short getTransitionCount();
-void resetTransitionCount(unsigned short count);
-void DCCuseModemData(unsigned char useModemData_in,unsigned char muxCVval_in);
+DCC_MSG * getDCC();
+uint8_t decodeDCCPacket( DCC_MSG * dccptr);
+uint16_t getTransitionCount();
+void resetTransitionCount(uint16_t count);
+void DCCuseModemData(uint8_t useModemData_in,uint8_t muxCVval_in);
 
 #endif /* DCC_H_ */
 

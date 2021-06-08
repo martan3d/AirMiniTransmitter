@@ -39,31 +39,31 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 enum {PREAMBLE, START_BIT, DATA, END_BIT} State = PREAMBLE;
 
 // Any variables that are used between the ISR and other functions are declared volatile
-unsigned short usec;
-unsigned short dnow;
-unsigned short BitCount;
-unsigned char dataByte;
-unsigned char byteCounter;
-unsigned char buffer[sizeof(DCC_MSG)+1];
-unsigned char DccBitVal = 0;
-unsigned char errorByte = 0;
-unsigned char dccbuff[sizeof(DCC_MSG)];
-volatile unsigned short transitionCountDCC = 0; // count the number of transitions before a valid state change
-volatile unsigned char useModemDataDCC = 1;     // Initial setting for use-of-modem-data state
-volatile unsigned char dcLevelDCC = 1;          // The output level (HIGH or LOW) output if modem data is invalid
+uint16_t usec;
+uint16_t dnow;
+uint16_t BitCount;
+uint8_t dataByte;
+uint8_t byteCounter;
+DCC_MSG buffer;
+uint8_t DccBitVal = 0;
+uint8_t errorByte = 0;
+DCC_MSG dccbuff;
+volatile uint16_t transitionCountDCC = 0; // count the number of transitions before a valid state change
+volatile uint8_t useModemDataDCC = 1;     // Initial setting for use-of-modem-data state
+volatile uint8_t dcLevelDCC = 1;          // The output level (HIGH or LOW) output if modem data is invalid
 
-const unsigned char servotable[] = { 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 8, 8, 8, 10, 10, 10 };
+const uint8_t servotable[] = { 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 8, 8, 8, 10, 10, 10 };
 
-unsigned char * getDCC()
+DCC_MSG * getDCC()
 {
-     return(dccbuff);
+     return(&dccbuff);
 }
 
-unsigned char decodeDCCPacket( DCC_MSG * dccptr)
+uint8_t decodeDCCPacket( DCC_MSG * dccptr)
 {
 
    if ((3 <= dccptr->Size) && (dccptr->Size <= 6)) {
-      for (unsigned char i = 0; i < dccptr->Size ; i++)
+      for (uint8_t i = 0; i < dccptr->Size ; i++)
          SendByte(dccptr->Data[i]);
    }
    return dccptr->Size;
@@ -90,26 +90,26 @@ void dccInit(void)
   EIMSK  = 0x01;            // EXT INT 0 enabled only
 #endif
   // Clear the buffer
-  memset(buffer,0,sizeof(buffer)); // About the fastest way possible w/o machine code
+  memset(&buffer,0,sizeof(buffer)); // About the fastest way possible w/o machine code
 }
 
 ///////////////////////////
 // Some access functions //
 ///////////////////////////
 // Access function to get transitionCountDCC
-unsigned short getTransitionCount(void) 
+uint16_t getTransitionCount(void) 
 {
    return transitionCountDCC;
 }
 
 // Access function to reset transitionCountDCC
-void resetTransitionCount(unsigned short count) 
+void resetTransitionCount(uint16_t count) 
 {
    transitionCountDCC = count;
 }
 
 // Access function to set using modem data state and the DC output value if not using modem data
-void DCCuseModemData(unsigned char useModemData_in, unsigned char dcLevel_in)
+void DCCuseModemData(uint8_t useModemData_in, uint8_t dcLevel_in)
 {
    useModemDataDCC = useModemData_in;
    dcLevelDCC = dcLevel_in;
@@ -177,7 +177,7 @@ ISR(INT0_vect)
                 {
                     State = START_BIT;      // Off to the next state
                     transitionCountDCC = 0;    // Reset the transition count
-                    memset(buffer,0,sizeof(buffer)); // About the fastest way possible w/o machine code
+                    memset(&buffer,0,sizeof(buffer)); // About the fastest way possible w/o machine code
                 }                
             }            
             else
@@ -206,7 +206,7 @@ ISR(INT0_vect)
                 
             if(BitCount == 8)
             {
-              buffer[byteCounter++] = dataByte;
+              buffer.Data[byteCounter++] = dataByte;
               dataByte = 0;
               State = END_BIT;
               transitionCountDCC = 0;       // Reset the transition count
@@ -223,17 +223,15 @@ ISR(INT0_vect)
 
                 if ((3 <= byteCounter) && ((byteCounter <= 6))) 
                 {
-                   errorByte  = buffer[0];                 // VERY IMPORTANT!
-                   for(unsigned char i = 1; i < byteCounter-1; i++)
-                       errorByte ^= buffer[i];                 // All sorts of stuff flies around on the bus
+                   errorByte  = buffer.Data[0];                 // VERY IMPORTANT!
+                   for(uint8_t i = 1; i < byteCounter-1; i++)
+                       errorByte ^= buffer.Data[i];                 // All sorts of stuff flies around on the bus
    
-                   if (errorByte == buffer[byteCounter-1])
+                   if (errorByte == buffer.Data[byteCounter-1])
                    {
-                       buffer[sizeof(DCC_MSG)-1] = byteCounter;        	// save length
-                       buffer[sizeof(DCC_MSG)] = 0;
+                       buffer.Size = byteCounter;        	// save length
    
-                       // for (unsigned char i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
-                       //     dccbuff[i] = buffer[i];
+                       // for (uint8_t i=0;i<sizeof(DCC_MSG);i++)     // Move message to buffer for background task
                        memcpy((void *)&dccbuff, (void *)&buffer, sizeof(DCC_MSG));    // Extract the message into private msg
    
                        transitionCountDCC = 0;                // Reset the transition count
