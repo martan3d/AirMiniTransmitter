@@ -137,14 +137,14 @@ ISR(TIMER2_OVF_vect){
                 state = SENDBYTE;
                 // goto next byte ...
                 cbit = 0x80;  // send this bit next time first
-                outbyte = msgExtracted[msgExtractedIndex].data[byteIndex];
+                outbyte = msgExtracted[msgExtractedIndex].Data[byteIndex];
                 break;
             case SENDBYTE:
                 timer_val = (outbyte & cbit)? TIMER_SHORT : TIMER_LONG;
                 cbit = cbit >> 1;
                 if(cbit == 0){  // last bit sent, is there a next byte?
                     byteIndex++;
-                    if(byteIndex >= msgExtracted[msgExtractedIndex].len){
+                    if(byteIndex >= msgExtracted[msgExtractedIndex].Size){
                         // this was already the XOR byte then advance to preamble
                         state = PREAMBLE;
                         preamble_count = 16;
