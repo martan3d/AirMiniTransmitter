@@ -29,6 +29,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define DEBUG_LOCAL
+
 #include <config.h>
 #include <EEPROM.h>
 #include <dcc.h>
@@ -90,6 +92,8 @@ volatile Message msgExtracted[2] = {    // -> to DCCLibrary.c
 const Message msgIdle = 
    { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}};   // idle msg
 
+extern volatile uint8_t msgExtractedIndex; // From ISR in DCCLibrary
+
 volatile uint8_t lastMessageInserted  = 1;
 volatile uint8_t lastMessageExtracted = 0;
 
@@ -137,7 +141,7 @@ extern uint8_t channels_na_max;  // From spi.c
 
 #define DCLEVEL_INDEFAULT 1
 #define TURNMODEMON_INDEFAULT 0
-#define IDLEPERIODMSDEFAULT 0
+#define IDLEPERIODMSDEFAULT 128
 #define FILTERMODEMDATADEFAULT 0
 #define AIRMINICV1DEFAULT 3
 
@@ -166,9 +170,9 @@ extern uint8_t channels_na_max;  // From spi.c
 #if ! defined(AUTOIDLEOFFDEFAULT)
 #define AUTOIDLEOFFDEFAULT 0
 #endif
-#pragma message "Info: Default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
 //}
 #endif
+#pragma message "Info: Default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
 
 
 // Declarations
@@ -183,6 +187,7 @@ uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
 uint8_t dccptrRepeatCount = 0;
 uint8_t dccptrRepeatCountMax = 2;
+uint8_t msgReplaced = 0;
 
 #if defined(TRANSMITTER)
 uint8_t MODE = TX;                           // Mode is now a variable. Don't have the courage to change 
@@ -195,7 +200,7 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
 uint8_t filterModemData;                     // Set the logical for whether to always use modem data. Initialized elsewhere
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-uint64_t idlePeriod = 0;             // 0 msec, changed to variable that might be changed by SW
+uint64_t idlePeriod = 128;                   // 128 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
 uint64_t tooLong=2UL*SEC;            // 1 sec, changed to variable that might be changed by SW
@@ -622,9 +627,10 @@ void LCD_Addr_Ch_PL()
       lcd_line[1] = 'C';
       lcd_line[2] = 'C';
       lcd_line[3] = ':';
-      for(uint8_t i = 0; i < dccptr->Size; i++) 
+      Message *msgLocal = (Message *)&msg[lastMessageExtracted];
+      for(uint8_t i = 0; i < msgLocal->Size; i++) 
       {
-         snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
+         snprintf(&lcd_line[2*i+4],3,"%02X", msgLocal->Data[i]);
       }
    }
    else
@@ -650,22 +656,29 @@ void LCD_Addr_Ch_PL()
 void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
 {
    lcd.clear();
+
    lcd.setCursor(0,0); // column, row
    switch (CVStatus)
    {
     case ACCEPTED:
-       snprintf(lcd_line,sizeof(lcd_line),"Changed CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Changed:");
     break;
     case IGNORED:
-       snprintf(lcd_line,sizeof(lcd_line),"Ignored CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Ignored:");
     break;
     case PENDING:
-       snprintf(lcd_line,sizeof(lcd_line),"Pending CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Pending:");
     break;
    }
    lcd.print(lcd_line);
+
+   lcd.setCursor(0,1); // column, row
+   snprintf(lcd_line,sizeof(lcd_line),"CV%d=%d",CVnum,CVval);
+   lcd.print(lcd_line);
+
    prevLCDTime  = micros();
    refreshLCD = true;
+
    return;
 }
 
@@ -706,7 +719,7 @@ void setup()
 
    // delay(INITIALDELAYMS);
 
-#if defined(DEBUG)
+#if defined(DEBUG) || defined(DEBUG_LOCAL)
    Serial.begin(115200);
 #endif
 
@@ -883,7 +896,7 @@ void loop()
          if (memcmp((void *)sendbuffer,(void *)dccptr,sizeof(DCC_MSG))) dccptrRepeatCount=0;  // If they don't match, reset the repeat count
          else dccptrRepeatCount++;                                            // If they do match, increment the repeat count
 
-         decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
+         // decodeDCCPacket((DCC_MSG*) dccptr);      // Send debug data
          memcpy((void *)sendbuffer,(void *)dccptr,sizeof(DCC_MSG));
 
 #if defined(TRANSMITTER)
@@ -898,16 +911,19 @@ void loop()
 #endif
 
          // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
-         if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)micros() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
+         // if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)micros() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
+         if(((dccptrRepeatCount < dccptrRepeatCountMax) && (((uint64_t)micros() - lastIdleTime) < idlePeriod)) || AutoIdleOff)
          {                     
 #if defined(DCCLibrary)
             memcpy((void *)&msg[lastMessageInserted],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
+            msgReplaced = 0;
          }
          else                                       // Send out an idle packet (for keep-alive!)
          {
             dccptrRepeatCount = 0;
             lastIdleTime = micros();
+            msgReplaced = 1;
 #if defined(DCCLibrary)
             memcpy((void *)&msg[lastMessageInserted],(void *)&msgIdle,sizeof(DCC_MSG)); // Dangerous, fast copy
 #endif
@@ -915,8 +931,28 @@ void loop()
 #if ! defined(DONTTURNOFFINTERRUPTS)
          sei(); // Turn interrupts back on
 #endif
+
+#if defined(DEBUG_LOCAL)
+#if defined(DCCLibrary)
+         if (msgExtractedIndex || msgReplaced) 
+         {
+            Serial.print("Replaced message with msgIdle: ISR/Local: ");
+            Serial.print(msgExtractedIndex); 
+            Serial.print("/");
+            Serial.print(msgReplaced); 
+            Serial.print("\n");
+         }
+#else
+         if (msgReplaced) 
+         {
+            Serial.print("Replaced message with msgIdle\n");
+         }
+#endif
+#endif
+
 //} TRANSMITTER
 #endif
+
 #if defined(RECEIVER)
          if(!useModemData) // If not using modem data, ensure that the output is set to a DC level after coming back from the ISR
          {

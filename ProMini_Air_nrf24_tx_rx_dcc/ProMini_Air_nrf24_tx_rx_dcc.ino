@@ -10,6 +10,7 @@
 
 #define TRANSMITTER
 #define DEBUG
+#undef DEBUG
 
 #if defined(TRANSMITTER)
 #undef RECEIVER
@@ -65,16 +66,17 @@
 
 // Timing
 #define EEPROMDELAYMS      100   // Delay after eeprom write in ms
-#define MILLISEC             1   // using millis (msec)
-#define QUARTERSEC         250   // using millis (msec)
-#define SEC               1000   // using millis (msec)
-#define BACKGROUNDTIME       8   // using millis (msec)
+#define MILLISEC          1000UL // using micros (msec)
+#define QUARTERSEC      250000UL // using micros (msec)
+#define SEC            1000000UL // using micros (msec)
+#define BACKGROUNDTIME    8000UL // using micros (msec)
 
 #if defined(TRANSMITTER)
 uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
 #else
 uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
 #endif
+
 enum {INITIAL, INFO, NONE} LCDwhichBanner = INITIAL;
 
 uint16_t CVnum;                              // CV numbers consume 10 bits
@@ -82,6 +84,9 @@ uint8_t CVval;                               // CV values consume only 8 bits
 
 
 #define ISSET 0b10101010
+
+uint8_t SET_DEFAULT = 1;
+uint8_t EEMEM EEFirst;  // Store the first time
 
 // Channel-related
 #define CHANNELDEFAULT 10          // 
@@ -173,6 +178,7 @@ uint8_t dccptrRepeatCountMax = 2;
 
 // Actual input pin. No conversion do PD3! Dcc.init does this.
 #define INPUT_PIN 2
+#define EXTINT_NUM 0
 
 //////////////
 // TRANSMITTER
@@ -282,7 +288,7 @@ uint8_t LCDAddress;                            // The I2C address of the LCD
 bool LCDFound = false;                         // Whether a valid lcd was found
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
-uint64_t LCDTimePeriod=2*SEC;                  // Set up the LCD re-display time interval, 2 s
+uint64_t LCDTimePeriod=2UL*SEC;                  // Set up the LCD re-display time interval, 2 s
 uint64_t LCDprevTime = 0;                      // Initialize the last time displayed
 bool LCDrefresh = false;                       // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
@@ -332,30 +338,105 @@ void checkSetDefaultEE(uint8_t *TargetPtr,
                        uint8_t defaultValue, 
                        uint8_t forceDefault)
 {
-   uint8_t isSet; 
-   if (EEisSetTargetPtr != (const uint8_t *)NULL) isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
-   else isSet = 0; // Bad if you get here!
+   uint8_t isSet, isSet_Save; 
+   eeprom_busy_wait();
+   isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
    if ((isSet != ISSET) || forceDefault)
    {
+      isSet_Save = isSet;
       *TargetPtr = defaultValue; 
       eeprom_busy_wait();
+
       eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_busy_wait();
+      for (uint8_t i = 0; i < 10; i++)
+      {
+         isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
+         if (isSet != ISSET)
+         {
+#if defined(DEBUG)
+            Serial.print("ISSET error: isSet, ISSET = ");
+            Serial.print(isSet);
+            Serial.print(", ");
+            Serial.print(ISSET);
+            Serial.print("\n");
+            delay(10);
+#endif
+            eeprom_update_byte( (uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET );
+            eeprom_busy_wait();
+         }
+         else break;
+      }
+
       eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
       delay(EEPROMDELAYMS); // Magic delay time to ensure update is complete
       eeprom_busy_wait();
+
+      for (uint8_t i = 0; i < 10; i++)
+      {
+         *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
+         if (*TargetPtr != defaultValue)
+         {
+#if defined(DEBUG)
+            Serial.print("TargetPtr error: *TgtPtr, defaultValue = ");
+            Serial.print(*TargetPtr);
+            Serial.print(", ");
+            Serial.print(defaultValue);
+            Serial.print("\n");
+            delay(10);
+#endif
+            eeprom_update_byte( (uint8_t *)EETargetPtr, defaultValue );
+            eeprom_busy_wait();
+         }
+         else break;
+      }
+
+#if defined(DEBUG)
+   Serial.print("   Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue (Orig isSet): ");
+   Serial.print(*TargetPtr);
+   Serial.print(" <");
+   Serial.print(*EEisSetTargetPtr);
+   Serial.print("> <");
+   Serial.print(*EETargetPtr);
+   Serial.print("> ");
+   Serial.print(ISSET);
+   Serial.print(" ");
+   Serial.print(isSet);
+   Serial.print(" ");
+   Serial.print(forceDefault);
+   Serial.print(" ");
+   Serial.print(defaultValue);
+   Serial.print(" (");
+   Serial.print(isSet_Save);
+   Serial.print(")\n");
+#endif
    }
    else
    {
-      if(EETargetPtr != (const uint8_t *)NULL) *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
-      else *TargetPtr = defaultValue;  // Bad if you get here!
+      *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
+#if defined(DEBUG)
+   Serial.print("No Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue: ");
+   Serial.print(*TargetPtr);
+   Serial.print(" <");
+   Serial.print(*EEisSetTargetPtr);
+   Serial.print("> <");
+   Serial.print(*EETargetPtr);
+   Serial.print("> ");
+   Serial.print(ISSET);
+   Serial.print(" ");
+   Serial.print(isSet);
+   Serial.print(" ");
+   Serial.print(forceDefault);
+   Serial.print(" ");
+   Serial.print(defaultValue);
+   Serial.print("\n");
+#endif
    }
 
    eeprom_busy_wait();
 
 }
-
 
 #if defined(USE_LCD)
 /////////////
@@ -367,7 +448,7 @@ void LCD_Banner()
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
   lcd.print("H:1.0 S:1.1/NRF");    // Show state
-  LCDprevTime  = millis();     // Set up the previous display time
+  LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }
 
@@ -450,7 +531,7 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
     break;
   }
   lcd.print(lcd_line);
-  LCDprevTime  = millis();
+  LCDprevTime  = micros();
   LCDrefresh = true;
   return;
 }
@@ -473,7 +554,7 @@ void LCD_Wait_Period_Over(int status)
 
   snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d", CHANNEL);
   lcd.print(lcd_line);
-  LCDprevTime  = millis();
+  LCDprevTime  = micros();
   LCDrefresh = true;
 
   return;
@@ -616,6 +697,18 @@ void setup() {
   // Let's get the slow EEPROM stuff done first //
   ////////////////////////////////////////////////
 
+#if defined(DEBUG)
+   Serial.print("Initial SET_DEFAULT: "); Serial.print(SET_DEFAULT); Serial.print("\n");
+#endif
+   SET_DEFAULT = (uint8_t)eeprom_read_byte((const uint8_t *)&EEFirst);
+   if (SET_DEFAULT != ISSET) SET_DEFAULT = 1;
+   else SET_DEFAULT = 0;
+   eeprom_busy_wait();
+#if defined(DEBUG)
+   Serial.print("Final SET_DEFAULT: "); Serial.print(SET_DEFAULT); Serial.print("\n");
+   delay(100);
+#endif
+
   // Just flat out set the powerLevel
   // eeprom_update_byte(&EEpowerLevelDefault, POWERLEVELDEFAULT );
   checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
@@ -623,37 +716,37 @@ void setup() {
 
   // Get the CHANNEL # stored in EEPROM and validate it
   // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
-  checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 0);     // Validate the channel, it's possible the EEPROM has bad data
+  checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, SET_DEFAULT);     // Validate the channel, it's possible the EEPROM has bad data
   if(CHANNEL > CHANNELS_MAX) 
       checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, CHANNELDEFAULT, 1);  // Force the EEPROM data to use CHANNEL 10, if the CHANNEL is invalid
 
-  // eeprom_update_byte(&EEAirMiniCV29Default, AIRMINICV29DEFAULT );
-  checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  AIRMINICV29DEFAULT, 0);  // Set CV29 so that it will use a long address
-  AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
-
   // Get up addressing-related CV's from EEPROM, or if not set set them in EEPROM
   // eeprom_update_byte(&EEAirMiniCV1Default, AIRMINICV1DEFAULT );
-  checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    AIRMINICV1DEFAULT, 0);  // Short address. By default, not using
+  checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    AIRMINICV1DEFAULT, SET_DEFAULT);  // Short address. By default, not using
 
   // eeprom_update_byte(&EEAirMiniCV17Default, AIRMINICV17DEFAULT );
-  checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AIRMINICV17DEFAULT, 0);  // High byte to set final address to 9000
+  checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, AIRMINICV17DEFAULT, SET_DEFAULT);  // High byte to set final address to 9000
   AirMiniCV17tmp = AirMiniCV17;                                                  // Due to the special nature of CV17 paired with CV18
 
   // eeprom_update_byte(&EEAirMiniCV18Default, AIRMINICV18DEFAULT );
-  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, AIRMINICV18DEFAULT, 0);  // Low byte to set final address to 9000/9001 for transmitter/receiver
+  checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, AIRMINICV18DEFAULT, SET_DEFAULT);  // Low byte to set final address to 9000/9001 for transmitter/receiver
 
   // eeprom_update_byte(&EEAirMiniCV29Default, AIRMINICV29DEFAULT );
-  checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  AIRMINICV29DEFAULT, 0);  // Set CV29 so that it will use a long address
+  checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  AIRMINICV29DEFAULT, SET_DEFAULT);  // Set CV29 so that it will use a long address
   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
 #if defined(RECEIVER)
   // Set whether to always use modem data on transmit
   // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
-  checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, 0);  // Use EEPROM value if it's been set, otherwise set to 0 
+  checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
 #endif
 
+   // Now set to not first time
+   eeprom_update_byte( (uint8_t *)&EEFirst, (const uint8_t)ISSET);
+   eeprom_busy_wait();
+
 #if defined(USE_LCD)
-   LCDprevTime = millis()+LCDTimePeriod;
+   LCDprevTime = micros()+LCDTimePeriod;
 #endif
 
    // Set up the input or output pins
@@ -661,8 +754,8 @@ void setup() {
 // TRANSMITTER
 //////////////
 
-   // Dcc.pin(0, 2, 0);
-   Dcc.pin(0, INPUT_PIN, 0); // register INPUT_PIN of Input source
+   Dcc.pin(EXTINT_NUM, INPUT_PIN, 0); // register External Interrupt # and Input Pin of input source. 
+                                      // Important. Pins and interrupt #'s are correlated.
 
 //////////////
 // TRANSMITTER
@@ -781,7 +874,7 @@ void loop(){
 #endif
 
 #if defined(USE_LCD)
-   now = millis();             // Grab Clock Value for next time
+   now = micros();             // Grab Clock Value for next time
 
    if (!lcdInitialized && ((now-LCDprevTime) >= LCDTimePeriod)) {
 

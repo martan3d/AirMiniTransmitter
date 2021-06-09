@@ -50,7 +50,7 @@ int byteIndex = 0;
 
 uint8_t OUTPUT_PIN;                       // Arduino pin for DCC out. This pin is connected to "DIRECTION" of LMD18200
 
-uint8_t msgExtractedIndex = 0;           // Which of the two extracted messages to use. Normal get = 0, failure to get = 1 (for sending idle/keep-alive(?) packet)
+volatile uint8_t msgExtractedIndex = 0;           // Which of the two extracted messages to use. Normal get = 0, failure to get = 1 (for sending idle/keep-alive(?) packet)
 extern volatile Message msgExtracted[];  // From main
 
 bool DoNothing(void){return true;}
