@@ -65,11 +65,11 @@
 /////////////////////////////////////
 
 // Timing
-#define EEPROMDELAYMS      100   // Delay after eeprom write in ms
-#define MILLISEC          1000UL // using micros (msec)
-#define QUARTERSEC      250000UL // using micros (msec)
-#define SEC            1000000UL // using micros (msec)
-#define BACKGROUNDTIME    8000UL // using micros (msec)
+#define EEPROMDELAYMS         100 // Delay after eeprom write in ms
+#define MILLISEC          1000ULL // using micros (msec)
+#define QUARTERSEC      250000ULL // using micros (msec)
+#define SEC            1000000ULL // using micros (msec)
+#define BACKGROUNDTIME    8000ULL // using micros (msec)
 
 #if defined(TRANSMITTER)
 uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
@@ -186,10 +186,10 @@ uint8_t dccptrRepeatCountMax = 2;
 // RECEIVER
 ///////////
 
+uint8_t whatChannel;
 #ifdef DEBUG
 #define PRINT_MAX 129
 int print_count = 0;
-uint8_t whatChannel;
 #endif
 
 // use digital pins 6 and 5 for DCC out
@@ -253,13 +253,13 @@ volatile uint8_t msgIndexInserted = 0; // runs from 0 to MAXMSG-1
 //////////////
 
 // const byte slaveAddress[5] = {'R','x','A','A','A'};
-const uint64_t pipe00 = 0xE8E8F0F0A0LL;
-const uint64_t pipe01 = 0xE8E8F0F0A1LL;
-const uint64_t pipe02 = 0xE8E8F0F0A2LL;  
-const uint64_t pipe03 = 0xE8E8F0F0A3LL;
-const uint64_t pipe04 = 0xE8E8F0F0A4LL;
-const uint64_t pipe05 = 0xE8E8F0F0A5LL;
-const uint64_t pipe06 = 0xE8E8F0F0A6LL;
+const uint64_t pipe00 = 0xE8E8F0F0A0ULL;
+const uint64_t pipe01 = 0xE8E8F0F0A1ULL;
+const uint64_t pipe02 = 0xE8E8F0F0A2ULL;  
+const uint64_t pipe03 = 0xE8E8F0F0A3ULL;
+const uint64_t pipe04 = 0xE8E8F0F0A4ULL;
+const uint64_t pipe05 = 0xE8E8F0F0A5ULL;
+const uint64_t pipe06 = 0xE8E8F0F0A6ULL;
 
 //////////////
 // TRANSMITTER
@@ -268,13 +268,13 @@ const uint64_t pipe06 = 0xE8E8F0F0A6LL;
 ///////////
 
 // const byte thisSlaveAddress[5] = {'R','x','A','A','A'};
-const uint64_t pipe00 = 0xE8E8F0F0A0LL;
-const uint64_t pipe01 = 0xE8E8F0F0A1LL;
-const uint64_t pipe02 = 0xA2LL;  
-const uint64_t pipe03 = 0xA3LL;
-const uint64_t pipe04 = 0xA4LL;
-const uint64_t pipe05 = 0xA5LL;
-const uint64_t pipe06 = 0xA6LL;
+const uint64_t pipe00 = 0xE8E8F0F0A0ULL;
+const uint64_t pipe01 = 0xE8E8F0F0A1ULL;
+const uint64_t pipe02 = 0xA2ULL;  
+const uint64_t pipe03 = 0xA3ULL;
+const uint64_t pipe04 = 0xA4ULL;
+const uint64_t pipe05 = 0xA5ULL;
+const uint64_t pipe06 = 0xA6ULL;
 
 ///////////
 // RECEIVER
@@ -288,7 +288,7 @@ uint8_t LCDAddress;                            // The I2C address of the LCD
 bool LCDFound = false;                         // Whether a valid lcd was found
 #define LCDCOLUMNS 16                          // Number of LCD columns
 #define LCDROWS 2                              // Number of LCD rows 
-uint64_t LCDTimePeriod=2UL*SEC;                  // Set up the LCD re-display time interval, 2 s
+uint64_t LCDTimePeriod=2ULL*SEC;               // Set up the LCD re-display time interval, 2 s
 uint64_t LCDprevTime = 0;                      // Initialize the last time displayed
 bool LCDrefresh = false;                       // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
@@ -447,7 +447,7 @@ void LCD_Banner()
   if (LCDwhichBanner==INITIAL) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("H:1.0 S:1.1/NRF");    // Show state
+  lcd.print("H:1.0 S:1.2/NRF");    // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }

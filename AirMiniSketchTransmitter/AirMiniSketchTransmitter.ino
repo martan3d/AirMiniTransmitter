@@ -110,11 +110,11 @@ volatile uint8_t lastMessageExtracted = 0;
 // #define INITIALDELAYMS       1000   // Initial processor start-up delay in ms
 // #endif
 
-#define EEPROMDELAYMS      100   // Delay after eeprom write in ms
-#define MILLISEC        1000UL   //    1 msec. Units: us
-#define QUARTERSEC    250000UL   // 0.25  sec. Units: us
-#define SEC          1000000UL   // 1.00  sec. Units: us
-#define BACKGROUNDTIME  8000UL   //    8 msec. Units: us
+#define EEPROMDELAYMS       100   // Delay after eeprom write in ms
+#define MILLISEC        1000ULL   //    1 msec. Units: us
+#define QUARTERSEC    250000ULL   // 0.25  sec. Units: us
+#define SEC          1000000ULL   // 1.00  sec. Units: us
+#define BACKGROUNDTIME  8000ULL   //    8 msec. Units: us
 
 // CC1101 codes
 #define RXMODE  0x34             // C1101 modem RX mode
@@ -203,7 +203,7 @@ volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem
 uint64_t idlePeriod = 128;                   // 128 msec, changed to variable that might be changed by SW
 uint8_t idlePeriodms = 0;                    // 0 msec, changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
-uint64_t tooLong=2UL*SEC;            // 1 sec, changed to variable that might be changed by SW
+uint64_t tooLong=2ULL*SEC;           // 1 sec, changed to variable that might be changed by SW
 uint64_t sleepTime = 0;              // 0 sec, changed to variable that might be changed by SW
 uint64_t timeOfValidDCC;             // Time stamp of the last valid DCC packet
 uint64_t inactiveStartTime;          // Time stamp if when modem data is ignored
@@ -368,7 +368,7 @@ uint8_t LCDAddress;                     // The I2C address of the LCD
 bool LCDFound = false;               // Whether a valid lcd was found
 #define LCDCOLUMNS 16                // Number of LCD columns
 #define LCDROWS 2                    // Number of LCD rows 
-uint64_t LCDTimePeriod=2UL*SEC; // Set up the LCD re-display time interval, 2 s
+uint64_t LCDTimePeriod=2ULL*SEC;// Set up the LCD re-display time interval, 2 s
 uint64_t prevLCDTime = 0;       // Initialize the last time displayed
 bool refreshLCD = false;             // Whether to refresh
 LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
