@@ -177,8 +177,11 @@ uint8_t dccptrRepeatCountMax = 2;
 //////////////
 
 // Actual input pin. No conversion do PD3! Dcc.init does this.
-#define INPUT_PIN 2
-#define EXTINT_NUM 0
+//#define INPUT_PIN 2
+//#define EXTINT_NUM 0
+
+#define INPUT_PIN 3
+#define EXTINT_NUM 1
 
 //////////////
 // TRANSMITTER
