@@ -188,6 +188,9 @@ uint8_t dccptrNULL[sizeof(DCC_MSG)];
 uint8_t dccptrRepeatCount = 0;
 uint8_t dccptrRepeatCountMax = 2;
 uint8_t msgReplaced = 0;
+uint8_t tmpuint8 = 0;
+uint8_t do_not_filter = 0;
+uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
 uint8_t MODE = TX;                           // Mode is now a variable. Don't have the courage to change 
@@ -369,8 +372,8 @@ bool LCDFound = false;               // Whether a valid lcd was found
 #define LCDCOLUMNS 16                // Number of LCD columns
 #define LCDROWS 2                    // Number of LCD rows 
 uint64_t LCDTimePeriod=2ULL*SEC;// Set up the LCD re-display time interval, 2 s
-uint64_t prevLCDTime = 0;       // Initialize the last time displayed
-bool refreshLCD = false;             // Whether to refresh
+uint64_t LCDprevTime = 0;       // Initialize the last time displayed
+bool LCDrefresh = false;             // Whether to refresh
 LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
 #endif
@@ -573,8 +576,8 @@ void LCD_Banner()
 #endif
 //}
 #endif
-   prevLCDTime  = micros();     // Set up the previous display time
-   refreshLCD = true;
+   LCDprevTime  = micros();     // Set up the previous display time
+   LCDrefresh = true;
 }
 
 void LCD_Addr_Ch_PL()
@@ -590,8 +593,9 @@ void LCD_Addr_Ch_PL()
    */
    if(printDCC) 
    {
-      uint8_t tmp = dccptr->Data[0]&0b11000000;
-      if ((tmp==0b11000000) && (dccptr->Data[0]!=0b11111111))
+      // Detect long or short address
+      tmpuint8 = dccptr->Data[0]&0b11000000;
+      if ((tmpuint8==0b11000000) && (dccptr->Data[0]!=0b11111111))
       {
          int TargetAddress_int = ((int)dccptr->Data[0]-192)*256+(int)dccptr->Data[1];
          // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr->Data[0],dccptr->Data[1]);
@@ -627,10 +631,9 @@ void LCD_Addr_Ch_PL()
       lcd_line[1] = 'C';
       lcd_line[2] = 'C';
       lcd_line[3] = ':';
-      Message *msgLocal = (Message *)&msg[lastMessageExtracted];
-      for(uint8_t i = 0; i < msgLocal->Size; i++) 
+      for(uint8_t i = 0; i < dccptr->Size; i++) 
       {
-         snprintf(&lcd_line[2*i+4],3,"%02X", msgLocal->Data[i]);
+         snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
       }
    }
    else
@@ -649,7 +652,9 @@ void LCD_Addr_Ch_PL()
       snprintf(lcd_line,sizeof(lcd_line),"Ch:%d(%s) Filt:%d", CHANNEL, regionString[regionNum], filterModemData);
 #endif
    }
+
    lcd.print(lcd_line);
+
    return;
 }
 
@@ -676,8 +681,8 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
    snprintf(lcd_line,sizeof(lcd_line),"CV%d=%d",CVnum,CVval);
    lcd.print(lcd_line);
 
-   prevLCDTime  = micros();
-   refreshLCD = true;
+   LCDprevTime  = micros();
+   LCDrefresh = true;
 
    return;
 }
@@ -688,11 +693,11 @@ void LCD_Wait_Period_Over(int status)
    lcd.setCursor(0,0); // column, row
    if (!status) 
    {
-     snprintf(lcd_line,sizeof(lcd_line),"NO valid");
+      snprintf(lcd_line,sizeof(lcd_line),"NO valid");
    }
    else
    {
-     snprintf(lcd_line,sizeof(lcd_line),"Found valid");
+      snprintf(lcd_line,sizeof(lcd_line),"Found valid");
    }
    lcd.print(lcd_line);
 
@@ -707,8 +712,8 @@ void LCD_Wait_Period_Over(int status)
 
    snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d(%s)",CHANNEL, regionString[regionNum]);
    lcd.print(lcd_line);
-   prevLCDTime  = micros();
-   refreshLCD = true;
+   LCDprevTime  = micros();
+   LCDrefresh = true;
 
    return;
 }
@@ -849,7 +854,7 @@ void setup()
    then = micros();                            // Grab Current Clock value for the loop below
 
 #if defined(USE_LCD)
-   prevLCDTime = micros()+LCDTimePeriod;
+   LCDprevTime = micros()+LCDTimePeriod;
 #endif
 
    timeOfValidDCC = micros();                      // Initialize the valid DCC data time
@@ -909,10 +914,17 @@ void loop()
 #if defined(DCCLibrary)
          lastMessageInserted = (lastMessageInserted+1) % MAXMSG;  // Set the last message inserted into the ring buffer 
 #endif
+         // Detect long or short address
+         tmpuint8 = dccptr->Data[0]&0b11000000;
+         if ((tmpuint8==0b11000000) && (dccptr->Data[0]!=0b11111111)) countPtr = 2;
+         else countPtr = 1;
+         // if either a short or long address message is to change the CV, DO NOT FILTER IT OUT!
+         tmpuint8 = dccptr->Data[countPtr]&0b11111100;
+         do_not_filter = (tmpuint8==0b11101100) ? 1 : 0;
 
          // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
          // if((dccptrRepeatCount < dccptrRepeatCountMax) || (((uint64_t)micros() - lastIdleTime) < idlePeriod) || AutoIdleOff) 
-         if(((dccptrRepeatCount < dccptrRepeatCountMax) && (((uint64_t)micros() - lastIdleTime) < idlePeriod)) || AutoIdleOff)
+         if(((dccptrRepeatCount < dccptrRepeatCountMax) && (((uint64_t)micros() - lastIdleTime) < idlePeriod)) || AutoIdleOff || do_not_filter)
          {                     
 #if defined(DCCLibrary)
             memcpy((void *)&msg[lastMessageInserted],(void *)dccptr,sizeof(DCC_MSG)); // Dangerous, fast copy
@@ -969,11 +981,11 @@ void loop()
          {
             // According the NMRA standards, two identical packets should be received
             // before modifying CV values. This feature now works (i.e., DOUBLE_PASS=1(=true)).
-            uint8_t countPtr = 1;
+            countPtr = 1;
             if (AirMiniCV29Bit5) countPtr = 2;
-            uint8_t tmpuint8 = dccptr->Data[countPtr]&(0b11111100); // The last two bits are part of the CV address used below and we don't care right now.
+            tmpuint8 = dccptr->Data[countPtr]&(0b11111100); // The last two bits are part of the CV address used below and we don't care right now.
                                                             // Do NOT increment countPtr because we aren't finished withe dccptr->Data[countPtr] yet;
-                                                            // we needs its two low bytes for the upper two bytes of the CV address below!
+                                                            // we need its two low bytes for the upper two bytes of the CV address below!
             if(tmpuint8==0b11101100)                          // Determine if the bit pattern is for modifying CV's with the last two bits don't care
             {
                if(modemCVResetCount==0 && DOUBLE_PASS)                   // Processing for identifying first or second valid call
@@ -1164,7 +1176,7 @@ void loop()
       then = micros();             // Grab Clock Value for next time
 
 #if defined(USE_LCD)
-      if (!lcdInitialized && ((then-prevLCDTime) >= LCDTimePeriod)) 
+      if (!lcdInitialized && ((then-LCDprevTime) >= LCDTimePeriod)) 
       {
 
          lcdInitialized = true;
@@ -1192,21 +1204,21 @@ void loop()
          if (nDevices == 1)
          {
             LCDFound = true;
-            refreshLCD = true;
+            LCDrefresh = true;
             lcd.init(LCDAddress,LCDCOLUMNS,LCDROWS);    // Initialize the LCD
             lcd.backlight();                            // Backlight it
             whichBanner = INITIAL;
-            prevLCDTime = then+LCDTimePeriod;
+            LCDprevTime = then+LCDTimePeriod;
          }
          else 
          {
             LCDFound = false;
-            refreshLCD = false;
+            LCDrefresh = false;
          }
 
       }
 
-      if(refreshLCD && ((then-prevLCDTime) >= LCDTimePeriod)) 
+      if(LCDrefresh && ((then-LCDprevTime) >= LCDTimePeriod)) 
       {
           if (whichBanner==NONE) LCD_Addr_Ch_PL();           // Update the display of address, chanel #, and power level
           else if(!initialWait) {
@@ -1219,8 +1231,8 @@ void loop()
                 whichBanner = NONE;
              }
           }
-          prevLCDTime = then;              // Slowly... at 1 sec intervals
-          refreshLCD = true;
+          LCDprevTime = then;              // Slowly... at 1 sec intervals
+          LCDrefresh = true;
       }
 #endif
 
