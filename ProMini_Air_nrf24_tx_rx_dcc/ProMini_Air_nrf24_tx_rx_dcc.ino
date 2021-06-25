@@ -66,10 +66,10 @@
 
 // Timing
 #define EEPROMDELAYMS         100 // Delay after eeprom write in ms
-#define MILLISEC          1000ULL // using micros (msec)
-#define QUARTERSEC      250000ULL // using micros (msec)
-#define SEC            1000000ULL // using micros (msec)
-#define BACKGROUNDTIME    8000ULL // using micros (msec)
+#define MILLISEC          1000ULL //   1ms, using micros (usec)
+#define QUARTERSEC      250000ULL // 250ms, using micros (usec)
+#define SEC            1000000ULL //    1s, using micros (usec)
+#define BACKGROUNDTIME    8000ULL //   8ms, using micros (usec)
 
 #if defined(TRANSMITTER)
 uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
@@ -171,6 +171,10 @@ uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
 uint8_t dccptrRepeatCount = 0;
 uint8_t dccptrRepeatCountMax = 2;
+uint8_t msgReplaced = 0;
+uint8_t tmpuint8 = 0;
+uint8_t do_not_filter = 0;
+uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
 // TRANSMITTER
@@ -204,7 +208,7 @@ int print_count = 0;
 #endif
 
 //Settings for both TX/RX
-RF24 radio(9,10);
+RF24 radio(9,10); // CE,CSN
 
 #if defined(TRANSMITTER)
 // TRANSMITTER
@@ -457,110 +461,119 @@ void LCD_Banner()
 
 void LCD_Addr_Ch_PL()
 {
-  lcd.clear();
-  lcd.setCursor(0,0); // column, row
-  if(printDCC) 
-  {
-     uint8_t tmp = dccptr->Data[0] & 0b11000000;
-     if ((tmp==0b11000000) && (dccptr->Data[0]!=0b11111111))
-     {
+   lcd.clear();
+   lcd.setCursor(0,0); // column, row
+   if(printDCC) 
+   {
+      // Detect long or short address
+      tmpuint8 = dccptr->Data[0]&0b11000000;
+      if ((tmpuint8==0b11000000) && (dccptr->Data[0]!=0b11111111))
+      {
          int TargetAddress_int = ((int)dccptr->Data[0]-192)*256+(int)dccptr->Data[1];
          // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr->Data[0],dccptr->Data[1]);
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
-     }
-     else
-     {
+      }
+      else
+      {
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptr->Data[0]);
-     }
-  }
-  else
-  {
-     if(AirMiniCV29Bit5) 
-     {
-        int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(L)",AirMiniAddress_int);
-     }
-     else
-     {
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
-        snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(S)",AirMiniCV1);
-     }
-  }
+      }
+   }
+   else
+   {
+      if(AirMiniCV29Bit5) 
+      {
+         int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
+         // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
+         snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(L)",AirMiniAddress_int);
+      }
+      else
+      {
+         // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
+         snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(S)",AirMiniCV1);
+      }
+   }
     
-  lcd.print(lcd_line);
-  lcd.setCursor(0,1); // column, row
+   lcd.print(lcd_line);
+   lcd.setCursor(0,1); // column, row
 
-  if (printDCC) 
-  {
-     printDCC = 0;
-     lcd_line[0] = 'D';
-     lcd_line[1] = 'C';
-     lcd_line[2] = 'C';
-     lcd_line[3] = ':';
-     for(uint8_t i = 0; i < dccptr->Size; i++) {
-        snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
-     }
-  }
-  else
-  {
-     printDCC = 1;
+   if (printDCC) 
+   {
+      printDCC = 0;
+      lcd_line[0] = 'D';
+      lcd_line[1] = 'C';
+      lcd_line[2] = 'C';
+      lcd_line[3] = ':';
+      for(uint8_t i = 0; i < dccptr->Size; i++) 
+      {
+         snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
+      }
+   }
+   else
+   {
+      printDCC = 1;
 #if defined(TRANSMITTER)
-     snprintf(lcd_line,sizeof(lcd_line),"Ch:%d PL:%d", CHANNEL, powerLevel);
+      snprintf(lcd_line,sizeof(lcd_line),"Ch:%d PL:%d", CHANNEL, powerLevel);
 #else
-     snprintf(lcd_line,sizeof(lcd_line),"Ch:%d Filt:%d", CHANNEL, filterModemData);
+      snprintf(lcd_line,sizeof(lcd_line),"Ch:%d Filt:%d", CHANNEL, filterModemData);
 #endif
-  }
+   }
 
-  lcd.print(lcd_line);
+   lcd.print(lcd_line);
 
-  return;
+   return;
 }
 
 void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval)
 {
-  lcd.clear();
-  lcd.setCursor(0,0); // column, row
-  switch (CVStatus)
-  {
+   lcd.clear();
+
+   lcd.setCursor(0,0); // column, row
+   switch (CVStatus)
+   {
     case ACCEPTED:
-       snprintf(lcd_line,sizeof(lcd_line),"Changed CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Changed:");
     break;
     case IGNORED:
-       snprintf(lcd_line,sizeof(lcd_line),"Ignored CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Ignored:");
     break;
     case PENDING:
-       snprintf(lcd_line,sizeof(lcd_line),"Pending CV%d=%d",CVnum,CVval);
+       snprintf(lcd_line,sizeof(lcd_line),"Pending:");
     break;
-  }
-  lcd.print(lcd_line);
-  LCDprevTime  = micros();
-  LCDrefresh = true;
-  return;
+   }
+   lcd.print(lcd_line);
+
+   lcd.setCursor(0,1); // column, row
+   snprintf(lcd_line,sizeof(lcd_line),"CV%d=%d",CVnum,CVval);
+   lcd.print(lcd_line);
+
+   LCDprevTime  = micros();
+   LCDrefresh = true;
+
+   return;
 }
 
 void LCD_Wait_Period_Over(int status)
 {
-  lcd.clear();
-  lcd.setCursor(0,0); // column, row
-  if (!status) 
-  {
-     snprintf(lcd_line,sizeof(lcd_line),"NO valid");
-  }
-  else
-  {
-     snprintf(lcd_line,sizeof(lcd_line),"Found valid");
-  }
-  lcd.print(lcd_line);
+   lcd.clear();
+   lcd.setCursor(0,0); // column, row
+   if (!status) 
+   {
+      snprintf(lcd_line,sizeof(lcd_line),"NO valid");
+   }
+   else
+   {
+      snprintf(lcd_line,sizeof(lcd_line),"Found valid");
+   }
+   lcd.print(lcd_line);
 
-  lcd.setCursor(0,1); // column, row 
+   lcd.setCursor(0,1); // column, row 
 
-  snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d", CHANNEL);
-  lcd.print(lcd_line);
-  LCDprevTime  = micros();
-  LCDrefresh = true;
+   snprintf(lcd_line,sizeof(lcd_line),"RF on Ch: %d", CHANNEL);
+   lcd.print(lcd_line);
+   LCDprevTime  = micros();
+   LCDrefresh = true;
 
-  return;
+   return;
 }
 
 // USE_LCD //
@@ -696,9 +709,9 @@ void setup() {
    Serial.begin(115200);
 #endif
 
-  ////////////////////////////////////////////////
-  // Let's get the slow EEPROM stuff done first //
-  ////////////////////////////////////////////////
+   ///////////////////////////////////////////////////////
+   // Start: Let's get the slow EEPROM stuff done first //
+   ///////////////////////////////////////////////////////
 
 #if defined(DEBUG)
    Serial.print("Initial SET_DEFAULT: "); Serial.print(SET_DEFAULT); Serial.print("\n");
@@ -796,7 +809,7 @@ void setup() {
 #if defined(TRANSMITTER)
    radio.openWritingPipe(pipe01);
    radio.openReadingPipe(0,pipe00);
-   // radio.stopListening();
+   radio.stopListening(); // Experimental. May comment back off
 #else
    radio.openWritingPipe(pipe00);
    radio.openReadingPipe(1, pipe01);
