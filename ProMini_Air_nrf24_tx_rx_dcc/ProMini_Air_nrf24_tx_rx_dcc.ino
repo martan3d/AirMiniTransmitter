@@ -8,7 +8,7 @@
 // #define DO_PRAGMA(x) _Pragma(str(x))
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#define TRANSMITTER
+#undef TRANSMITTER
 #define DEBUG
 #undef DEBUG
 
@@ -21,6 +21,8 @@
 #if defined(RECEIVER)
 #undef TRANSMITTER
 #endif
+
+#define USE_OPS_MODE
 
 //////////////////////////////////
 // Transmitter or Receiver options
@@ -54,6 +56,7 @@
 #include <RF24.h>
 #include <avr/io.h>
 #include <NmraDcc.h>
+#include <EEPROM.h>
 
 #if defined(USE_LCD)
 #include <Wire.h>
@@ -89,8 +92,20 @@ uint8_t SET_DEFAULT = 1;
 uint8_t EEMEM EEFirst;  // Store the first time
 
 // Channel-related
+#if defined(TRANSMITTER)
+#define LNADEFAULT 0          // 
+#else
+#define LNADEFAULT 1          // 
+#endif
+#define LNA_MAX 1            // 
+uint8_t LNA = LNADEFAULT;  // 
+uint8_t EEMEM EEisSetLNA;      // Stored RF channel is set
+uint8_t EEMEM EELNA;           // Stored RF channel #
+// uint8_t EEMEM EELNADefault; // Stored RF channel #
+
+// Channel-related
 #define CHANNELDEFAULT 10          // 
-#define CHANNELS_MAX 10            // 
+#define CHANNELS_MAX 127           // 
 uint8_t CHANNEL = CHANNELDEFAULT;  // 
 uint8_t EEMEM EEisSetCHANNEL;      // Stored RF channel is set
 uint8_t EEMEM EECHANNEL;           // Stored RF channel #
@@ -98,6 +113,7 @@ uint8_t EEMEM EECHANNEL;           // Stored RF channel #
 
 // Power-related
 #define POWERLEVELDEFAULT RF24_PA_MIN
+#define POWERLEVEL_MAX 3            // 
 uint8_t powerLevel = POWERLEVELDEFAULT; // The modem power level (>=0 and <=10). Communicated to spi.c
 uint8_t EEMEM EEisSetpowerLevel;        // Stored DC output power level is set
 uint8_t EEMEM EEpowerLevel;             // Stored DC output power level 
@@ -165,10 +181,10 @@ uint64_t then;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptr;
-uint8_t sendbuffer[sizeof(DCC_MSG)];
+bool newMsg = false;
 uint8_t modemCVResetCount=0;
-uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
-uint8_t dccptrNULL[sizeof(DCC_MSG)];
+DCC_MSG dccptrAirMiniCVReset[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
+DCC_MSG dccptrNULL[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
 uint8_t dccptrRepeatCount = 0;
 uint8_t dccptrRepeatCountMax = 2;
 uint8_t msgReplaced = 0;
@@ -180,7 +196,7 @@ uint8_t countPtr = 1;
 // TRANSMITTER
 //////////////
 
-// Actual input pin. No conversion do PD3! Dcc.init does this.
+// Actual input pin. No conversion to PD3! Dcc.init does this.
 //#define INPUT_PIN 2
 //#define EXTINT_NUM 0
 
@@ -246,7 +262,37 @@ int byteIndex = 0;
 
 volatile DCC_MSG msg[MAXMSG] = {
   { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   // idle msg
-  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}}   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}},   //
+  { 3, 16, {0xFF, 0, 0xFF, 0, 0, 0}}    //
 };
 
 const DCC_MSG msgIdle =
@@ -300,6 +346,11 @@ uint64_t LCDprevTime = 0;                      // Initialize the last time displ
 bool LCDrefresh = false;                       // Whether to refresh
 LiquidCrystal_I2C lcd;                         // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end null!
+#endif
+
+
+#if defined(USE_OPS_MODE)
+uint8_t restartModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
 #endif
 
 ///////////////////
@@ -454,7 +505,7 @@ void LCD_Banner()
   if (LCDwhichBanner==INITIAL) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("H:1.0 S:1.2/NRF");    // Show state
+  lcd.print("H:1.0 S:1.3/NRF");    // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }
@@ -595,6 +646,7 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
     msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
     memcpy((void *)&msg[msgIndexInserted],(void *)Msg,sizeof(DCC_MSG));
     dccptr = &msg[msgIndexInserted];
+    newMsg = true;
 
 #ifdef DEBUG
     printMsgSerial();
@@ -660,7 +712,7 @@ ISR(TIMER2_OVF_vect) {
              msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
              msgIndex = msgIndexInserted;
              memcpy((void *)&msg[msgIndexInserted], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-             // dccptr = &msg[msgIndexInserted];
+             dccptr = &msg[msgIndexInserted];
           }
           byteIndex = 0; //start msg with byte 0
         }
@@ -704,6 +756,160 @@ ISR(TIMER2_OVF_vect) {
 // RECEIVER
 #endif
 
+#if defined(USE_OPS_MODE)
+void reboot() {
+   cli();                    // Ensure that when setup() is called, interrupts are OFF
+   asm volatile ("  jmp 0"); // "Dirty" method because it simply restarts the SW, and does NOT reset the HW 
+}
+
+void eepromClear() {
+   for (int i = 0 ; i < (int)(EEPROM.length()) ; i++) {
+      EEPROM.write(i, 0xFF);
+   }
+}
+
+void ops_mode()
+{
+         newMsg = false;
+         /////////////////////////////////////////////
+         // Special processing for AirMini OPS mode //
+         /////////////////////////////////////////////
+         if(((dccptr->Data[0]==AirMiniCV17) && (dccptr->Data[1]== AirMiniCV18) &&  AirMiniCV29Bit5) ||
+            ((dccptr->Data[0]==AirMiniCV1)                               && !AirMiniCV29Bit5) )
+         {
+            // According the NMRA standards, two identical packets should be received
+            // before modifying CV values. 
+            countPtr = 1;
+            if (AirMiniCV29Bit5) countPtr = 2;
+            tmpuint8 = dccptr->Data[countPtr]&(0b11111100); // The last two bits are part of the CV address used below and we don't care right now.
+                                                            // Do NOT increment countPtr because we aren't finished withe dccptr->Data[countPtr] yet;
+                                                            // we need its two low bytes for the upper two bytes of the CV address below!
+            if(tmpuint8==0b11101100)                          // Determine if the bit pattern is for modifying CV's with the last two bits don't care
+            {
+               if(modemCVResetCount==0)                   // Processing for identifying first or second valid call
+               {
+                  modemCVResetCount++;                                 // Update the CV reset counter
+                  memcpy((void *)&dccptrAirMiniCVReset,(void *)dccptr,sizeof(DCC_MSG)); // Save the dcc packet for comparison
+               }
+               else 
+               {
+                  if(!memcmp((void *)&dccptrAirMiniCVReset,(void *)dccptr,sizeof(DCC_MSG)))  // If they don't compare, break out
+                  {
+                     restartModemFlag = 0;             // Initialize whether the modem will be restarted
+                     tmpuint8 = dccptr->Data[countPtr++]&(0b00000011); // zero out the first 6 bits of dccptr->Data[countPtr], we want to use the last two bits
+                     CVnum = (uint16_t)tmpuint8;     // cast the result to a 2 uint8_t CVnum
+                     CVnum <<= 8;                    // now move these two bit over 8 places, now that it's two bytes
+                     uint16_t tmpuint16 = (uint16_t)dccptr->Data[countPtr++]; // cast dccptr->Data[countPtr] to 2 bytes
+                     CVnum |= tmpuint16;             // set the last 8 bits with dccptr->Data[countPtr]
+                     CVnum++;                        // NMRA Std of plus one, good grief, to set the final CV number
+                     CVval = dccptr->Data[countPtr++]; // Set CVval to dccptr->Data[countPtr], one uint8_t only!
+                     CVStatus = ACCEPTED;            // Set the default CV status
+
+	              switch(CVnum)
+                     {
+                        case  255:  // Set the channel number and reset related EEPROM values. Modest error checking. Verified this feature works
+                           if(CVval <= CHANNELS_MAX)           // Check for good values
+                           {
+                              checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (uint8_t)CVval, 1);  
+                              restartModemFlag = 1;
+                           }
+                           else                      // Ignore bad values
+                              CVStatus = IGNORED;
+                        break;
+                        case  254:  // Set the RF power level and reset related EEPROM values. Verified this feature works.
+                           if(CVval<=POWERLEVEL_MAX) 
+                           {
+                              checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (uint8_t)CVval, 1); // Set powerLevel and reset EEPROM values. Ignore bad values
+                              restartModemFlag = 1;
+                           }
+                           else
+                              CVStatus = IGNORED;
+                        break;
+                        case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
+                           checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
+                           AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
+                        break;
+                        case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values. Verified this feature works.
+                                    // See NMRA S-9.2.1 Footnote 8.
+                           checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (uint8_t)AirMiniCV17tmp, 1); 
+                           checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (uint8_t)CVval, 1); 
+                        break;
+                        case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT write to AirMini's CV17 or EEPROM yet!).
+                           if((0b11000000<=CVval) && (CVval<=0b11100111))  // NMRA standard 9.2.2, Paragraphs 129-135, footnote 8
+                           {
+                              AirMiniCV17tmp = CVval;    // Do not take effect until CV18 is written! NMRA Standard 9.2.1, footnote 8.
+                              CVStatus = PENDING;
+                           }
+                           else
+                              CVStatus = IGNORED;
+                        break;
+                        case  8:  // Full EEPROM Reset and reboot!
+                           if (CVval==8) 
+                           {
+#if defined(USE_LCD)
+                              if (LCDFound) 
+                              {
+                                 lcd.clear();
+                                 lcd.setCursor(0,0); // column, row
+                                 snprintf(lcd_line,sizeof(lcd_line),"Keep Power ON!");
+                                 lcd.print(lcd_line);
+                                 lcd.setCursor(0,1); // column, row
+                                 snprintf(lcd_line,sizeof(lcd_line),"Factory Reset...");
+                                 lcd.print(lcd_line);
+                              }
+#endif
+                              eepromClear();
+                              reboot(); // No need for sei, you're starting over...
+                           }
+                           else {
+                              CVStatus = IGNORED;
+                           }
+                        break;
+                        case 1:     // Set the Short Address CV and reset related EEPROM values after validation. Verified this feature works.
+                           if((0<CVval) && (CVval<128))  // CV1 cannot be outside this range. Some decoders limit 0<CVval<100
+                           {
+                              checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, (uint8_t)CVval, 1); 
+                           }
+                           else
+                              CVStatus = IGNORED;
+                        break;
+                        default:
+                           CVStatus = IGNORED;
+                        break;
+                     } // end of switch(CVnum) 
+
+#if defined(USE_LCD)
+                     if (LCDFound) LCD_CVval_Status(CVnum,CVval);
+#endif
+
+                     if(restartModemFlag)
+                     {
+                        radio.setChannel(CHANNEL); 
+                        radio.setPALevel(powerLevel,LNA); 
+                     }
+
+                  } // end of if(!memcmp...
+
+                  modemCVResetCount=0;                                     // Reset the CV reset counter
+                  memcpy((void *)&dccptrAirMiniCVReset,(void *)&dccptrNULL,sizeof(DCC_MSG)); // Reset the dcc packet for comparison
+
+               } // end of else (modemCVResetCount ...
+
+            } // end of if(tmpuint8 ...
+            else  // Not in OPS mode
+            {
+               modemCVResetCount=0;           // Reset this counter if we didn't get a "hit" on CV changing
+            } // End of not in OPS mode
+
+         } // end of if((dccptr->Data[0] ...
+         ///////////////////////////////////////////////////
+         // End ofSpecial processing for AirMini OPS mode //
+         ///////////////////////////////////////////////////
+
+} // end of ops_mode
+
+#endif
+
 void setup() {
 #ifdef DEBUG
    Serial.begin(115200);
@@ -729,6 +935,11 @@ void setup() {
   // eeprom_update_byte(&EEpowerLevelDefault, POWERLEVELDEFAULT );
   checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
 
+  // Get the LNA # stored in EEPROM and validate it
+  // eeprom_update_byte(&EELNADefault, LNADEFAULT );
+  checkSetDefaultEE(&LNA, &EEisSetLNA, &EELNA, LNADEFAULT, SET_DEFAULT);     // Validate the channel, it's possible the EEPROM has bad data
+  if(LNA > LNA_MAX) 
+      checkSetDefaultEE(&LNA, &EEisSetLNA, &EELNA, LNADEFAULT, 1);  // Force the EEPROM data to use LNA 1, if the LNA is invalid
 
   // Get the CHANNEL # stored in EEPROM and validate it
   // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
@@ -755,6 +966,24 @@ void setup() {
   // Set whether to always use modem data on transmit
   // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
+#endif
+
+#if defined(USE_OPS_MODE)
+   // Get up addressing-related CV's from EEPROM, or if not set set them in EEPROM
+   // eeprom_update_byte(&EEAirMiniCV1Default, AIRMINICV1DEFAULT );
+   checkSetDefaultEE(&AirMiniCV1,  &EEisSetAirMiniCV1,  &EEAirMiniCV1,    (uint8_t)AIRMINICV1DEFAULT, SET_DEFAULT);  // Short address. By default, not using
+
+   // eeprom_update_byte(&EEAirMiniCV17Default, AIRMINICV17DEFAULT );
+   checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17, (uint8_t)AIRMINICV17DEFAULT, SET_DEFAULT);  // High uint8_t to set final address to 9000
+   AirMiniCV17tmp = AirMiniCV17;                                                  // Due to the special nature of CV17 paired with CV18
+
+   // eeprom_update_byte(&EEAirMiniCV18Default, AIRMINICV18DEFAULT );
+   checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (uint8_t)AIRMINICV18DEFAULT, SET_DEFAULT);  // Low uint8_t to set final address to 9000/9001 for transmitter/receiver
+
+   // eeprom_update_byte(&EEAirMiniCV29Default, AIRMINICV29DEFAULT );
+   checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29,  (uint8_t)AIRMINICV29DEFAULT, SET_DEFAULT);  // Set CV29 so that it will use a long address
+   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
+
 #endif
 
    // Now set to not first time
@@ -802,7 +1031,9 @@ void setup() {
 // Transmitter-specific
 #if defined(TRANSMITTER)
    radio.setRetries(0,0); // delay, count
-   radio.setPALevel(powerLevel,0); // Experiment with changing
+   radio.setPALevel(powerLevel,LNA); // Experiment with changing
+#else
+   radio.setPALevel(powerLevel,LNA); // Experiment with changing - enable LNA
 #endif
 
 // Pipe handling (TX/RX specific)
@@ -838,6 +1069,8 @@ void setup() {
 #ifdef DEBUG
    Serial.println("rx: setup: timer2 ready");
 #endif
+   dccptr = &msg[msgIndexInserted]; // Initialize dccptr
+   newMsg = false;
 
 ///////////
 // RECEIVER
@@ -877,6 +1110,7 @@ void loop(){
       msg[msgIndexInserted].Size = payload[0];
       memcpy((void *)&msg[msgIndexInserted].Data[0],(void *)&payload[1],payload[0]);
       dccptr = &msg[msgIndexInserted];
+      newMsg = true;
       interrupts();
 #ifdef DEBUG
       if (!print_count) printMsgSerial();
@@ -948,6 +1182,10 @@ void loop(){
        LCDprevTime = now;              // Slowly... at 1 sec intervals
        LCDrefresh = true;
    }
+#endif
+
+#if defined(USE_OPS_MODE)
+   if (newMsg) ops_mode();
 #endif
 
 } // end of loop
