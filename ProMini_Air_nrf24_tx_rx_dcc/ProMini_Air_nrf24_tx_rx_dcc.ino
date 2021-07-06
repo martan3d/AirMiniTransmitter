@@ -77,7 +77,7 @@
 #if defined(TRANSMITTER)
 uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
 #else
-uint8_t initialWait = 0;                     // Initial wait status for receiving valid DCC
+uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 #endif
 
 enum {INITIAL, INFO, NONE} LCDwhichBanner = INITIAL;
@@ -177,7 +177,6 @@ enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 uint8_t payload[33]={3,0xFF,0,0xFF}; // initialize with idle message
 
 uint64_t now;
-uint64_t then;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptr;
@@ -351,6 +350,17 @@ char lcd_line[LCDCOLUMNS+1];                   // Note the "+1" to insert an end
 
 #if defined(USE_OPS_MODE)
 uint8_t restartModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
+#endif
+
+#if defined(RECEIVER)
+#define INITIALWAITPERIODSECDEFAULT 1
+uint64_t timeOfValidDCC;             // Time stamp of the last valid DCC packet
+uint64_t startInitialWaitTime;       // The start of the initial wait time. Will be set in initialization
+uint64_t endInitialWaitTime;         // The end of the initial wait time. Will be set in initialization
+uint8_t InitialWaitPeriodSEC = INITIALWAITPERIODSECDEFAULT;    // Wait period
+uint8_t searchChannelIndex = 0;      // Initialial channel search order index
+uint8_t  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
+uint8_t  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
 #endif
 
 ///////////////////
@@ -910,6 +920,54 @@ void ops_mode()
 
 #endif
 
+#if defined(RECEIVER)
+void channel_search() {
+
+   // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
+   if (timeOfValidDCC > startInitialWaitTime) 
+   {
+      initialWait = 0; 
+#if defined(USE_LCD)
+      if (LCDFound) LCD_Wait_Period_Over(1);
+#endif
+   }
+   else  // Othewise, continue to wait
+   {
+      now = micros();
+      // If it's too long, then reset the modem to the next channel
+      if (now > endInitialWaitTime) 
+      {
+#if defined(USE_LCD)
+         if (LCDFound) LCD_Wait_Period_Over(0);
+#endif
+         if (++searchChannelIndex <= CHANNELS_MAX+1)
+         // Keep searching...
+         {
+            // Update the seach channel and endInitialWaitTime
+            CHANNEL = searchChannelIndex-1;
+            // Re-initialize the start of the wait time
+            startInitialWaitTime = now;      
+            // Re-initialize the end of the wait time
+            endInitialWaitTime = 
+                startInitialWaitTime
+              + (uint64_t)InitialWaitPeriodSEC * SEC; 
+         }
+         else 
+         // Last resort
+         {
+            initialWait = 0;
+            CHANNEL=CHANNELDEFAULT;    // Reset to the last resort channel
+         }
+
+         // Set the radio to the new channel
+         radio.setChannel(CHANNEL); 
+         radio.setPALevel(powerLevel,LNA); 
+
+      } // end of wait time over
+   } // end of continue to wait
+} // end of channel_search
+#endif
+
 void setup() {
 #ifdef DEBUG
    Serial.begin(115200);
@@ -966,6 +1024,8 @@ void setup() {
   // Set whether to always use modem data on transmit
   // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
+   // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
+   checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (uint8_t)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
 #endif
 
 #if defined(USE_OPS_MODE)
@@ -1009,6 +1069,7 @@ void setup() {
 ///////////
 
    DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
+
 
 ///////////
 // RECEIVER
@@ -1071,6 +1132,13 @@ void setup() {
 #endif
    dccptr = &msg[msgIndexInserted]; // Initialize dccptr
    newMsg = false;
+   timeOfValidDCC = micros();
+
+   initialWait = 1;
+   startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time (never is not a good value)
+   endInitialWaitTime = 
+      startInitialWaitTime
+    + (uint64_t)InitialWaitPeriodSEC * SEC; // Initialize the end of the wait time
 
 ///////////
 // RECEIVER
@@ -1111,6 +1179,7 @@ void loop(){
       memcpy((void *)&msg[msgIndexInserted].Data[0],(void *)&payload[1],payload[0]);
       dccptr = &msg[msgIndexInserted];
       newMsg = true;
+      timeOfValidDCC = micros();
       interrupts();
 #ifdef DEBUG
       if (!print_count) printMsgSerial();
@@ -1186,6 +1255,9 @@ void loop(){
 
 #if defined(USE_OPS_MODE)
    if (newMsg) ops_mode();
+#endif
+#if defined(RECEIVER)
+   if (initialWait) channel_search();
 #endif
 
 } // end of loop
