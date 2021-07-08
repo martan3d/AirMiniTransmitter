@@ -97,7 +97,6 @@ uint8_t EEMEM EEFirst;  // Store the first time
 #else
 #define LNADEFAULT 1          // 
 #endif
-#define LNA_MAX 1            // 
 uint8_t LNA = LNADEFAULT;  // 
 uint8_t EEMEM EEisSetLNA;      // Stored RF channel is set
 uint8_t EEMEM EELNA;           // Stored RF channel #
@@ -515,7 +514,7 @@ void LCD_Banner()
   if (LCDwhichBanner==INITIAL) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("H:1.0 S:1.3/NRF");    // Show state
+  lcd.print("H:1.0 S:1.4/NRF");    // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }
@@ -835,6 +834,12 @@ void ops_mode()
                            else
                               CVStatus = IGNORED;
                         break;
+                        case  253:  // Set the LNA (0=off, !0=on)
+                           if(CVval) LNA = 1;
+                           else LNA = 0;
+                           checkSetDefaultEE(&LNA, &EEisSetLNA, &EELNA, (uint8_t)LNA, 1); // Set powerLevel and reset EEPROM values. Ignore bad values
+                           restartModemFlag = 1;
+                        break;
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                            checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
                            AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
@@ -996,8 +1001,6 @@ void setup() {
   // Get the LNA # stored in EEPROM and validate it
   // eeprom_update_byte(&EELNADefault, LNADEFAULT );
   checkSetDefaultEE(&LNA, &EEisSetLNA, &EELNA, LNADEFAULT, SET_DEFAULT);     // Validate the channel, it's possible the EEPROM has bad data
-  if(LNA > LNA_MAX) 
-      checkSetDefaultEE(&LNA, &EEisSetLNA, &EELNA, LNADEFAULT, 1);  // Force the EEPROM data to use LNA 1, if the LNA is invalid
 
   // Get the CHANNEL # stored in EEPROM and validate it
   // eeprom_update_byte(&EECHANNELDefault, CHANNELDEFAULT );
@@ -1084,18 +1087,16 @@ void setup() {
 
    // Common TX/RX radio handling
    radio.setChannel(CHANNEL); 
-   // radio.setDataRate( RF24_250KBPS );
-   radio.setDataRate(RF24_1MBPS);
+   radio.setDataRate( RF24_250KBPS ); // Lower rate works, better range
+   // radio.setDataRate(RF24_1MBPS);
    radio.enableDynamicPayloads();
    radio.enableDynamicAck(); // Added, not sure it's needed on rx side
 
 // Transmitter-specific
 #if defined(TRANSMITTER)
-   radio.setRetries(0,0); // delay, count
-   radio.setPALevel(powerLevel,LNA); // Experiment with changing
-#else
-   radio.setPALevel(powerLevel,LNA); // Experiment with changing - enable LNA
+   radio.setRetries(0,0); // delay, count - Important for tranmitter broadcast!
 #endif
+   radio.setPALevel(powerLevel,LNA); // Set the power level and LNA
 
 // Pipe handling (TX/RX specific)
 #if defined(TRANSMITTER)
