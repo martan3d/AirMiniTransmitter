@@ -6,3 +6,7 @@
 *.swo
 libraries/.DS_Store
 doc_src
+attic
+save
+*,v
+foo
