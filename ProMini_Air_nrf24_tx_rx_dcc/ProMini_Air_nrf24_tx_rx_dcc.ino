@@ -179,6 +179,7 @@ uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptr;
+bool replaced = false;
 bool newMsg = false;
 uint8_t modemCVResetCount=0;
 DCC_MSG dccptrAirMiniCVReset[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
@@ -514,7 +515,7 @@ void LCD_Banner()
   if (LCDwhichBanner==INITIAL) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("H:1.0 S:1.4/NRF");    // Show state
+  lcd.print("H:1.0 S:1.5/NRF");    // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }
@@ -558,6 +559,7 @@ void LCD_Addr_Ch_PL()
 
    if (printDCC) 
    {
+      snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
       lcd_line[0] = 'D';
       lcd_line[1] = 'C';
@@ -566,6 +568,11 @@ void LCD_Addr_Ch_PL()
       for(uint8_t i = 0; i < dccptr->Size; i++) 
       {
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
+      }
+      if (replaced) { // FF00FF (Idle)
+         lcd_line[2*dccptr->Size+4] = '(';
+         lcd_line[2*dccptr->Size+5] = 'R';
+         lcd_line[2*dccptr->Size+6] = ')';
       }
    }
    else
@@ -716,12 +723,16 @@ ISR(TIMER2_OVF_vect) {
         if (preamble_count == 0)  {  // advance to next state
           state = SEPERATOR;
           // get next message
-          if (msgIndex != msgIndexInserted) msgIndex = (msgIndex+1) % MAXMSG;
+          if (msgIndex != msgIndexInserted) {
+             msgIndex = (msgIndex+1) % MAXMSG;
+             replaced = false;
+          }
           else {// If no new message, send an idle message in the updated msgIndexInserted slot
              msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
              msgIndex = msgIndexInserted;
              memcpy((void *)&msg[msgIndexInserted], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
              dccptr = &msg[msgIndexInserted];
+             replaced = true;
           }
           byteIndex = 0; //start msg with byte 0
         }
