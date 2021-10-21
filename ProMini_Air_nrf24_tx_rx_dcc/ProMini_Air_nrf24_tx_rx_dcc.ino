@@ -1151,7 +1151,8 @@ void setup() {
 #ifdef DEBUG
    Serial.println("rx: setup: timer2 ready");
 #endif
-   dccptrIn = &msg[msgIndexInserted]; // Initialize dccptrIn
+   dccptrIn  = &msg[msgIndexInserted]; // Initialize dccptrIn
+   dccptrOut = &msg[msgIndexInserted]; // Initialize dccptrOut
    newMsg = false;
    timeOfValidDCC = micros();
 
