@@ -23,7 +23,6 @@
 #endif
 
 #define USE_OPS_MODE
-#undef REPLACE_MSG
 
 //////////////////////////////////
 // Transmitter or Receiver options
@@ -179,9 +178,10 @@ uint8_t payload[33]={3,0xFF,0,0xFF}; // initialize with idle message
 uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
-volatile DCC_MSG *dccptr;
-#if defined(REPLACE_MSG)
-volatile bool msgReplaced = false;
+volatile DCC_MSG *dccptrIn;
+volatile DCC_MSG *dccptrOut;
+#if defined(RECEIVER)
+volatile bool printIn = true;
 #endif
 bool newMsg = false;
 uint8_t modemCVResetCount=0;
@@ -527,16 +527,16 @@ void LCD_Addr_Ch_PL()
    if(printDCC) 
    {
       // Detect long or short address
-      tmpuint8 = dccptr->Data[0]&0b11000000;
-      if ((tmpuint8==0b11000000) && (dccptr->Data[0]!=0b11111111))
+      tmpuint8 = dccptrIn->Data[0]&0b11000000;
+      if ((tmpuint8==0b11000000) && (dccptrIn->Data[0]!=0b11111111))
       {
-         int TargetAddress_int = ((int)dccptr->Data[0]-192)*256+(int)dccptr->Data[1];
-         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr->Data[0],dccptr->Data[1]);
+         int TargetAddress_int = ((int)dccptrIn->Data[0]-192)*256+(int)dccptrIn->Data[1];
+         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrIn->Data[0],dccptrIn->Data[1]);
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
       }
       else
       {
-         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptr->Data[0]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptrIn->Data[0]);
       }
    }
    else
@@ -559,23 +559,29 @@ void LCD_Addr_Ch_PL()
 
    if (printDCC) 
    {
+      DCC_MSG *dccptrTmp = dccptrIn;
       snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
       lcd_line[0] = 'D';
       lcd_line[1] = 'C';
       lcd_line[2] = 'C';
-      lcd_line[3] = ':';
-      for(uint8_t i = 0; i < dccptr->Size; i++) 
-      {
-         snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
+#if defined(TRANSMITTER)
+      lcd_line[3] = '>';
+#else
+      if (printIn) {
+         lcd_line[3] = '<';
+         printIn = false;
       }
-#if defined(REPLACE_MSG)
-      if (msgReplaced) { // FF00FF (Idle)
-         lcd_line[2*dccptr->Size+4] = '(';
-         lcd_line[2*dccptr->Size+5] = 'R';
-         lcd_line[2*dccptr->Size+6] = ')';
+      else {
+         lcd_line[3] = '>';
+         dccptrTmp = dccptrOut;
+         printIn = true;
       }
 #endif
+      for(uint8_t i = 0; i < dccptrTmp->Size; i++) 
+      {
+         snprintf(&lcd_line[2*i+4],3,"%02X", dccptrTmp->Data[i]);
+      }
    }
    else
    {
@@ -663,7 +669,7 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
 
     msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
     memcpy((void *)&msg[msgIndexInserted],(void *)Msg,sizeof(DCC_MSG));
-    dccptr = &msg[msgIndexInserted];
+    dccptrIn = &msg[msgIndexInserted];
     newMsg = true;
 
 #ifdef DEBUG
@@ -732,11 +738,8 @@ ISR(TIMER2_OVF_vect) {
              msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
              msgIndex = msgIndexInserted;
              memcpy((void *)&msg[msgIndex], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-#if defined(REPLACE_MSG)
-             dccptr = &msg[msgIndex];
-             msgReplaced = true;
-#endif
           }
+          dccptrOut = &msg[msgIndex];
           byteIndex = 0; //start msg with byte 0
         }
         break;
@@ -800,35 +803,35 @@ void ops_mode()
          /////////////////////////////////////////////
          // Special processing for AirMini OPS mode //
          /////////////////////////////////////////////
-         if(((dccptr->Data[0]==AirMiniCV17) && (dccptr->Data[1]== AirMiniCV18) &&  AirMiniCV29Bit5) ||
-            ((dccptr->Data[0]==AirMiniCV1)                               && !AirMiniCV29Bit5) )
+         if(((dccptrIn->Data[0]==AirMiniCV17) && (dccptrIn->Data[1]== AirMiniCV18) &&  AirMiniCV29Bit5) ||
+            ((dccptrIn->Data[0]==AirMiniCV1)                               && !AirMiniCV29Bit5) )
          {
             // According the NMRA standards, two identical packets should be received
             // before modifying CV values. 
             countPtr = 1;
             if (AirMiniCV29Bit5) countPtr = 2;
-            tmpuint8 = dccptr->Data[countPtr]&(0b11111100); // The last two bits are part of the CV address used below and we don't care right now.
-                                                            // Do NOT increment countPtr because we aren't finished withe dccptr->Data[countPtr] yet;
+            tmpuint8 = dccptrIn->Data[countPtr]&(0b11111100); // The last two bits are part of the CV address used below and we don't care right now.
+                                                            // Do NOT increment countPtr because we aren't finished withe dccptrIn->Data[countPtr] yet;
                                                             // we need its two low bytes for the upper two bytes of the CV address below!
             if(tmpuint8==0b11101100)                          // Determine if the bit pattern is for modifying CV's with the last two bits don't care
             {
                if(modemCVResetCount==0)                   // Processing for identifying first or second valid call
                {
                   modemCVResetCount++;                                 // Update the CV reset counter
-                  memcpy((void *)&dccptrAirMiniCVReset,(void *)dccptr,sizeof(DCC_MSG)); // Save the dcc packet for comparison
+                  memcpy((void *)&dccptrAirMiniCVReset,(void *)dccptrIn,sizeof(DCC_MSG)); // Save the dcc packet for comparison
                }
                else 
                {
-                  if(!memcmp((void *)&dccptrAirMiniCVReset,(void *)dccptr,sizeof(DCC_MSG)))  // If they don't compare, break out
+                  if(!memcmp((void *)&dccptrAirMiniCVReset,(void *)dccptrIn,sizeof(DCC_MSG)))  // If they don't compare, break out
                   {
                      restartModemFlag = 0;             // Initialize whether the modem will be restarted
-                     tmpuint8 = dccptr->Data[countPtr++]&(0b00000011); // zero out the first 6 bits of dccptr->Data[countPtr], we want to use the last two bits
+                     tmpuint8 = dccptrIn->Data[countPtr++]&(0b00000011); // zero out the first 6 bits of dccptrIn->Data[countPtr], we want to use the last two bits
                      CVnum = (uint16_t)tmpuint8;     // cast the result to a 2 uint8_t CVnum
                      CVnum <<= 8;                    // now move these two bit over 8 places, now that it's two bytes
-                     uint16_t tmpuint16 = (uint16_t)dccptr->Data[countPtr++]; // cast dccptr->Data[countPtr] to 2 bytes
-                     CVnum |= tmpuint16;             // set the last 8 bits with dccptr->Data[countPtr]
+                     uint16_t tmpuint16 = (uint16_t)dccptrIn->Data[countPtr++]; // cast dccptrIn->Data[countPtr] to 2 bytes
+                     CVnum |= tmpuint16;             // set the last 8 bits with dccptrIn->Data[countPtr]
                      CVnum++;                        // NMRA Std of plus one, good grief, to set the final CV number
-                     CVval = dccptr->Data[countPtr++]; // Set CVval to dccptr->Data[countPtr], one uint8_t only!
+                     CVval = dccptrIn->Data[countPtr++]; // Set CVval to dccptrIn->Data[countPtr], one uint8_t only!
                      CVStatus = ACCEPTED;            // Set the default CV status
 
 	              switch(CVnum)
@@ -933,7 +936,7 @@ void ops_mode()
                modemCVResetCount=0;           // Reset this counter if we didn't get a "hit" on CV changing
             } // End of not in OPS mode
 
-         } // end of if((dccptr->Data[0] ...
+         } // end of if((dccptrIn->Data[0] ...
          ///////////////////////////////////////////////////
          // End ofSpecial processing for AirMini OPS mode //
          ///////////////////////////////////////////////////
@@ -1148,7 +1151,7 @@ void setup() {
 #ifdef DEBUG
    Serial.println("rx: setup: timer2 ready");
 #endif
-   dccptr = &msg[msgIndexInserted]; // Initialize dccptr
+   dccptrIn = &msg[msgIndexInserted]; // Initialize dccptrIn
    newMsg = false;
    timeOfValidDCC = micros();
 
@@ -1195,10 +1198,7 @@ void loop(){
       msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
       msg[msgIndexInserted].Size = payload[0];
       memcpy((void *)&msg[msgIndexInserted].Data[0],(void *)&payload[1],payload[0]);
-      dccptr = &msg[msgIndexInserted];
-#if defined(REPLACE_MSG)
-      msgReplaced = false;
-#endif
+      dccptrIn = &msg[msgIndexInserted];
       newMsg = true;
       timeOfValidDCC = micros();
       interrupts();
