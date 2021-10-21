@@ -23,6 +23,7 @@
 #endif
 
 #define USE_OPS_MODE
+#undef REPLACE_MSG
 
 //////////////////////////////////
 // Transmitter or Receiver options
@@ -179,16 +180,14 @@ uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptr;
-bool replaced = false;
+#if defined(REPLACE_MSG)
+volatile bool msgReplaced = false;
+#endif
 bool newMsg = false;
 uint8_t modemCVResetCount=0;
 DCC_MSG dccptrAirMiniCVReset[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
 DCC_MSG dccptrNULL[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
-uint8_t dccptrRepeatCount = 0;
-uint8_t dccptrRepeatCountMax = 2;
-uint8_t msgReplaced = 0;
 uint8_t tmpuint8 = 0;
-uint8_t do_not_filter = 0;
 uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
@@ -243,9 +242,10 @@ NmraDcc Dcc;
 
 
 // definitions for state machine
-byte last_timer = TIMER_SHORT; // store last timer value
-byte timer_val = TIMER_LONG; // The timer value
-byte every_second_isr = 0;  // pulse up or down
+// uint8_t last_timer = TIMER_SHORT; // store last timer value
+// uint8_t timer_val = TIMER_LONG; // The timer value
+uint8_t timer_val = TIMER_SHORT; // The timer value
+uint8_t every_second_isr = 0;  // pulse up or down
 
 enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
 byte preamble_count = 16;
@@ -569,11 +569,13 @@ void LCD_Addr_Ch_PL()
       {
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptr->Data[i]);
       }
-      if (replaced) { // FF00FF (Idle)
+#if defined(REPLACE_MSG)
+      if (msgReplaced) { // FF00FF (Idle)
          lcd_line[2*dccptr->Size+4] = '(';
          lcd_line[2*dccptr->Size+5] = 'R';
          lcd_line[2*dccptr->Size+6] = ')';
       }
+#endif
    }
    else
    {
@@ -708,8 +710,8 @@ ISR(TIMER2_OVF_vect) {
     PORTD |= (1<<OUTPUT_PIN);  // OUTPUT_PIN High
     every_second_isr = 0;
     // set timer to last value
-    latency = TCNT2;
-    TCNT2 = latency + last_timer;
+    // latency = TCNT2;
+    // TCNT2 = latency + last_timer;
 
   }  else  {  // != every second interrupt, advance bit or state
 
@@ -725,14 +727,15 @@ ISR(TIMER2_OVF_vect) {
           // get next message
           if (msgIndex != msgIndexInserted) {
              msgIndex = (msgIndex+1) % MAXMSG;
-             replaced = false;
           }
           else {// If no new message, send an idle message in the updated msgIndexInserted slot
              msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
              msgIndex = msgIndexInserted;
-             memcpy((void *)&msg[msgIndexInserted], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-             dccptr = &msg[msgIndexInserted];
-             replaced = true;
+             memcpy((void *)&msg[msgIndex], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+#if defined(REPLACE_MSG)
+             dccptr = &msg[msgIndex];
+             msgReplaced = true;
+#endif
           }
           byteIndex = 0; //start msg with byte 0
         }
@@ -763,12 +766,15 @@ ISR(TIMER2_OVF_vect) {
     } // end of switch
 
     // Set up output timer
-    latency = TCNT2;
-    TCNT2 = latency + timer_val;
-    last_timer = timer_val;
+    // latency = TCNT2;
+    // TCNT2 = latency + timer_val;
+    // last_timer = timer_val;
 
 
   } // end of else ! every_seocnd_isr
+
+  // Set up output timer. It is only reset every second ISR.
+  TCNT2 += timer_val;
 
 } // End of ISR
 
@@ -1190,6 +1196,9 @@ void loop(){
       msg[msgIndexInserted].Size = payload[0];
       memcpy((void *)&msg[msgIndexInserted].Data[0],(void *)&payload[1],payload[0]);
       dccptr = &msg[msgIndexInserted];
+#if defined(REPLACE_MSG)
+      msgReplaced = false;
+#endif
       newMsg = true;
       timeOfValidDCC = micros();
       interrupts();
