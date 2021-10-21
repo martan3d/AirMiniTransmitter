@@ -179,8 +179,8 @@ uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptrIn;
-volatile DCC_MSG *dccptrOut;
 #if defined(RECEIVER)
+volatile DCC_MSG *dccptrOut;
 volatile bool printIn = true;
 #endif
 bool newMsg = false;
@@ -1129,6 +1129,7 @@ void setup() {
    radio.startListening();
 #endif
  
+   dccptrIn  = &msg[msgIndexInserted]; // Initialize dccptrIn
 // Final timing-sensitive set-ups
 #if defined(TRANSMITTER)
 // TRANSMITTER
@@ -1151,7 +1152,6 @@ void setup() {
 #ifdef DEBUG
    Serial.println("rx: setup: timer2 ready");
 #endif
-   dccptrIn  = &msg[msgIndexInserted]; // Initialize dccptrIn
    dccptrOut = &msg[msgIndexInserted]; // Initialize dccptrOut
    newMsg = false;
    timeOfValidDCC = micros();
