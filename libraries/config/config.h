@@ -100,15 +100,15 @@ caution or for development only.
 // Special settings. You are NOT required to uncomment
 //////////////////////////////////////////////////////
 /* The final Long address is (CV17-192)*256+CV18*/
-// #define AIRMINICV17DEFAULT 227
+// #define AIRMINICV17DEFAULT 230
 #if defined(TRANSMITTER)
-// #define AIRMINICV18DEFAULT 40
+// #define AIRMINICV18DEFAULT 172
 /* For Base Station Repeater Transmitter*/
-// #define AIRMINICV18DEFAULT 42
+// #define AIRMINICV18DEFAULT 174
 #else
-// #define AIRMINICV18DEFAULT 41
+// #define AIRMINICV18DEFAULT 173
 /* For Repeater Receiver*/
-// #define AIRMINICV18DEFAULT 43
+// #define AIRMINICV18DEFAULT 175
 #endif
 
 #if defined(TRANSMITTER)

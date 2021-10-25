@@ -146,16 +146,16 @@ extern uint8_t channels_na_max;  // From spi.c
 #define AIRMINICV1DEFAULT 3
 
 #if ! defined(AIRMINICV17DEFAULT)
-#define AIRMINICV17DEFAULT 227
+#define AIRMINICV17DEFAULT 230
 #endif
 #pragma message "Info: Default CV17 is " xstr(AIRMINICV17DEFAULT)
 
 #if ! defined(AIRMINICV18DEFAULT)
 //{
 #if defined(TRANSMITTER)
-#define AIRMINICV18DEFAULT 40
+#define AIRMINICV18DEFAULT 172
 #else
-#define AIRMINICV18DEFAULT 41
+#define AIRMINICV18DEFAULT 173
 #endif
 //}
 #endif

@@ -30,7 +30,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define DEBUG_LOCAL
+#undef DEBUG_LOCAL
 
 #include <config.h>
 #include <EEPROM.h>
@@ -58,8 +58,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
 // Actual input pin. No conversion do PD3! Dcc.init does this.
 // #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
@@ -69,11 +68,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Output to CC1101 modem (GD0)
 #define OUTPUT_PIN PD2
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
 // Actual input pin. No conversion do PD3! Dcc.init does this.
 // #define INPUT_PIN  PD2  // 3.3V unipolar DCC input from raw modem output
@@ -81,23 +78,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define EXTINT_NUM 0
 #define OUTPUT_PIN PD3
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 #define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
 #define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
 
-// TRANSMITTER and RECEIVER
-///////////////////////////
-
 NmraDcc Dcc;
-
-///////////////////////////
-// TRANSMITTER and RECEIVER
-
-// RECEIVER and TRANSMITTER
-///////////////////////////
 
 //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
 #define TIMER_SHORT 0x8D  // 58usec pulse length
@@ -116,10 +103,6 @@ uint8_t outbyte = 0;
 uint8_t cbit = 0x80;
 int byteIndex = 0;
 
-///////////////////////////
-// RECEIVER and TRANSMITTER
-
-
 // For NmraDcc
 #define DCC_DIAG0  5     // Diagnostic Pin #1
 #define DCC_DIAG1  6     // Diagnostic Pin #2
@@ -135,8 +118,8 @@ volatile DCC_MSG msg[MAXMSG] = {
 const DCC_MSG msgIdle =
    { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}};   // idle msg
 
-volatile uint8_t msgIndex = 0;
-volatile uint8_t msgIndexInserted = 0; // runs from 0 to MAXMSG-1
+volatile uint8_t msgIndexOut = 0;
+volatile uint8_t msgIndexIn = 0; // runs from 0 to MAXMSG-1
 
 // Times
 // #if defined(TRANSMITTER)
@@ -181,16 +164,16 @@ extern uint8_t channels_na_max;  // From spi.c
 #define AIRMINICV1DEFAULT 3
 
 #if ! defined(AIRMINICV17DEFAULT)
-#define AIRMINICV17DEFAULT 227
+#define AIRMINICV17DEFAULT 230
 #endif
 #pragma message "Info: Default CV17 is " xstr(AIRMINICV17DEFAULT)
 
 #if ! defined(AIRMINICV18DEFAULT)
 //{
 #if defined(TRANSMITTER)
-#define AIRMINICV18DEFAULT 40
+#define AIRMINICV18DEFAULT 172
 #else
-#define AIRMINICV18DEFAULT 41
+#define AIRMINICV18DEFAULT 173
 #endif
 //}
 #endif
@@ -199,14 +182,17 @@ extern uint8_t channels_na_max;  // From spi.c
 #define AIRMINICV29DEFAULT 32
 
 #if defined(RECEIVER)
+//{ RECEIVER
 #define INITIALWAITPERIODSECDEFAULT 1
+//} RECEIVER
 #else
-//{
+//{ TRANSMITTER
 #if ! defined(AUTOIDLEOFFDEFAULT)
 #define AUTOIDLEOFFDEFAULT 0
 #endif
-//}
+//} TRANSMITTER
 #endif
+
 #pragma message "Info: Default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
 
 
@@ -215,6 +201,7 @@ uint64_t now;
 uint64_t then;
 
 volatile DCC_MSG *dccptrIn;
+         DCC_MSG *dccptrTmp;
 volatile DCC_MSG *dccptrOut;
 volatile bool printIn = true;
 
@@ -250,13 +237,18 @@ uint64_t inactiveStartTime;          // Time stamp if when modem data is ignored
 uint16_t maxTransitionCount;              // Maximum number of bad transitions to tolerate before ignoring modem data
 uint8_t maxTransitionCountLowByte=100;       // High uint8_t of maxTransitionCount
 uint8_t maxTransitionCountHighByte=0;        // Low uint8_t of maxTransitionCount
+
 #if defined(RECEIVER)
+//{ RECEIVER
 uint64_t startInitialWaitTime;       // The start of the initial wait time. Will be set in initialization
 uint64_t endInitialWaitTime;         // The end of the initial wait time. Will be set in initialization
 uint8_t InitialWaitPeriodSEC;                // Wait period
 uint8_t searchChannelIndex = 0;              // Initialial channel search order index
+//} RECEIVER
 #else
+//{ TRANSMITTER
 uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
+//} TRANSMITTER
 #endif
 
 #if defined(TRANSMITTER)
@@ -264,14 +256,17 @@ uint8_t initialWait = 0;                     // Initial wait status for receivin
 #else
 uint8_t initialWait = 1;                     // Initial wait status for receiving valid DCC
 #endif
+
 enum {INITIAL, INFO, NONE} whichBanner = INITIAL;
 uint8_t regionNum=0;
 #if defined(NAEU_900MHz)
 //{
 #pragma message "Info: using European 869MHz/North American 915MHz frequency-dependent channels"
+
 #if defined(RECEIVER)
 uint8_t searchChannels[18] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
 #endif
+
 #if defined(USE_LCD)
 const char *bannerString = "ProMini Air NA/E";
 const char *regionString[] = {"N","E"}; // Region code: N=North America, E=Europe, W=Worldwide
@@ -284,9 +279,11 @@ bool lcdInitialized = false;
 #if defined(EU_434MHz)
 //{
 #pragma message "Info: using European 434MHz frequency-dependent channels"
+
 #if defined(RECEIVER)
 uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
+
 #if defined(USE_LCD)
 const char *bannerString = "ProMini Air EU";
 const char *regionString[] = {"E"}; // Region code: N=North America, E=Europe, W=Worldwide
@@ -298,9 +295,11 @@ const char *regionString[] = {"E"}; // Region code: N=North America, E=Europe, W
 #if defined(NAEU_2p4GHz)
 //{
 #pragma message "Info: using Worldwide 2.4GHz frequency-dependent channels"
+
 #if defined(RECEIVER)
 uint8_t searchChannels[8] = {0,1,2,3,4,5,6,7}; // Channel search order
 #endif
+
 #if defined(USE_LCD)
 const char *bannerString = "ProMini Air WW";
 const char *regionString[] = {"W"}; // Region code: N=North America, E=Europe, W=Worldwide
@@ -313,10 +312,6 @@ const char *regionString[] = {"W"}; // Region code: N=North America, E=Europe, W
 
 //}
 #endif
-
-///////////////////////////
-// RECEIVER and TRANSMITTER
-
 
 // Changing with CV's
 uint16_t CVnum;                              // CV numbers consume 10 bits
@@ -390,13 +385,17 @@ uint8_t  EEAirMiniCV29 = 20;                // Stored AirMini decoder configurat
 // uint8_t  EEAirMiniCV29Default;         // Stored AirMini decoder configuration variable
 
 #if defined(RECEIVER)
+//{ RECEIVER
 uint8_t  EEisSetInitialWaitPeriodSEC = 21;  // Stored AirMini decoder configuration variable
 uint8_t  EEInitialWaitPeriodSEC = 22;       // Stored AirMini decoder configuration variable
 // uint8_t  EEInitialWaitPeriodSECDefault;// Stored AirMini decoder configuration variable
+//} RECEIVER
 #else
+//{ TRANSMITTER
 uint8_t  EEisSetAutoIdleOff = 23;  // Stored AirMini decoder configuration variable
 uint8_t  EEAutoIdleOff = 24;       // Stored AirMini decoder configuration variable
 // uint8_t  EEAutoIdleOffDefault;// Stored AirMini decoder configuration variable
+//} TRANSMITTER
 #endif
 
 ///////////////////
@@ -424,9 +423,9 @@ char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
 extern void notifyDccMsg( DCC_MSG * Msg ) {
 
     // noInterrupts(); // Turning on/off interrupts does not seem to be needed
-    msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
-    memcpy((void *)&msg[msgIndexInserted],(void *)Msg,sizeof(DCC_MSG));
-    dccptrIn = &msg[msgIndexInserted];
+    msgIndexIn = (msgIndexIn+1) % MAXMSG;
+    memcpy((void *)&msg[msgIndexIn],(void *)Msg,sizeof(DCC_MSG));
+    dccptrIn = &msg[msgIndexIn];
     if ((3<=Msg->Size) && (Msg->Size<=6))    // Check for a valid message
     {
        setScheduledTask(TASK1);            // Schedule the background task
@@ -476,6 +475,7 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_HIGH; // Output high
 #endif
+
     every_second_isr = 0;
     // set timer to last value
     // latency = TCNT2;
@@ -489,6 +489,7 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_LOW; // Output high
 #endif
+
     every_second_isr = 1;
 
     switch (state)  {
@@ -498,16 +499,16 @@ ISR(TIMER2_OVF_vect) {
         if (preamble_count == 0)  {  // advance to next state
           state = SEPERATOR;
           // get next message
-          if (msgIndex != msgIndexInserted) {
-             msgIndex = (msgIndex+1) % MAXMSG;
-             dccptrOut = &msg[msgIndex];
+          if (msgIndexOut != msgIndexIn) {
+             msgIndexOut = (msgIndexOut+1) % MAXMSG;
+             dccptrOut = &msg[msgIndexOut];
           }
-          else {// If no new message, send an idle message in the updated msgIndexInserted slot
-             msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
-             msgIndex = msgIndexInserted;
-             memcpy((void *)&msg[msgIndex], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+          else {// If no new message, send an idle message in the updated msgIndexIn slot
+             msgIndexIn = (msgIndexIn+1) % MAXMSG;
+             msgIndexOut = msgIndexIn;
+             memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
           }
-          // dccptrOut = &msg[msgIndex];
+          // dccptrOut = &msg[msgIndexOut];
           byteIndex = 0; //start msg with uint8_t 0
         }
         break;
@@ -517,14 +518,14 @@ ISR(TIMER2_OVF_vect) {
         state = SENDBYTE;
         // goto next uint8_t ...
         cbit = 0x80;  // send this bit next time first
-        outbyte = msg[msgIndex].Data[byteIndex];
+        outbyte = msg[msgIndexOut].Data[byteIndex];
         break;
       case SENDBYTE:
         timer_val = (outbyte & cbit) ? TIMER_SHORT : TIMER_LONG;
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next uint8_t?
           byteIndex++;
-          if (byteIndex >= msg[msgIndex].Size)  {
+          if (byteIndex >= msg[msgIndexOut].Size)  {
             // this was already the XOR uint8_t then advance to preamble
             state = PREAMBLE;
             preamble_count = 16;
@@ -550,11 +551,11 @@ ISR(TIMER2_OVF_vect) {
 
 void printMsgSerial() {
 
-   Serial.print("msg["); Serial.print(msgIndexInserted,HEX); Serial.print("]:\n");
-   Serial.print(" len: "); Serial.print(msg[msgIndexInserted].Size,HEX); Serial.print("\n");
-   for(uint8_t i=0; i<msg[msgIndexInserted].Size; i++) {
+   Serial.print("msg["); Serial.print(msgIndexIn,HEX); Serial.print("]:\n");
+   Serial.print(" len: "); Serial.print(msg[msgIndexIn].Size,HEX); Serial.print("\n");
+   for(uint8_t i=0; i<msg[msgIndexIn].Size; i++) {
       Serial.print(" data["); Serial.print(i,HEX); Serial.print("]: ");
-      Serial.print(msg[msgIndexInserted].Data[i],HEX); Serial.print("\n");
+      Serial.print(msg[msgIndexIn].Data[i],HEX); Serial.print("\n");
    }
 
 }
@@ -728,6 +729,9 @@ void LCD_Banner()
 
 void LCD_Addr_Ch_PL()
 {
+   dccptrTmp = dccptrIn;
+   if (!printIn) dccptrTmp = dccptrOut;
+
    lcd.clear();
    lcd.setCursor(0,0); // column, row
    /*
@@ -740,16 +744,16 @@ void LCD_Addr_Ch_PL()
    if(printDCC) 
    {
       // Detect long or short address
-      tmpuint8 = dccptrIn->Data[0]&0b11000000;
-      if ((tmpuint8==0b11000000) && (dccptrIn->Data[0]!=0b11111111))
+      tmpuint8 = dccptrTmp->Data[0]&0b11000000;
+      if ((tmpuint8==0b11000000) && (dccptrTmp->Data[0]!=0b11111111))
       {
-         int TargetAddress_int = ((int)dccptrIn->Data[0]-192)*256+(int)dccptrIn->Data[1];
-         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrIn->Data[0],dccptrIn->Data[1]);
+         int TargetAddress_int = ((int)dccptrTmp->Data[0]-192)*256+(int)dccptrTmp->Data[1];
+         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrTmp->Data[0],dccptrTmp->Data[1]);
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
       }
       else
       {
-         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptrIn->Data[0]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptrTmp->Data[0]);
       }
    }
    else
@@ -772,7 +776,6 @@ void LCD_Addr_Ch_PL()
 
    if (printDCC) 
    {
-      DCC_MSG *dccptrTmp = dccptrIn;
       snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
       lcd_line[0] = 'D';
@@ -784,7 +787,6 @@ void LCD_Addr_Ch_PL()
       }
       else {
          lcd_line[3] = '>';
-         dccptrTmp = dccptrOut;
          printIn = true;
       }
       for(uint8_t i = 0; i < dccptrTmp->Size; i++) 
@@ -946,11 +948,15 @@ void setup()
    AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
 #if defined(RECEIVER)
+//{ RECEIVER
    // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
    checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (uint8_t)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
+//} RECEIVER
 #else
+//{ TRANSMITTER
    // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
    checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (uint8_t)AUTOIDLEOFFDEFAULT, SET_DEFAULT);  // Set AutoIdleOff
+//} TRANSMITTER
 #endif
 
    // Now set to not first time
@@ -993,22 +999,12 @@ void setup()
 
    // Set up the input and output pins
 
-   ///////////////////////////
-   // TRANSMITTER and RECEIVER
-
    Dcc.pin(EXTINT_NUM, INPUT_PIN, 0); // register External Interrupt # and Input Pin of input source. 
                                       // Important. Pins and interrupt #'s are correlated.
 
    DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
 
-   // TRANSMITTER and RECEIVER
-   ///////////////////////////
-
-
    // Final timing-sensitive set-ups
-
-   ///////////////////////////
-   // TRANSMITTER and RECEIVER
 
    // Set up slow-time variables
    then = micros();                            // Grab Current Clock value for the loop below
@@ -1020,6 +1016,7 @@ void setup()
    // Call the main DCC Init function to enable the DCC Receiver
    Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
    timeOfValidDCC = micros();
+
 #if defined(RECEIVER)
    initialWait = 1;
    startInitialWaitTime = timeOfValidDCC;      // Initialize the start of the wait time (never is not a good value)
@@ -1029,13 +1026,11 @@ void setup()
 #else
    initialWait = 0;
 #endif
+
    inactiveStartTime = micros() + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
    // Set up the waveform generator timer
    SetupTimer2(); // Set up interrupt Timer 2
-
-   // TRANSMITTER and RECEIVER
-   ///////////////////////////
 
    // Start the coms with the modem
    initializeSPI();                            // Initialize the SPI interface to the radio
@@ -1072,7 +1067,7 @@ void loop()
          memcpy((void *)sendbuffer,(void *)dccptrIn,sizeof(DCC_MSG));
 
 #if defined(TRANSMITTER)
-//{
+//{ TRANSMITTER
 
 #if ! defined(DONTTURNOFFINTERRUPTS)
          cli(); // Turn off interrupts
@@ -1098,7 +1093,7 @@ void loop()
             dccptrRepeatCount = 0;
             lastIdleTime = micros();
             msgReplaced = 1;
-            memcpy((void *)&msg[msgIndexInserted],(void *)&msgIdle,sizeof(DCC_MSG));
+            memcpy((void *)&msg[msgIndexIn],(void *)&msgIdle,sizeof(DCC_MSG));
          }
 #if ! defined(DONTTURNOFFINTERRUPTS)
          sei(); // Turn interrupts back on
@@ -1212,11 +1207,13 @@ void loop()
                               CVStatus = IGNORED;
                         break;
 #endif
+
 #if defined(TRANSMITTER)
                         case  244:  // Turn off automatic IDLE insertion
                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (uint8_t)CVval, 1); 
                         break;
 #endif
+
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                            checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
                            AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
@@ -1383,9 +1380,11 @@ void loop()
 #endif
 
 #if defined(TRANSMITTER)
+//{ TRANSMITTER
       strobeSPI(MODE);         // keep the radio awake in MODE 
+//} TRANSMITTER
 #else
-//{
+//{ RECEIVER
       if(useModemData)
       {
          strobeSPI(MODE);         // keep the radio awake in MODE 
@@ -1489,7 +1488,7 @@ void loop()
             } // end of wait time over
          } // end of continue to wait
       } // End of special processing for channel search
-//} end of RECEIVER
+//} RECEIVER
 #endif
 
    } // end of if( (now - then) > BACKGROUNDTIME )

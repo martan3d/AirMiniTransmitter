@@ -97,6 +97,7 @@ uint8_t EEMEM EEFirst;  // Store the first time
 #else
 #define LNADEFAULT 1          // 
 #endif
+
 uint8_t LNA = LNADEFAULT;  // 
 uint8_t EEMEM EEisSetLNA;      // Stored RF channel is set
 uint8_t EEMEM EELNA;           // Stored RF channel #
@@ -119,28 +120,30 @@ uint8_t EEMEM EEpowerLevel;             // Stored DC output power level
 // uint8_t EEMEM EEpowerLevelDefault;   // Stored DC output power level 
 
 #if defined(RECEIVER)
+//{ RECEIVER
 // Filtering-related
 #define FILTERMODEMDATADEFAULT 0
 uint8_t filterModemData = FILTERMODEMDATADEFAULT; // Set the logical for whether to always use modem data.
 uint8_t EEMEM EEisSetfilterModemData;             // Stored filter modem data set flag
 uint8_t EEMEM EEfilterModemData;                  // Stored filter modem data in ms
 // uint8_t  EEMEM EEfilterModemDataDefault;       // Stored filter modem data in ms
+//} RECEIVER
 #endif
 
 // CV-Related
 #define AIRMINICV1DEFAULT 3
 
 #if ! defined(AIRMINICV17DEFAULT)
-#define AIRMINICV17DEFAULT 227
+#define AIRMINICV17DEFAULT 230
 #endif
 #pragma message "Info: Default CV17 is " xstr(AIRMINICV17DEFAULT)
 
 #if ! defined(AIRMINICV18DEFAULT)
 //{
 #if defined(TRANSMITTER)
-#define AIRMINICV18DEFAULT 40
+#define AIRMINICV18DEFAULT 72
 #else
-#define AIRMINICV18DEFAULT 41
+#define AIRMINICV18DEFAULT 73
 #endif
 //}
 #endif
@@ -179,10 +182,10 @@ uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptrIn;
-#if defined(RECEIVER)
+         DCC_MSG *dccptrTmp;
 volatile DCC_MSG *dccptrOut;
 volatile bool printIn = true;
-#endif
+
 bool newMsg = false;
 uint8_t modemCVResetCount=0;
 DCC_MSG dccptrAirMiniCVReset[sizeof(DCC_MSG)] = {0, 0, {0,0,0,0,0,0}};
@@ -191,8 +194,7 @@ uint8_t tmpuint8 = 0;
 uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
 // Actual input pin. No conversion to PD3! Dcc.init does this.
 //#define INPUT_PIN 2
@@ -201,14 +203,12 @@ uint8_t countPtr = 1;
 #define INPUT_PIN 3
 #define EXTINT_NUM 1
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
 uint8_t whatChannel;
-#ifdef DEBUG
+#if defined(DEBUG)
 #define PRINT_MAX 129
 int print_count = 0;
 #endif
@@ -217,24 +217,21 @@ int print_count = 0;
 // use digital pin D3
 #define OUTPUT_PIN PD3
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 //Settings for both TX/RX
 RF24 radio(9,10); // CE,CSN
 
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
 NmraDcc Dcc;
 
-//////////////
-// TRANSMITTER
+
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
 //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
 #define TIMER_SHORT 0x8D  // 58usec pulse length
@@ -253,8 +250,7 @@ byte outbyte = 0;
 byte cbit = 0x80;
 int byteIndex = 0;
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 #define MAXMSG 32
@@ -297,12 +293,11 @@ volatile DCC_MSG msg[MAXMSG] = {
 const DCC_MSG msgIdle =
    {3, 16, {0xFF, 0, 0xFF, 0, 0, 0}};   // idle msg
 
-volatile uint8_t msgIndex = 0;
-volatile uint8_t msgIndexInserted = 0; // runs from 0 to MAXMSG-1
+volatile uint8_t msgIndexOut = 0;
+volatile uint8_t msgIndexIn = 0; // runs from 0 to MAXMSG-1
 
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
 // const byte slaveAddress[5] = {'R','x','A','A','A'};
 const uint64_t pipe00 = 0xE8E8F0F0A0ULL;
@@ -313,11 +308,9 @@ const uint64_t pipe04 = 0xE8E8F0F0A4ULL;
 const uint64_t pipe05 = 0xE8E8F0F0A5ULL;
 const uint64_t pipe06 = 0xE8E8F0F0A6ULL;
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
 // const byte thisSlaveAddress[5] = {'R','x','A','A','A'};
 const uint64_t pipe00 = 0xE8E8F0F0A0ULL;
@@ -328,8 +321,7 @@ const uint64_t pipe04 = 0xA4ULL;
 const uint64_t pipe05 = 0xA5ULL;
 const uint64_t pipe06 = 0xA6ULL;
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 #if defined(USE_LCD)
@@ -353,6 +345,7 @@ uint8_t restartModemFlag = 0;                  // Initial setting for calling st
 #endif
 
 #if defined(RECEIVER)
+//{ RECEIVER
 #define INITIALWAITPERIODSECDEFAULT 1
 uint64_t timeOfValidDCC;             // Time stamp of the last valid DCC packet
 uint64_t startInitialWaitTime;       // The start of the initial wait time. Will be set in initialization
@@ -361,15 +354,17 @@ uint8_t InitialWaitPeriodSEC = INITIALWAITPERIODSECDEFAULT;    // Wait period
 uint8_t searchChannelIndex = 0;      // Initialial channel search order index
 uint8_t  EEMEM EEisSetInitialWaitPeriodSEC;  // Stored AirMini decoder configuration variable
 uint8_t  EEMEM EEInitialWaitPeriodSEC;       // Stored AirMini decoder configuration variable
+//} RECEIVER
 #endif
 
 ///////////////////
 // Start of code //
 ///////////////////
+#if defined(DEBUG)
+//{ DEBUG
 void printMsgSerial() {
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
   Serial.print("tx: notifyDccMsg: payload(Msg):\n"); 
   Serial.print(" Size: "); Serial.print(payload[0],HEX); Serial.print("\n");
@@ -378,24 +373,23 @@ void printMsgSerial() {
      Serial.print(payload[i+1],HEX); Serial.print("\n");
   }
 
-///////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
-  Serial.print("rx: loop: msg["); Serial.print(msgIndexInserted,HEX); Serial.print("]:\n");
+  Serial.print("rx: loop: msg["); Serial.print(msgIndexIn,HEX); Serial.print("]:\n");
   Serial.print(" whatChannel: "); Serial.print(whatChannel,DEC); Serial.print("\n");
-  Serial.print(" len: "); Serial.print(msg[msgIndexInserted].Size,HEX); Serial.print("\n");
-  for(byte i=0; i<msg[msgIndexInserted].Size; i++) {
+  Serial.print(" len: "); Serial.print(msg[msgIndexIn].Size,HEX); Serial.print("\n");
+  for(byte i=0; i<msg[msgIndexIn].Size; i++) {
      Serial.print(" data["); Serial.print(i,HEX); Serial.print("]: ");
-     Serial.print(msg[msgIndexInserted].Data[i],HEX); Serial.print("\n");
+     Serial.print(msg[msgIndexIn].Data[i],HEX); Serial.print("\n");
   }
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 }
+//} DEBUG
+#endif
 
 // Function, based on the value of forceDefault:
 //    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
@@ -522,21 +516,24 @@ void LCD_Banner()
 
 void LCD_Addr_Ch_PL()
 {
+   dccptrTmp = dccptrIn;
+   if (!printIn) dccptrTmp = dccptrOut;
+
    lcd.clear();
    lcd.setCursor(0,0); // column, row
    if(printDCC) 
    {
       // Detect long or short address
-      tmpuint8 = dccptrIn->Data[0]&0b11000000;
-      if ((tmpuint8==0b11000000) && (dccptrIn->Data[0]!=0b11111111))
+      tmpuint8 = dccptrTmp->Data[0]&0b11000000;
+      if ((tmpuint8==0b11000000) && (dccptrTmp->Data[0]!=0b11111111))
       {
-         int TargetAddress_int = ((int)dccptrIn->Data[0]-192)*256+(int)dccptrIn->Data[1];
-         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrIn->Data[0],dccptrIn->Data[1]);
+         int TargetAddress_int = ((int)dccptrTmp->Data[0]-192)*256+(int)dccptrTmp->Data[1];
+         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrTmp->Data[0],dccptrTmp->Data[1]);
          snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
       }
       else
       {
-         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptrIn->Data[0]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(S)",(int)dccptrTmp->Data[0]);
       }
    }
    else
@@ -559,25 +556,19 @@ void LCD_Addr_Ch_PL()
 
    if (printDCC) 
    {
-      DCC_MSG *dccptrTmp = dccptrIn;
       snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
       lcd_line[0] = 'D';
       lcd_line[1] = 'C';
       lcd_line[2] = 'C';
-#if defined(TRANSMITTER)
-      lcd_line[3] = '>';
-#else
       if (printIn) {
          lcd_line[3] = '<';
          printIn = false;
       }
       else {
          lcd_line[3] = '>';
-         dccptrTmp = dccptrOut;
          printIn = true;
       }
-#endif
       for(uint8_t i = 0; i < dccptrTmp->Size; i++) 
       {
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptrTmp->Data[i]);
@@ -586,11 +577,13 @@ void LCD_Addr_Ch_PL()
    else
    {
       printDCC = 1;
+
 #if defined(TRANSMITTER)
       snprintf(lcd_line,sizeof(lcd_line),"Ch:%d PL:%d", CHANNEL, powerLevel);
 #else
       snprintf(lcd_line,sizeof(lcd_line),"Ch:%d Filt:%d", CHANNEL, filterModemData);
 #endif
+
    }
 
    lcd.print(lcd_line);
@@ -656,8 +649,7 @@ void LCD_Wait_Period_Over(int status)
 #endif
 
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
 extern void notifyDccMsg( DCC_MSG * Msg ) {
     // noInterrupts(); // Turning on/off interrupts does not seem to be needed
@@ -667,21 +659,21 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
     // interrupts(); // Turning on/off interrupts does not seem to be needed
     radio.write( payload, payload[0]+1, 1 ); // NOACK: Important for broadcast!
 
-    msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
-    memcpy((void *)&msg[msgIndexInserted],(void *)Msg,sizeof(DCC_MSG));
-    dccptrIn = &msg[msgIndexInserted];
+    msgIndexIn = (msgIndexIn+1) % MAXMSG;
+    memcpy((void *)&msg[msgIndexIn],(void *)Msg,sizeof(DCC_MSG));
+    dccptrIn = &msg[msgIndexIn];
+    msgIndexOut = msgIndexIn;
+    dccptrOut = dccptrIn;
     newMsg = true;
 
-#ifdef DEBUG
+#if defined(DEBUG)
     printMsgSerial();
 #endif
 } // End of notifyDccMsg
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
 // Output timer
 // Setup Timer2.
@@ -731,15 +723,15 @@ ISR(TIMER2_OVF_vect) {
         if (preamble_count == 0)  {  // advance to next state
           state = SEPERATOR;
           // get next message
-          if (msgIndex != msgIndexInserted) {
-             msgIndex = (msgIndex+1) % MAXMSG;
+          if (msgIndexOut != msgIndexIn) {
+             msgIndexOut = (msgIndexOut+1) % MAXMSG;
           }
-          else {// If no new message, send an idle message in the updated msgIndexInserted slot
-             msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
-             msgIndex = msgIndexInserted;
-             memcpy((void *)&msg[msgIndex], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+          else {// If no new message, send an idle message in the updated msgIndexIn slot
+             msgIndexIn = (msgIndexIn+1) % MAXMSG;
+             msgIndexOut = msgIndexIn;
+             memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
           }
-          dccptrOut = &msg[msgIndex];
+          dccptrOut = &msg[msgIndexOut];
           byteIndex = 0; //start msg with byte 0
         }
         break;
@@ -749,14 +741,14 @@ ISR(TIMER2_OVF_vect) {
         state = SENDBYTE;
         // goto next byte ...
         cbit = 0x80;  // send this bit next time first
-        outbyte = msg[msgIndex].Data[byteIndex];
+        outbyte = msg[msgIndexOut].Data[byteIndex];
         break;
       case SENDBYTE:
         timer_val = (outbyte & cbit) ? TIMER_SHORT : TIMER_LONG;
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next byte?
           byteIndex++;
-          if (byteIndex >= msg[msgIndex].Size)  {
+          if (byteIndex >= msg[msgIndexOut].Size)  {
             // this was already the XOR byte then advance to preamble
             state = PREAMBLE;
             preamble_count = 16;
@@ -781,8 +773,7 @@ ISR(TIMER2_OVF_vect) {
 
 } // End of ISR
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 #if defined(USE_OPS_MODE)
@@ -946,6 +937,7 @@ void ops_mode()
 #endif
 
 #if defined(RECEIVER)
+//{ RECEIVER
 void channel_search() {
 
    // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
@@ -991,10 +983,11 @@ void channel_search() {
       } // end of wait time over
    } // end of continue to wait
 } // end of channel_search
+//} RECEIVER
 #endif
 
 void setup() {
-#ifdef DEBUG
+#if defined(DEBUG)
    Serial.begin(115200);
 #endif
 
@@ -1044,11 +1037,13 @@ void setup() {
   AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;                                    // Save the bit 5 value of CV29 (0: Short address, 1: Long address)
 
 #if defined(RECEIVER)
+//{ RECEIVER
   // Set whether to always use modem data on transmit
   // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData, FILTERMODEMDATADEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 0 
    // eeprom_update_byte(&EEInitialWaitPeriodSECDefault, INITIALWAITPERIODSECDEFAULT );
    checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC, &EEInitialWaitPeriodSEC,  (uint8_t)INITIALWAITPERIODSECDEFAULT, SET_DEFAULT);  // Wait time in sec
+//} RECEIVER
 #endif
 
 #if defined(USE_OPS_MODE)
@@ -1079,28 +1074,24 @@ void setup() {
 
    // Set up the input or output pins
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
    Dcc.pin(EXTINT_NUM, INPUT_PIN, 0); // register External Interrupt # and Input Pin of input source. 
                                       // Important. Pins and interrupt #'s are correlated.
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
    DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
 
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
    // Start the radio
    radio.begin();
-#ifdef DEBUG
+#if defined(DEBUG)
    if (radio.isChipConnected()) Serial.print("The chip is connected\n");
    else Serial.print("The chip is NOT connected\n");
 #endif
@@ -1112,47 +1103,50 @@ void setup() {
    radio.enableDynamicPayloads();
    radio.enableDynamicAck(); // Added, not sure it's needed on rx side
 
+   dccptrIn  = &msg[msgIndexIn]; // Initialize dccptrIn
+   dccptrOut = &msg[msgIndexOut]; // Initialize dccptrOut
+
 // Transmitter-specific
 #if defined(TRANSMITTER)
    radio.setRetries(0,0); // delay, count - Important for tranmitter broadcast!
 #endif
+
    radio.setPALevel(powerLevel,LNA); // Set the power level and LNA
 
 // Pipe handling (TX/RX specific)
 #if defined(TRANSMITTER)
+//{ TRANSMITTER
    radio.openWritingPipe(pipe01);
    radio.openReadingPipe(0,pipe00);
    radio.stopListening(); // Experimental. May comment back off
+//} TRANSMITTER
 #else
+//{ RECEIVER
    radio.openWritingPipe(pipe00);
    radio.openReadingPipe(1, pipe01);
    radio.startListening();
+//} RECEIVER
 #endif
  
-   dccptrIn  = &msg[msgIndexInserted]; // Initialize dccptrIn
 // Final timing-sensitive set-ups
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
    // Call the main DCC Init function to enable the DCC Receiver
    Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
-#ifdef DEBUG
+#if defined(DEBUG)
    Serial.println("tx: setup: Dcc package initialized");
 #endif
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
    // Set up the waveform generator timer
    SetupTimer2(); // Set up interrupt Timer 2
-#ifdef DEBUG
+#if defined(DEBUG)
    Serial.println("rx: setup: timer2 ready");
 #endif
-   dccptrOut = &msg[msgIndexInserted]; // Initialize dccptrOut
    newMsg = false;
    timeOfValidDCC = micros();
 
@@ -1162,11 +1156,10 @@ void setup() {
       startInitialWaitTime
     + (uint64_t)InitialWaitPeriodSEC * SEC; // Initialize the end of the wait time
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG)
 #if defined(TRANSMITTER)
    Serial.println("tx: setup: radio ready");
 #else
@@ -1180,38 +1173,34 @@ void setup() {
 
 void loop(){
 #if defined(TRANSMITTER)
-// TRANSMITTER
-//////////////
+//{ TRANSMITTER
 
    Dcc.process(); // The DCC library does it all with the callback notifyDccMsg!
 
-//////////////
-// TRANSMITTER
+//} TRANSMITTER
 #else
-// RECEIVER
-///////////
+//{ RECEIVER
 
    uint8_t Size;
    if ( radio.available(&whatChannel) ) {
       Size = radio.getDynamicPayloadSize();
       radio.read( &payload, Size );
       noInterrupts();
-      msgIndexInserted = (msgIndexInserted+1) % MAXMSG;
-      msg[msgIndexInserted].Size = payload[0];
-      memcpy((void *)&msg[msgIndexInserted].Data[0],(void *)&payload[1],payload[0]);
-      dccptrIn = &msg[msgIndexInserted];
+      msgIndexIn = (msgIndexIn+1) % MAXMSG;
+      msg[msgIndexIn].Size = payload[0];
+      memcpy((void *)&msg[msgIndexIn].Data[0],(void *)&payload[1],payload[0]);
+      dccptrIn = &msg[msgIndexIn];
       newMsg = true;
       timeOfValidDCC = micros();
       interrupts();
-#ifdef DEBUG
+#if defined(DEBUG)
       if (!print_count) printMsgSerial();
       print_count = (print_count+1) % PRINT_MAX;
 #endif
 
    }
 
-///////////
-// RECEIVER
+//} RECEIVER
 #endif
 
 #if defined(USE_LCD)
@@ -1278,6 +1267,7 @@ void loop(){
 #if defined(USE_OPS_MODE)
    if (newMsg) ops_mode();
 #endif
+
 #if defined(RECEIVER)
    if (initialWait) channel_search();
 #endif
