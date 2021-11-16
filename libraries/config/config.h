@@ -128,7 +128,7 @@ caution or for development only.
 
 /* SPCR value -- Change only if you want to alter*/
 /* the coms speed and other SPI configuration attributes*/
-/* This value sets the communication speed to 512MHz*/
+/* This value sets the communication speed to 512kHz*/
 /* bit1 and bit0)*/
 // #define SPCRDEFAULT 0x52
 
