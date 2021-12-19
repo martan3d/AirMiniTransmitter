@@ -710,12 +710,12 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.0 S:1.0/27MH");   // Show state
+   lcd.print("H:1.0 S:1.1/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.0 S:1.0/26MH");   // Show state
+   lcd.print("H:1.0 S:1.1/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -778,9 +778,9 @@ void LCD_Addr_Ch_PL()
    {
       snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
-      lcd_line[0] = 'D';
-      lcd_line[1] = 'C';
-      lcd_line[2] = 'C';
+      lcd_line[0] = 'P';
+      lcd_line[1] = 'M';
+      lcd_line[2] = 'A';
       if (printIn) {
          lcd_line[3] = '<';
          printIn = false;

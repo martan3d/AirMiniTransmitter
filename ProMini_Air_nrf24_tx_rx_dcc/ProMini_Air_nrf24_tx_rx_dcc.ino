@@ -509,7 +509,7 @@ void LCD_Banner()
   if (LCDwhichBanner==INITIAL) lcd.print(bannerString);   // Banner
   else lcd.print("ProMini Air Info");
   lcd.setCursor(0,1);              // Set next line column, row
-  lcd.print("H:1.0 S:1.5/NRF");    // Show state
+  lcd.print("H:1.0 S:1.6/NRF");    // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }
@@ -558,9 +558,9 @@ void LCD_Addr_Ch_PL()
    {
       snprintf(lcd_line,sizeof(lcd_line),"                ");
       printDCC = 0;
-      lcd_line[0] = 'D';
-      lcd_line[1] = 'C';
-      lcd_line[2] = 'C';
+      lcd_line[0] = 'P';
+      lcd_line[1] = 'M';
+      lcd_line[2] = 'A';
       if (printIn) {
          lcd_line[3] = '<';
          printIn = false;
