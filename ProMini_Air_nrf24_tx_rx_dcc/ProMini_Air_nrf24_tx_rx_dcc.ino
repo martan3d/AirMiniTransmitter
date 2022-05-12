@@ -182,7 +182,7 @@ uint64_t now;
 
 // DCC_MSG type defined in NmraDcc.h
 volatile DCC_MSG *dccptrIn;
-         DCC_MSG *dccptrTmp;
+volatile DCC_MSG *dccptrTmp;
 volatile DCC_MSG *dccptrOut;
 volatile bool printIn = true;
 
@@ -216,6 +216,11 @@ int print_count = 0;
 // use digital pins 6 and 5 for DCC out
 // use digital pin D3
 #define OUTPUT_PIN PD3
+#define OUTPUT_PIN2 PD4
+
+#define OUTPUT_HIGH   PORTD = (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2)
+#define OUTPUT_LOW    PORTD = (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
 
 //} RECEIVER
 #endif
@@ -241,14 +246,14 @@ NmraDcc Dcc;
 // definitions for state machine
 // uint8_t last_timer = TIMER_SHORT; // store last timer value
 // uint8_t timer_val = TIMER_LONG; // The timer value
-uint8_t timer_val = TIMER_SHORT; // The timer value
-uint8_t every_second_isr = 0;  // pulse up or down
+volatile uint8_t timer_val = TIMER_SHORT; // The timer value
+volatile uint8_t every_second_isr = 0;  // pulse up or down
 
-enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
-byte preamble_count = 16;
-byte outbyte = 0;
-byte cbit = 0x80;
-int byteIndex = 0;
+volatile enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
+volatile byte preamble_count = 16;
+volatile byte outbyte = 0;
+volatile byte cbit = 0x80;
+volatile int byteIndex = 0;
 
 //} RECEIVER
 #endif
@@ -699,13 +704,14 @@ ISR(TIMER2_OVF_vect) {
   //due to interrupt latency and the work in this function
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
-  byte latency;
+  // byte latency;
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
 
     // PORTD = B01000000;  //use this instead of digitalWrite(6, 1); digitalWrite(5, 0);
-    PORTD |= (1<<OUTPUT_PIN);  // OUTPUT_PIN High
+    // PORTD |= (1<<OUTPUT_PIN);  // OUTPUT_PIN High
+    OUTPUT_HIGH;
     every_second_isr = 0;
     // set timer to last value
     // latency = TCNT2;
@@ -713,7 +719,8 @@ ISR(TIMER2_OVF_vect) {
 
   }  else  {  // != every second interrupt, advance bit or state
 
-    PORTD &= ~(1<<OUTPUT_PIN);  // OUTPUT_PIN Low
+    // PORTD &= ~(1<<OUTPUT_PIN);  // OUTPUT_PIN Low
+    OUTPUT_LOW;
     every_second_isr = 1;
 
     switch (state)  {
@@ -1083,7 +1090,7 @@ void setup() {
 #else
 //{ RECEIVER
 
-   DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
+   SET_OUTPUTPIN; //  register OUTPUT_PIN for Output source
 
 
 //} RECEIVER

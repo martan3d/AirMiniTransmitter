@@ -58,6 +58,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <LiquidCrystal_I2C.h>
 #endif
 
+#define OUTPUT_ENABLE 5 // Output Enable
+#define DCC_DIAG1 6     // Diagnostic Pin #2
 
 #if defined(DCCLibrary)
 ///////////////////
@@ -66,15 +68,16 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <DCCLibrary.h>
 // Externs
 extern bool (*GetNextMessage)(void); // For DCCLibrary
+
 // For DCCLibrary
 #if defined(TRANSMITTER)
 #define DCC_PIN    2     // Arduino pin for DCC out to modem 
 #else
 #define DCC_PIN    4     // Arduino pin for DCC out, not currently used
 #endif
-#define DCC_DIAG0  5     // Diagnostic Pin #1
-#define DCC_DIAG1  6     // Diagnostic Pin #2
+
 #define MAXMSG 32       // The size of the ring buffer. Per Martin's new code
+
 // Implement a ring buffer
 volatile Message msg[MAXMSG] = {      // -> to DCCLibrary.c
     { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}},
@@ -563,12 +566,12 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.0 S:2.3/27MH");   // Show state
+   lcd.print("H:1.1 S:2.3/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.0 S:2.3/26MH");   // Show state
+   lcd.print("H:1.1 S:2.3/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -825,17 +828,17 @@ void setup()
    // Set up the hardware and related variables //
    ///////////////////////////////////////////////
 
+   pinMode(OUTPUT_ENABLE,OUTPUT);             // 
+   digitalWrite(OUTPUT_ENABLE,1);             // Output Enable
+
+   pinMode(DCC_DIAG1,OUTPUT);                 //
+   digitalWrite(DCC_DIAG1,0);                 // Will use this for diagnostics
+
 #if defined(DCCLibrary)
    ////////////////////
    // For DCCLibrary //
    ////////////////////
    GetNextMessage = &NextMessage;             // assign a proper function to GetNextMessage that actually does something
-
-   pinMode(DCC_DIAG0,OUTPUT);                 // 
-   digitalWrite(DCC_DIAG0,0);                 // Will use this for diagnostics
-
-   pinMode(DCC_DIAG1,OUTPUT);                 //
-   digitalWrite(DCC_DIAG1,0);                 // Will use this for diagnostics
 
    //Set the pin for DCC to "output" and set up DCC timers
    SetupDCC(DCC_PIN);   

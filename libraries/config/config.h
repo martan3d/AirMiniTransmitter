@@ -92,9 +92,9 @@ caution or for development only.
 //////////////////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For 27MHz transceivers (e.g., Anaren 869/915MHz (CC110L) and Anaren 869MHz (CC1101) radios)*/
-#define TWENTY_SEVEN_MHZ
+// #define TWENTY_SEVEN_MHZ
 /* For 26MHz transceiver (almost all other radios, including Anaren 433MHz (CC1101), 915MHz (CC1101), and 2.4GHz (CC2500) radios)*/
-// #define TWENTY_SIX_MHZ
+#define TWENTY_SIX_MHZ
 
 //////////////////////////////////////////////////////
 // Special settings. You are NOT required to uncomment

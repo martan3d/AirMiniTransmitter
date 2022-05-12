@@ -68,6 +68,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // Output to CC1101 modem (GD0)
 #define OUTPUT_PIN PD2
 
+#define OUTPUT_HIGH   PORTD = PORTD |  (1<<OUTPUT_PIN)
+#define OUTPUT_LOW    PORTD = PORTD & ~(1<<OUTPUT_PIN)
+#define SET_OUTPUTPIN DDRD  |=  (1<<OUTPUT_PIN)
+
 //} TRANSMITTER
 #else
 //{ RECEIVER
@@ -77,12 +81,14 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INPUT_PIN 2
 #define EXTINT_NUM 0
 #define OUTPUT_PIN PD3
+#define OUTPUT_PIN2 PD4
+
+#define OUTPUT_HIGH   PORTD = (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2)
+#define OUTPUT_LOW    PORTD = (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
 
 //} RECEIVER
 #endif
-
-#define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
-#define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
 
 NmraDcc Dcc;
 
@@ -94,18 +100,18 @@ NmraDcc Dcc;
 // definitions for state machine
 // uint8_t last_timer = TIMER_SHORT; // store last timer value
 // uint8_t timer_val = TIMER_LONG; // The timer value
-uint8_t timer_val = TIMER_SHORT; // The timer value
-uint8_t every_second_isr = 0;  // pulse up or down
+volatile uint8_t timer_val = TIMER_SHORT; // The timer value
+volatile uint8_t every_second_isr = 0;  // pulse up or down
 
-enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
-uint8_t preamble_count = 16;
-uint8_t outbyte = 0;
-uint8_t cbit = 0x80;
-int byteIndex = 0;
+volatile enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
+volatile uint8_t preamble_count = 16;
+volatile uint8_t outbyte = 0;
+volatile uint8_t cbit = 0x80;
+volatile int byteIndex = 0;
 
 // For NmraDcc
-#define DCC_DIAG0  5     // Diagnostic Pin #1
-#define DCC_DIAG1  6     // Diagnostic Pin #2
+#define OUTPUT_ENABLE 5 // Output Enable
+#define DCC_DIAG1 6     // Diagnostic Pin #2
 #define MAXMSG 16       // The size of the ring buffer. Per Martin's new code
 // Implement a ring buffer
 volatile DCC_MSG msg[MAXMSG] = {
@@ -201,7 +207,7 @@ uint64_t now;
 uint64_t then;
 
 volatile DCC_MSG *dccptrIn;
-         DCC_MSG *dccptrTmp;
+volatile DCC_MSG *dccptrTmp;
 volatile DCC_MSG *dccptrOut;
 volatile bool printIn = true;
 
@@ -581,6 +587,7 @@ void eepromClear() {
    }
 }
 
+/* Not used
 void checkSetDefault(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, const uint8_t *EETargetPtr, uint8_t defaultValue, uint8_t forceDefault)
 {
 
@@ -595,6 +602,7 @@ void checkSetDefault(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, const 
    Serial.print("\n");
 
 }
+*/
 
 // Function, based on the value of forceDefault:
 //    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
@@ -710,12 +718,12 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.0 S:1.1/27MH");   // Show state
+   lcd.print("H:1.1 S:1.1/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.0 S:1.1/26MH");   // Show state
+   lcd.print("H:1.1 S:1.1/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -988,8 +996,8 @@ void setup()
    // Set up the hardware and related variables //
    ///////////////////////////////////////////////
 
-   pinMode(DCC_DIAG0,OUTPUT);                 // 
-   digitalWrite(DCC_DIAG0,0);                 // Will use this for diagnostics
+   pinMode(OUTPUT_ENABLE,OUTPUT);             // 
+   digitalWrite(OUTPUT_ENABLE,1);             // Now used for Output Enable
 
    pinMode(DCC_DIAG1,OUTPUT);                 //
    digitalWrite(DCC_DIAG1,0);                 // Will use this for diagnostics
@@ -1002,7 +1010,7 @@ void setup()
    Dcc.pin(EXTINT_NUM, INPUT_PIN, 0); // register External Interrupt # and Input Pin of input source. 
                                       // Important. Pins and interrupt #'s are correlated.
 
-   DDRD |= (1<<OUTPUT_PIN); //  register OUTPUT_PIN for Output source
+   SET_OUTPUTPIN;
 
    // Final timing-sensitive set-ups
 

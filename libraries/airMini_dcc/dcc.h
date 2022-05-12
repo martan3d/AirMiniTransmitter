@@ -43,15 +43,19 @@ extern "C" {
 #if defined(TRANSMITTER)
 #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
 #define OUTPUT_PIN PD4  // 5V unipolar DCC diagnostic output, not currently used
+#define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
+#define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
+#define SET_OUTPUTPIN DDRD  |=  (1<<OUTPUT_PIN)
 #else
-#define INPUT_PIN  PD2  // 3.3V unipolar DCC input from raw modem output
-#define OUTPUT_PIN PD3  // 5V unipolar DCC filtered output
+#define INPUT_PIN   PD2  // 3.3V unipolar DCC input from raw modem output
+#define OUTPUT_PIN  PD3  // 5V unipolar DCC filtered output
+#define OUTPUT_PIN2 PD4  // 5V unipolar DCC filtered output inverted
+#define OUTPUT_HIGH   PORTD = (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2)
+#define OUTPUT_LOW    PORTD = (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
 #endif
 
 #define SET_INPUTPIN  DDRD  &= ~(1<<INPUT_PIN)
-#define SET_OUTPUTPIN DDRD  |=  (1<<OUTPUT_PIN)
-#define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
-#define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
 
 #define DCCMAXLEN 6 // This is the maximum # of bytes of a DCC packet (not 5!)
 #define MAX_DCC_MESSAGE_LEN 6    // including XOR-Byte
