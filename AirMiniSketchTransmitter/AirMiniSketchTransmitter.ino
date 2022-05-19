@@ -3,7 +3,7 @@ AirMiniSketchTransmitter.ino
 
 Created: Dec  7 12:15:25 EST 2019
 
-Copyright (c) 2019-2021, Martin Sant and Darrell Lamm
+Copyright (c) 2019-2022, Martin Sant and Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -236,7 +236,7 @@ uint8_t regionNum=0;
 //{
 #pragma message "Info: using European 869MHz/North American 915MHz frequency-dependent channels"
 #if defined(RECEIVER)
-uint8_t searchChannels[18] = {0,17,16,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}; // Channel search order
+uint8_t searchChannels[19] = {0,18,17,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}; // Channel search order
 #endif
 #if defined(USE_LCD)
 const char *bannerString = "ProMini Air NA/E";
@@ -290,6 +290,7 @@ volatile uint8_t turnModemOnOff;             // Do NOT intialize, in EEPROM
 uint8_t turnModemOnOff_in;                   // Non-volatile version
 volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
 extern uint8_t powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
+extern uint8_t deviatnval;                   // FSK deviation hex code
 uint8_t dcLevel_in;                          // Non-volatile version
 
 uint8_t AirMiniCV1;                          // The AirMini's address, HIGH uint8_t
@@ -1073,6 +1074,11 @@ void loop()
                            checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (uint8_t)CVval, 1); 
                         break;
 #endif
+                        case  243:  // Set the DEVIATN hex code
+                           deviatnval = CVval;
+                           startModemFlag = 1; // Reset the modem with a new deviatnval. Not persistent yet
+                        break;
+
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                            checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
                            AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000; // Save the bit 5 value of CV29 (0: Short address, 1: Long address)

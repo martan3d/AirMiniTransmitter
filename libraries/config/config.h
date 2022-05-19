@@ -83,7 +83,7 @@ caution or for development only.
 /* Uncomment ONLY ONE #define*/
 /* To set the default to NA channel  0 for 869/915MHz ISM bands only!*/
 #define NA_DEFAULT
-/* To set the default to EU channel 17 for 869/915MHz ISM bands only!*/
+/* To set the default to EU channel 18 for 869/915MHz ISM bands only!*/
 // #define EU_DEFAULT
 #endif
 
@@ -223,7 +223,7 @@ caution or for development only.
       #endif
    #elif  defined(EU_DEFAULT)
       #if ! defined(CHANNELDEFAULT)
-        #define CHANNELDEFAULT 17
+        #define CHANNELDEFAULT 18
       #endif
    #endif
 //}
