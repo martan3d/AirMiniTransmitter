@@ -46,6 +46,12 @@ This requires #undef TWENTY_SEVEN_MHZ
 #include "WProgram.h"
 #endif
 
+// Handling of Atmega328pb, instead of Atmega328p
+#ifndef SPCR
+ #define SPCR SPCR0
+ #define SPSR SPSR0
+ #define SPDR SPDR0
+#endif
 
 uint8_t region = 0;
 
@@ -286,7 +292,7 @@ uint8_t initRxData[2][48] = {
 };
 #pragma message "Info: using Tx_26MHz_NA_915. Works with CVP and Tam Valley Depot receivers"
 #pragma message "Info: using Tx_26MHz_EU_869. Works with Tam Valley Depot EU DRS1 receivers"
-uint8_t initTxData[1][48] = {
+uint8_t initTxData[2][48] = {
 {Tx_26MHz_NA_915},
 {Tx_26MHz_EU_869}
 };
