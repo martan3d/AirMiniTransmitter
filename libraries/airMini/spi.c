@@ -46,13 +46,6 @@ This requires #undef TWENTY_SEVEN_MHZ
 #include "WProgram.h"
 #endif
 
-// Handling of Atmega328pb, instead of Atmega328p
-#ifndef SPCR
- #define SPCR SPCR0
- #define SPSR SPSR0
- #define SPDR SPDR0
-#endif
-
 uint8_t region = 0;
 
 uint8_t powerLevel=6; // The power level will be reset by reading EEPROM. Setting it here is possibly-important to prevent burn-out at higher levels
@@ -566,7 +559,7 @@ void initializeSPI()
                               //   | |-----------------------------               |
                               //   | ||----------------           |               |
                               //   | ||               |           |               |
-    DDRB = 0x2f;              // 00101111 11 Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
+    DDRB = 0x2f;              // 00101111    Set CSN (P10), MOSI (P11), and SCLK (P13) to outputs. Output Pins 8, 9 are not used.
                               //    |
                               //    MISO (P12) is input
 

@@ -32,15 +32,27 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#include <config.h>
 
 #ifndef SPI_H_
 #define SPI_H_
+
+#include <config.h>
 
 void initializeSPI();
 uint8_t strobeSPI(uint8_t);
 uint8_t readSPI(uint8_t addr);
 void startModem(uint8_t channel, uint8_t mode);
+
+/*
+// Handling of Atmega328pb, instead of Atmega328p
+#ifndef SPCR
+  #define SPCR SPCR0
+  #define SPSR SPSR0
+  #define SPDR SPDR0
+  #define SPI_STC_vect SPI0_STC_vect
+  #define SPI_STC_vect_num SPI0_STC_vect_num
+#endif
+*/
 
 
 #endif /* SPI_H_ */
