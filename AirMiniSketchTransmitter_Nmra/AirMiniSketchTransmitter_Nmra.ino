@@ -452,7 +452,7 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
 // Returns the time load value which must be loaded into TCNT2 inside your ISR routine.
 void SetupTimer2() {
   //Timer2 Settings: Timer Prescaler /8, mode 0
-  //Timmer clock = 16MHz/8 = 2MHz oder 0,5usec
+  //Timmer clock = 16MHz/8 = 2MHz or 0.5usec
   TCCR2A = 0;
   TCCR2B = 0 << CS22 | 1 << CS21 | 0 << CS20;
 
