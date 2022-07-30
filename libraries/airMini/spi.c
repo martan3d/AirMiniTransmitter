@@ -584,9 +584,8 @@ void initializeSPI()
     SPCR = SPCRDEFAULT;
 #endif
 
-    uint8_t junk;              // Junk variable
-    junk = SPSR;               // Clear out any junk
-    junk = SPDR;               // Clear out any junk
+    SPSR;               // Clear out any junk
+    SPDR;               // Clear out any junk
 }
 
 uint8_t clockSPI(uint8_t data)
@@ -635,7 +634,9 @@ void startModem(uint8_t channel, uint8_t mode)
     }
 
     ////////////////
+    beginSPI();
     strobeSPI(SIDLE);                // send stop command to modem (old way)
+    endSPI();
     
 /*
     /////////////////////
@@ -696,8 +697,14 @@ void startModem(uint8_t channel, uint8_t mode)
        endSPI();
     }
  
-    if (mode == TX) strobeSPI(SIDLE); // Ensure Modem is in IDLE for TX
+    if (mode == TX) {
+       beginSPI();
+       strobeSPI(SIDLE); // Ensure Modem is in IDLE for TX
+       endSPI();
+    }
+    beginSPI();
     strobeSPI(mode);                  // TX or RX mode
+    endSPI();
 }
 
 
