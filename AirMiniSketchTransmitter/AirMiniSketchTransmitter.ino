@@ -76,7 +76,7 @@ extern bool (*GetNextMessage)(void); // For DCCLibrary
 #define DCC_PIN    4     // Arduino pin for DCC out, not currently used
 #endif
 
-#define MAXMSG 32       // The size of the ring buffer. Per Martin's new code
+#define MAXMSG 16       // The size of the ring buffer. Per Martin's new code
 
 // Implement a ring buffer
 volatile Message msg[MAXMSG] = {      // -> to DCCLibrary.c
