@@ -83,8 +83,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #define OUTPUT_PIN PD3
 #define OUTPUT_PIN2 PD4
 
-#define OUTPUT_HIGH   PORTD = (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2)
-#define OUTPUT_LOW    PORTD = (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define OUTPUT_OFF    PORTD = (PORTD &  ~(1<<OUTPUT_PIN)) &  ~(1<<OUTPUT_PIN2) 
+#define OUTPUT_HIGH   PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) |  (1<<OUTPUT_PIN) : (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2))
+#define OUTPUT_LOW    PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) & ~(1<<OUTPUT_PIN) : (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2))
 #define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
 
 //} RECEIVER
@@ -164,7 +165,10 @@ extern uint8_t channels_na_max;  // From spi.c
 #endif
 
 #define DCLEVEL_INDEFAULT 1
-#define TURNMODEMON_INDEFAULT 0
+#if ! defined(LOCKEDANTIPHASEDEFAULT)
+#define LOCKEDANTIPHASEDEFAULT 1
+#endif
+#pragma message "Info: Default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
 #define IDLEPERIODMSDEFAULT 128
 #define FILTERMODEMDATADEFAULT 0
 #define AIRMINICV1DEFAULT 3
@@ -323,8 +327,7 @@ const char *regionString[] = {"W"}; // Region code: N=North America, E=Europe, W
 uint16_t CVnum;                              // CV numbers consume 10 bits
 uint8_t CVval;                               // CV values consume only 8 bits
 uint8_t CHANNEL;                             // Airwire Channel for both TX/RX, may change in SW. Do NOT initialize
-volatile uint8_t turnModemOnOff;             // Do NOT intialize, in EEPROM
-uint8_t turnModemOnOff_in;                   // Non-volatile version
+uint8_t lockedAntiphase;                     // Do NOT intialize, in EEPROM
 volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
 extern uint8_t powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
 extern uint8_t deviatnval;                   // FSK deviation hex code
@@ -355,9 +358,9 @@ uint8_t  EEisSetCHANNEL = 1;               // Stored RF channel is set
 uint8_t  EECHANNEL = 2;                    // Stored RF channel #
 // uint8_t  EECHANNELDefault;             // Stored RF channel #
 
-uint8_t  EEisSetturnModemOnOff = 3;        // Stored modem turn on/off is set
-uint8_t  EEturnModemOnOff = 4;             // Stored modem turn on/off
-// uint8_t  EEturnModemOnOffDefault;      // Stored modem turn on/off
+uint8_t  EEisSetlockedAntiphase = 3;        // Stored modem turn on/off is set
+uint8_t  EElockedAntiphase = 4;             // Stored modem turn on/off
+// uint8_t  EElockedAntiphaseDefault;      // Stored modem turn on/off
 
 uint8_t  EEisSetdcLevel = 5;               // Stored DC output level is set
 uint8_t  EEdcLevel = 6;                    // Stored DC output level if modem turned off
@@ -422,6 +425,7 @@ bool LCDrefresh = false;             // Whether to refresh
 LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
 #endif
+
 
 ///////////////////
 // Start of code //
@@ -719,12 +723,12 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.1 S:1.2/27MH");   // Show state
+   lcd.print("H:1.2 S:1.3/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.1 S:1.2/26MH");   // Show state
+   lcd.print("H:1.2 S:1.3/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -927,10 +931,9 @@ void setup()
    checkSetDefaultEE(&dcLevel_in, &EEisSetdcLevel, &EEdcLevel, (uint8_t)DCLEVEL_INDEFAULT, SET_DEFAULT);       // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
    dcLevel = (volatile uint8_t)dcLevel_in;                                  // Since dcLevel is volatile we need a proxy uint8_t 
 
-   // Turn the modem OFF/ON option. For use if bad modem data is detected in RX mode
-   // eeprom_update_byte(&EEturnModemOnOffDefault, TURNMODEMON_INDEFAULT );
-   checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (uint8_t)TURNMODEMON_INDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
-   turnModemOnOff = (volatile uint8_t)turnModemOnOff_in;                                    // Needed to use a proxy variable since turnModemOnOff is volatile uint8_t
+   // Turn the lockedAntiphase OFF/ON option. 
+   // eeprom_update_byte(&EElockedAntiphaseDefault, LOCKEDANTIPHASEDEFAULT );
+   checkSetDefaultEE(&lockedAntiphase, &EEisSetlockedAntiphase, &EElockedAntiphase, (uint8_t)LOCKEDANTIPHASEDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
 
    // Set the DCC time-out period for sending IDLE packets. Used along with duplicate DCC packet detection for inserting IDLE packets
    // eeprom_update_byte(&EEidlePeriodmsDefault, IDLEPERIODMSDEFAULT );
@@ -1012,6 +1015,9 @@ void setup()
                                       // Important. Pins and interrupt #'s are correlated.
 
    SET_OUTPUTPIN;
+#if defined(RECEIVER)
+   OUTPUT_OFF;
+#endif
 
    // Final timing-sensitive set-ups
 
@@ -1179,8 +1185,7 @@ void loop()
                               CVStatus = IGNORED;
                         break;
                         case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values. Verified this feature works
-                           checkSetDefaultEE(&turnModemOnOff_in, &EEisSetturnModemOnOff, &EEturnModemOnOff, (uint8_t)CVval, 1); // Set turnModemOnOff and reset EEPROM values
-                           turnModemOnOff = (volatile uint8_t)turnModemOnOff_in; // Assign for volatile
+                           checkSetDefaultEE(&lockedAntiphase, &EEisSetlockedAntiphase, &EElockedAntiphase, (uint8_t)CVval, 1); // Set lockedAntiphase and reset EEPROM values
                         break;
                         case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values. 
                            tooLong = (uint64_t)CVval * QUARTERSEC;
@@ -1420,7 +1425,6 @@ void loop()
          //                                  to 0 (LOW) or non-zero (HIGH).
          if((then-timeOfValidDCC) >= tooLong)
            {
-             if (turnModemOnOff) strobeSPI(SIDLE);     // send stop command to modem if no DEMUX is available
              if(filterModemData) useModemData = 0;      // false use-of-modem-data state
              inactiveStartTime = then;                  // Start inactive timer
            }
@@ -1435,22 +1439,11 @@ void loop()
       // After sleeping for a while, wake up the modem and try to collect a valid DCC signal
       // Note the logic allows for possibility that the modem is left on 
       // and a valid DCC packet is found during the sleep time.
-      else if(((sleepTime||turnModemOnOff) && ((then-inactiveStartTime) >= sleepTime)) || ((then-timeOfValidDCC) < tooLong))
+      else if(((sleepTime) && ((then-inactiveStartTime) >= sleepTime)) || ((then-timeOfValidDCC) < tooLong))
       {
          useModemData = 1;                          // Active use-of-modem-data state
          timeOfValidDCC = then;                     // Start over on the DCC timing
          inactiveStartTime = then + BACKGROUNDTIME; // start the modem inactive timer sometime in the future
-         if(turnModemOnOff)
-         {
-            // Call the main DCC Init function to enable the DCC Receiver
-            // Dcc.init( MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 ); 
-            strobeSPI(MODE);                       // awaken the modem in MODE
-         }
-         else 
-         {
-            // timeOfValidDCC = micros();
-            ;;
-         }
       }
 
       // Special processing for channel search

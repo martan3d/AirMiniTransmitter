@@ -36,6 +36,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "servotimer.h"
 #include "dcc.h"
 
+extern uint8_t lockedAntiphase;
+
 enum {PREAMBLE, START_BIT, DATA, END_BIT} State = PREAMBLE;
 
 // Any variables that are used between the ISR and other functions are declared volatile

@@ -50,8 +50,9 @@ extern "C" {
 #define INPUT_PIN   PD2  // 3.3V unipolar DCC input from raw modem output
 #define OUTPUT_PIN  PD3  // 5V unipolar DCC filtered output
 #define OUTPUT_PIN2 PD4  // 5V unipolar DCC filtered output inverted
-#define OUTPUT_HIGH   PORTD = (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2)
-#define OUTPUT_LOW    PORTD = (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define OUTPUT_OFF    PORTD = (PORTD &  ~(1<<OUTPUT_PIN)) &  ~(1<<OUTPUT_PIN2) 
+#define OUTPUT_HIGH   PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) |  (1<<OUTPUT_PIN) : (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2))
+#define OUTPUT_LOW    PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) & ~(1<<OUTPUT_PIN) : (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2))
 #define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
 #endif
 
