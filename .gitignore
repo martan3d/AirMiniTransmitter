@@ -6,6 +6,8 @@
 *.swo
 libraries/.DS_Store
 doc_src
+awk
+bin
 attic
 save
 *,v
