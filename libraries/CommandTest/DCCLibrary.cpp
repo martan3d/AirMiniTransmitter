@@ -1,6 +1,7 @@
 #undef SEND_DUPLICATE_PACKETS // Not sending duplicate packets if a new packet is NOT ready
 #undef SEND_PREAMBLE_PULSES   // Not using extra preamble pulses if a new packet is NOT ready. Using an IDLE packet instead
 
+#include <config.h>
 #include "DCCLibrary.h"
 #include <string.h>
 
@@ -33,17 +34,21 @@
 
 //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
 #define TIMER_SHORT 0x8D        // 58usec pulse length
-#define TIMER_LONG  0x1B        // 116usec pulse length
+extern volatile uint8_t timer_long;
 #define LONGPULSE   0
 #define SHORTPULSE  1
 
 // byte last_timer = TIMER_SHORT;  // store last timer value
-// byte timer_val = TIMER_LONG;  // store last timer value
+// byte timer_val = timer_long;  // store last timer value
 byte timer_val = TIMER_SHORT;  // store last timer value
 byte every_second_isr = 0;      // pulse up or down
 
 enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
-byte preamble_count = 16;
+extern byte preamble_bits;
+#if ! defined(PREAMBLE_BITS)
+#define PREAMBLE_BITS 16
+#endif
+byte preamble_count = PREAMBLE_BITS;
 byte outbyte = 0;
 byte cbit = 0x80;
 int byteIndex = 0;
@@ -132,7 +137,7 @@ ISR(TIMER2_OVF_vect){
                 }
                 break;
             case SEPERATOR:
-                timer_val = TIMER_LONG;
+                timer_val = timer_long;
                 // then advance to next state
                 state = SENDBYTE;
                 // goto next byte ...
@@ -140,14 +145,14 @@ ISR(TIMER2_OVF_vect){
                 outbyte = msgExtracted[msgExtractedIndex].Data[byteIndex];
                 break;
             case SENDBYTE:
-                timer_val = (outbyte & cbit)? TIMER_SHORT : TIMER_LONG;
+                timer_val = (outbyte & cbit)? TIMER_SHORT : timer_long;
                 cbit = cbit >> 1;
                 if(cbit == 0){  // last bit sent, is there a next byte?
                     byteIndex++;
                     if(byteIndex >= msgExtracted[msgExtractedIndex].Size){
                         // this was already the XOR byte then advance to preamble
                         state = PREAMBLE;
-                        preamble_count = 16;
+                        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS); 
                     }else{
                         // send separator and advance to next byte
                         state = SEPERATOR ;

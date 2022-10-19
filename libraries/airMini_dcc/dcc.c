@@ -43,7 +43,7 @@ enum {PREAMBLE, START_BIT, DATA, END_BIT} State = PREAMBLE;
 // Any variables that are used between the ISR and other functions are declared volatile
 uint16_t usec;
 uint16_t dnow;
-uint16_t BitCount;
+uint16_t BitCount = 0;
 uint8_t dataByte;
 uint8_t byteCounter;
 DCC_MSG buffer;
@@ -191,6 +191,7 @@ ISR(INT0_vect)
         case START_BIT:                     // preamble at least almost done, wait for the start of the data
              if(!DccBitVal)
              {
+                 buffer.PreambleBits = BitCount-1; // Set the # of preamble bits, before resetting BitCount
                  BitCount = 0;
                  byteCounter = 0;
                  State = DATA;              // soon as we have it, next state, collect the bits for the data bytes

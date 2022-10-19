@@ -95,17 +95,25 @@ NmraDcc Dcc;
 
 //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
 #define TIMER_SHORT 0x8D  // 58usec pulse length
+#if !defined(TIMER_LONG)
 #define TIMER_LONG  0x1B  // 116usec pulse length
+#endif
+volatile uint8_t timer_long = TIMER_LONG;
 
 
 // definitions for state machine
 // uint8_t last_timer = TIMER_SHORT; // store last timer value
-// uint8_t timer_val = TIMER_LONG; // The timer value
+// uint8_t timer_val = timer_long; // The timer value
 volatile uint8_t timer_val = TIMER_SHORT; // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 
 volatile enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
-volatile uint8_t preamble_count = 16;
+// Make the preamble as short as possible !
+#if !defined(PREAMBLE_BITS)
+#define PREAMBLE_BITS 16
+#endif
+uint8_t preamble_bits = 0; // 0 or >= 12
+volatile uint8_t preamble_count = PREAMBLE_BITS;
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
 volatile int byteIndex = 0;
@@ -116,14 +124,14 @@ volatile int byteIndex = 0;
 #define MAXMSG 16       // The size of the ring buffer. Per Martin's new code
 // Implement a ring buffer
 volatile DCC_MSG msg[MAXMSG] = {
-    { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}},
-    { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}},
+    { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+    { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
     { 0, 0,  { 0,    0, 0,    0, 0, 0}}
    };
 
 // Idle message
 const DCC_MSG msgIdle =
-   { 3, 16, { 0xFF, 0, 0xFF, 0, 0, 0}};   // idle msg
+   { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}};   // idle msg
 
 volatile uint8_t msgIndexOut = 0;
 volatile uint8_t msgIndexIn = 0; // runs from 0 to MAXMSG-1
@@ -509,22 +517,11 @@ ISR(TIMER2_OVF_vect) {
         preamble_count--;
         if (preamble_count == 0)  {  // advance to next state
           state = SEPERATOR;
-          // get next message
-          if (msgIndexOut != msgIndexIn) {
-             msgIndexOut = (msgIndexOut+1) % MAXMSG;
-             dccptrOut = &msg[msgIndexOut];
-          }
-          else {// If no new message, send an idle message in the updated msgIndexIn slot
-             msgIndexIn = (msgIndexIn+1) % MAXMSG;
-             msgIndexOut = msgIndexIn;
-             memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-          }
-          // dccptrOut = &msg[msgIndexOut];
           byteIndex = 0; //start msg with uint8_t 0
         }
         break;
       case SEPERATOR:
-        timer_val = TIMER_LONG;
+        timer_val = timer_long;
         // then advance to next state
         state = SENDBYTE;
         // goto next uint8_t ...
@@ -532,14 +529,29 @@ ISR(TIMER2_OVF_vect) {
         outbyte = msg[msgIndexOut].Data[byteIndex];
         break;
       case SENDBYTE:
-        timer_val = (outbyte & cbit) ? TIMER_SHORT : TIMER_LONG;
+        timer_val = (outbyte & cbit) ? TIMER_SHORT : timer_long;
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next uint8_t?
           byteIndex++;
           if (byteIndex >= msg[msgIndexOut].Size)  {
             // this was already the XOR uint8_t then advance to preamble
             state = PREAMBLE;
-            preamble_count = 16;
+            // get next message
+            if (msgIndexOut != msgIndexIn) {
+               msgIndexOut = (msgIndexOut+1) % MAXMSG;
+               dccptrOut = &msg[msgIndexOut]; // For display only
+            }
+            else {// If no new message, send an idle message in the updated msgIndexIn slot
+               msgIndexIn = (msgIndexIn+1) % MAXMSG;
+               msgIndexOut = msgIndexIn;
+               memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+            }
+            // dccptrOut = &msg[msgIndexOut];
+#if defined(TRANSMITTER)
+            preamble_count = (preamble_bits ? preamble_bits : msg[msgIndexOut].PreambleBits); // Match w/ input to reduce desynchronization
+#else
+            preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS); // Ignore for receiver to keep PREAMBLE_BITS short
+#endif
           }  else  {
             // send separtor and advance to next uint8_t
             state = SEPERATOR ;
@@ -723,12 +735,12 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.2 S:1.3/27MH");   // Show state
+   lcd.print("H:1.2 S:1.4/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.2 S:1.3/26MH");   // Show state
+   lcd.print("H:1.2 S:1.4/26MH");   // Show state
 #else
 //{
 #error "Undefined crystal frequency"
@@ -802,10 +814,10 @@ void LCD_Addr_Ch_PL()
          lcd_line[3] = '>';
          printIn = true;
       }
-      for(uint8_t i = 0; i < dccptrTmp->Size; i++) 
-      {
+      for(uint8_t i = 0; i < dccptrTmp->Size; i++) {
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptrTmp->Data[i]);
       }
+      // snprintf(&lcd_line[4],5,"P:%02d", dccptrTmp->PreambleBits); // For debugging only!!
    }
    else
    {
@@ -923,7 +935,7 @@ void setup()
   
    // Just flat out set the powerLevel
    // eeprom_update_byte(&EEpowerLevelDefault, POWERLEVELDEFAULT );
-   checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (uint8_t)POWERLEVELDEFAULT, 1);  // Force the reset of the power level. This is a conservative approach.
+   checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel, &EEpowerLevel, (uint8_t)POWERLEVELDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set to 1 and set EEPROM values
 
    // Set the alternate DC output level to HIGH or LOW (i.e., bad CC1101 data)
    // The level of this output can be used by some decoders. The default is HIGH.
@@ -1230,6 +1242,14 @@ void loop()
                         case  243:  // Set the DEVIATN hex code
                            deviatnval = CVval;
                            startModemFlag = 1; // Reset the modem with a new deviatnval. Not persistent yet
+                        break;
+                        case  242:  // Set the preamble counts
+                           CVval = ((!CVval) || (CVval > 12)) ? (CVval):(12); // Validation: either 0 or >= 12. Non-persistent
+                           preamble_bits = CVval;
+                        break;
+                        case  241:  // Set the timer long counts
+                           CVval = (CVval > 0x43) ? (CVval):(0x43); // Validation >= 95uS. Non-persistent
+                           timer_long = CVval;
                         break;
 
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
