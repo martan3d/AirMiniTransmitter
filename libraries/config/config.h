@@ -269,6 +269,7 @@ caution or for development only.
 ///////////////////////////////////////
 // Special settings to reset messages
 ///////////////////////////////////////
+
 #undef RESET_LONG_PULSE_LENGTH
 #if defined(RESET_LONG_PULSE_LENGTH)
    // #define TIMER_LONG  0x23  // 100usec pulse length + 1
@@ -277,13 +278,19 @@ caution or for development only.
 #else
    #pragma message "Info: Compiling parameters for standard DCC long pulse width!"
 #endif
-#define RESET_PREAMBLE_BITS
+
+#undef RESET_PREAMBLE_BITS
 #if defined(RESET_PREAMBLE_BITS) && defined(TRANSMITTER)
    #define PREAMBLE_BITS 30
    #pragma message "Info: reset preamble count to " xstr(PREAMBLE_BITS) 
 #else
    #pragma message "Info: Compiling with standard DCC preamble count!"
 #endif
+
+// For DRV8871 amp
+// #define LOCKEDANTIPHASEDEFAULT 0
+// For Cytron MD13S amp
+// #define LOCKEDANTIPHASEDEFAULT 1
 
 ///////////////////////////
 // End of entire include //

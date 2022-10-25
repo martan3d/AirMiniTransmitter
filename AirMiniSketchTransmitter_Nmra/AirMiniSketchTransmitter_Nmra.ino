@@ -1,4 +1,4 @@
-/*
+/* 
 AirMiniSketchTransmitter_Nmra.ino 
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
@@ -31,6 +31,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #undef DEBUG_LOCAL
+
+#if defined(RECEIVER)
+ #undef USE_CUTOUT
+#else
+ #define USE_CUTOUT
+#endif
 
 #include <config.h>
 #include <EEPROM.h>
@@ -94,26 +100,35 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 NmraDcc Dcc;
 
 //Timer frequency is 2MHz for ( /8 prescale from 16MHz )
-#define TIMER_SHORT 0x8D  // 58usec pulse length
+#define TIMER_SHORT 141  // 58usec pulse length
 #if !defined(TIMER_LONG)
-#define TIMER_LONG  0x1B  // 116usec pulse length
+#define TIMER_LONG  27  // 116usec pulse length
+#define TIMER_LONG_CUTOUT  41  // 107.5usec pulse length
 #endif
 volatile uint8_t timer_long = TIMER_LONG;
+volatile uint8_t timer_short = TIMER_SHORT;
 
 
 // definitions for state machine
-// uint8_t last_timer = TIMER_SHORT; // store last timer value
+// uint8_t last_timer = timer_short; // store last timer value
 // uint8_t timer_val = timer_long; // The timer value
-volatile uint8_t timer_val = TIMER_SHORT; // The timer value
+volatile uint8_t timer_val = timer_short; // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 
-volatile enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
-// Make the preamble as short as possible !
-#if !defined(PREAMBLE_BITS)
-#define PREAMBLE_BITS 16
+volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET} previous_state, state = PREAMBLE;
+#if ! defined(PREAMBLE_BITS)
+#define PREAMBLE_BITS 30
 #endif
 uint8_t preamble_bits = 0; // 0 or >= 12
-volatile uint8_t preamble_count = PREAMBLE_BITS;
+volatile uint8_t preamble_count = PREAMBLE_BITS+1;
+#if defined(USE_CUTOUT)
+#pragma message "Defining cutout variables"
+volatile uint8_t cutout_done = 0;
+volatile uint8_t timer_long_cutout[3] = {TIMER_LONG, TIMER_LONG_CUTOUT, TIMER_LONG_CUTOUT};
+uint8_t count_railcom_max[3] = {1,3,5};
+uint8_t count_railcom = 0;
+uint8_t preamble_type = 0; // 0, 1, 2
+#endif
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
 volatile int byteIndex = 0;
@@ -173,10 +188,12 @@ extern uint8_t channels_na_max;  // From spi.c
 #endif
 
 #define DCLEVEL_INDEFAULT 1
+
 #if ! defined(LOCKEDANTIPHASEDEFAULT)
 #define LOCKEDANTIPHASEDEFAULT 1
 #endif
 #pragma message "Info: Default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
+
 #define IDLEPERIODMSDEFAULT 128
 #define FILTERMODEMDATADEFAULT 0
 #define AIRMINICV1DEFAULT 3
@@ -473,7 +490,7 @@ void SetupTimer2() {
   TIMSK2 = 1 << TOIE2;
 
   //load the timer for its first cycle
-  TCNT2 = TIMER_SHORT;
+  TCNT2 = timer_short;
 } // End of SetupTimer2
 
 //Timer2 overflow interrupt vector handler
@@ -483,7 +500,7 @@ ISR(TIMER2_OVF_vect) {
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
-  // uint8_t latency;
+  uint8_t latency;
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
@@ -494,12 +511,22 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_HIGH; // Output high
 #endif
+    latency = TCNT2;
 
     every_second_isr = 0;
+#if defined(USE_CUTOUT)
+    if ((previous_state==PREAMBLE) && (!cutout_done)) {
+       timer_val = timer_long_cutout[preamble_type]; // Will be reset below on next cycle
+       count_railcom = (count_railcom+1) % count_railcom_max[preamble_type];
+       if (count_railcom) {
+          every_second_isr = 1; // Stay HIGH
+       }
+       else cutout_done = 1; // Stop cutout
+    }
+#endif
     // set timer to last value
     // latency = TCNT2;
     // TCNT2 = latency + last_timer;
-
   }  else  {  // != every second interrupt, advance bit or state
 
 #if defined(RECEIVER)
@@ -508,19 +535,21 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_LOW; // Output high
 #endif
+    latency = TCNT2;
 
     every_second_isr = 1;
+    previous_state = state;
 
     switch (state)  {
       case PREAMBLE:
-        timer_val = TIMER_SHORT;
+        timer_val = timer_short;
         preamble_count--;
         if (preamble_count == 0)  {  // advance to next state
-          state = SEPERATOR;
+          state = STARTBYTE; // Really STARTPACKET
           byteIndex = 0; //start msg with uint8_t 0
         }
         break;
-      case SEPERATOR:
+      case STARTBYTE:
         timer_val = timer_long;
         // then advance to next state
         state = SENDBYTE;
@@ -529,34 +558,50 @@ ISR(TIMER2_OVF_vect) {
         outbyte = msg[msgIndexOut].Data[byteIndex];
         break;
       case SENDBYTE:
-        timer_val = (outbyte & cbit) ? TIMER_SHORT : timer_long;
+        timer_val = (outbyte & cbit) ? timer_short : timer_long;
         cbit = cbit >> 1;
         if (cbit == 0)  {  // last bit sent, is there a next uint8_t?
           byteIndex++;
           if (byteIndex >= msg[msgIndexOut].Size)  {
-            // this was already the XOR uint8_t then advance to preamble
-            state = PREAMBLE;
-            // get next message
-            if (msgIndexOut != msgIndexIn) {
-               msgIndexOut = (msgIndexOut+1) % MAXMSG;
-               dccptrOut = &msg[msgIndexOut]; // For display only
-            }
-            else {// If no new message, send an idle message in the updated msgIndexIn slot
-               msgIndexIn = (msgIndexIn+1) % MAXMSG;
-               msgIndexOut = msgIndexIn;
-               memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-            }
-            // dccptrOut = &msg[msgIndexOut];
-#if defined(TRANSMITTER)
-            preamble_count = (preamble_bits ? preamble_bits : msg[msgIndexOut].PreambleBits); // Match w/ input to reduce desynchronization
-#else
-            preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS); // Ignore for receiver to keep PREAMBLE_BITS short
-#endif
+
+            // this was already the XOR uint8_t then advance to stop packet! NOT preamble
+            state = STOPPACKET; // NOT preamble!!!
+
           }  else  {
             // send separtor and advance to next uint8_t
-            state = SEPERATOR ;
+            state = STARTBYTE;
           }
         }
+        break;
+      case STOPPACKET:
+        timer_val = timer_short;
+        state = PREAMBLE;
+        // get next message
+        if (msgIndexOut != msgIndexIn) {
+           msgIndexOut = (msgIndexOut+1) % MAXMSG;
+           dccptrOut = &msg[msgIndexOut]; // For display only
+        }
+        else {// If no new message, send an idle message in the updated msgIndexIn slot
+           msgIndexIn = (msgIndexIn+1) % MAXMSG;
+           msgIndexOut = msgIndexIn;
+           memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+        }
+        // dccptrOut = &msg[msgIndexOut];
+#if defined(TRANSMITTER)
+        preamble_count = (preamble_bits ? preamble_bits : msg[msgIndexOut].PreambleBits)+1; // Match w/ input to reduce desynchronization
+#else
+        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS)+1; // Ignore for receiver to keep PREAMBLE_BITS short
+#endif
+#if defined(USE_CUTOUT)
+        if (msg[msgIndexOut].Data[0]== 0xFF) preamble_type = 2;
+        else {
+           if (preamble_type == 2) preamble_type = 1;
+           else preamble_type = 0;
+        }
+        cutout_done = 0;
+        count_railcom = 0;
+#endif
+
         break;
     } // end of switch
 
@@ -567,8 +612,9 @@ ISR(TIMER2_OVF_vect) {
 
   } // end of else ! every_seocnd_isr
 
-  // Set up output timer. It is only reset every second ISR.
-  TCNT2 += timer_val;
+  // Set up output timer, accounting for latency reflected in TCNT2. It is only reset every second ISR.
+  latency = TCNT2;
+  TCNT2 = timer_val + latency;
 
 } // End of ISR
 
@@ -727,6 +773,7 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, cons
 }
 
 #if defined(USE_LCD)
+//{ // USE_LCD
 void LCD_Banner()
 {
    lcd.setCursor(0,0);              // Set initial column, row
@@ -735,12 +782,14 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.2 S:1.4/27MH");   // Show state
+   lcd.print("H:1.2 S:1.5/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
-   lcd.print("H:1.2 S:1.4/26MH");   // Show state
+//{
+   lcd.print("H:1.2 S:1.5/26MH");   // Show state
+//}
 #else
 //{
 #error "Undefined crystal frequency"
@@ -900,6 +949,7 @@ void LCD_Wait_Period_Over(int status)
 
    return;
 }
+//} // USE_LCD
 #endif
 
 void setup() 
@@ -1244,12 +1294,16 @@ void loop()
                            startModemFlag = 1; // Reset the modem with a new deviatnval. Not persistent yet
                         break;
                         case  242:  // Set the preamble counts
-                           CVval = ((!CVval) || (CVval > 12)) ? (CVval):(12); // Validation: either 0 or >= 12. Non-persistent
+                           CVval = ((!CVval) || (CVval < 12)) ? (CVval):(12); // Validation: either 0 or >= 12. Non-persistent
                            preamble_bits = CVval;
                         break;
                         case  241:  // Set the timer long counts
-                           CVval = (CVval > 0x43) ? (CVval):(0x43); // Validation >= 95uS. Non-persistent
+                           // CVval = (CVval > 0x43) ? (CVval):(0x43); // Validation >= 95uS. Non-persistent
                            timer_long = CVval;
+                        break;
+                        case  240:  // Set the timer short counts
+                           // Add validation
+                           timer_short = CVval;
                         break;
 
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
