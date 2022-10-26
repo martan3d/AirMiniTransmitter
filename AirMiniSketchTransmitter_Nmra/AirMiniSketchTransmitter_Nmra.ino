@@ -500,7 +500,7 @@ ISR(TIMER2_OVF_vect) {
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
-  uint8_t latency;
+  // uint8_t latency;
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
@@ -511,7 +511,6 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_HIGH; // Output high
 #endif
-    latency = TCNT2;
 
     every_second_isr = 0;
 #if defined(USE_CUTOUT)
@@ -524,9 +523,7 @@ ISR(TIMER2_OVF_vect) {
        else cutout_done = 1; // Stop cutout
     }
 #endif
-    // set timer to last value
-    // latency = TCNT2;
-    // TCNT2 = latency + last_timer;
+
   }  else  {  // != every second interrupt, advance bit or state
 
 #if defined(RECEIVER)
@@ -535,7 +532,6 @@ ISR(TIMER2_OVF_vect) {
 #else
     OUTPUT_LOW; // Output high
 #endif
-    latency = TCNT2;
 
     every_second_isr = 1;
     previous_state = state;
@@ -548,7 +544,7 @@ ISR(TIMER2_OVF_vect) {
           state = STARTBYTE; // Really STARTPACKET
           byteIndex = 0; //start msg with uint8_t 0
         }
-        break;
+      break;
       case STARTBYTE:
         timer_val = timer_long;
         // then advance to next state
@@ -556,7 +552,7 @@ ISR(TIMER2_OVF_vect) {
         // goto next uint8_t ...
         cbit = 0x80;  // send this bit next time first
         outbyte = msg[msgIndexOut].Data[byteIndex];
-        break;
+      break;
       case SENDBYTE:
         timer_val = (outbyte & cbit) ? timer_short : timer_long;
         cbit = cbit >> 1;
@@ -572,52 +568,50 @@ ISR(TIMER2_OVF_vect) {
             state = STARTBYTE;
           }
         }
-        break;
+      break;
       case STOPPACKET:
         timer_val = timer_short;
         state = PREAMBLE;
         // get next message
         if (msgIndexOut != msgIndexIn) {
            msgIndexOut = (msgIndexOut+1) % MAXMSG;
-           dccptrOut = &msg[msgIndexOut]; // For display only
         }
         else {// If no new message, send an idle message in the updated msgIndexIn slot
            msgIndexIn = (msgIndexIn+1) % MAXMSG;
            msgIndexOut = msgIndexIn;
            memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
         }
-        // dccptrOut = &msg[msgIndexOut];
-#if defined(TRANSMITTER)
-        preamble_count = (preamble_bits ? preamble_bits : msg[msgIndexOut].PreambleBits)+1; // Match w/ input to reduce desynchronization
-#else
-        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS)+1; // Ignore for receiver to keep PREAMBLE_BITS short
-#endif
+        dccptrOut = &msg[msgIndexOut]; // For display only
+        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS)+1; // Match w/ input to reduce desynchronization
 #if defined(USE_CUTOUT)
-        if (msg[msgIndexOut].Data[0]== 0xFF) preamble_type = 2;
+        if (msg[msgIndexOut].Data[0] == 0xFF) {
+           preamble_type = 2;
+        }
         else {
-           if (preamble_type == 2) preamble_type = 1;
-           else preamble_type = 0;
+           if (preamble_type == 2) {
+              preamble_type = 1;
+           }
+           else {
+              preamble_type = 0;
+           }
         }
         cutout_done = 0;
         count_railcom = 0;
 #endif
 
-        break;
+      break;
     } // end of switch
-
-    // Set up output timer
-    // latency = TCNT2;
-    // TCNT2 = latency + timer_val;
-    // last_timer = timer_val;
 
   } // end of else ! every_seocnd_isr
 
   // Set up output timer, accounting for latency reflected in TCNT2. It is only reset every second ISR.
-  latency = TCNT2;
-  TCNT2 = timer_val + latency;
+  // latency = TCNT2;
+  // TCNT2 = timer_val + latency;
+  TCNT2 += timer_val;
 
 } // End of ISR
 
+#if defined(DEBUG)
 void printMsgSerial() {
 
    Serial.print("msg["); Serial.print(msgIndexIn,HEX); Serial.print("]:\n");
@@ -628,6 +622,7 @@ void printMsgSerial() {
    }
 
 }
+#endif
 
 // Function to combine High and Low bytes into 16 uint8_t variable
 uint16_t combineHighLow(uint8_t High, uint8_t Low)
