@@ -1,5 +1,13 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
+S:1.6:
+- Changed the way preamble_bits is assigned to eliminate conditional test in an ISR
+- Cleaned up setting preamble_count w/ preprocessor directives
+- Added CUTOUT state for the location where the next message is obtained and the
+  cutout parameters established for the second half of the bit.
+- Corrected error in location of USE_CUTOUT preprocessing directive
+- Cleaned up variable naming, including state -> next_state and previous_state -> current_state 
+  to improve code understanding
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
          as a starting point
@@ -32,12 +40,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #undef DEBUG_LOCAL
 
-#if defined(RECEIVER)
- #undef USE_CUTOUT
-#else
- #define USE_CUTOUT
-#endif
-
 #include <config.h>
 #include <EEPROM.h>
 #include <spi.h>
@@ -58,6 +60,18 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #error "Error: Neither TRANSMITTER or RECEIVER is defined"
 #endif
 
+#if defined(RECEIVER)
+//{
+#undef USE_CUTOUT
+#pragma message "Not using cutout waveform"
+//}
+#else
+//{
+#define USE_CUTOUT
+#pragma message "Using cutout waveform"
+//}
+#endif
+
 #if defined(USE_LCD)
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -70,13 +84,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
 #define INPUT_PIN 3
 #define EXTINT_NUM 1
-// #define OUTPUT_PIN PD4
+// #define OUTPUT_PIN1 PD4
 // Output to CC1101 modem (GD0)
-#define OUTPUT_PIN PD2
+#define OUTPUT_PIN1 PD2
 
-#define OUTPUT_HIGH   PORTD = PORTD |  (1<<OUTPUT_PIN)
-#define OUTPUT_LOW    PORTD = PORTD & ~(1<<OUTPUT_PIN)
-#define SET_OUTPUTPIN DDRD  |=  (1<<OUTPUT_PIN)
+#define OUTPUT_HIGH   PORTD = PORTD |  (1<<OUTPUT_PIN1)
+#define OUTPUT_LOW    PORTD = PORTD & ~(1<<OUTPUT_PIN1)
+#define SET_OUTPUTPIN DDRD |= (1<<OUTPUT_PIN1)
 
 //} TRANSMITTER
 #else
@@ -86,13 +100,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define INPUT_PIN  PD2  // 3.3V unipolar DCC input from raw modem output
 #define INPUT_PIN 2
 #define EXTINT_NUM 0
-#define OUTPUT_PIN PD3
+#define OUTPUT_PIN1 PD3
 #define OUTPUT_PIN2 PD4
 
-#define OUTPUT_OFF    PORTD = (PORTD &  ~(1<<OUTPUT_PIN)) &  ~(1<<OUTPUT_PIN2) 
-#define OUTPUT_HIGH   PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) |  (1<<OUTPUT_PIN) : (PORTD |  (1<<OUTPUT_PIN)) & ~(1<<OUTPUT_PIN2))
-#define OUTPUT_LOW    PORTD = (lockedAntiphase ? (PORTD |  (1<<OUTPUT_PIN2)) & ~(1<<OUTPUT_PIN) : (PORTD & ~(1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2))
-#define SET_OUTPUTPIN DDRD  = (DDRD  |  (1<<OUTPUT_PIN)) |  (1<<OUTPUT_PIN2)
+#define OUTPUT_OFF    PORTD = (PORTD &  ~(1<<OUTPUT_PIN1)) &  ~(1<<OUTPUT_PIN2) 
+#define OUTPUT_HIGH   PORTD = (lockedAntiphase ? (PORTD | (1<<OUTPUT_PIN2)) |  (1<<OUTPUT_PIN1) : (PORTD |  (1<<OUTPUT_PIN1)) & ~(1<<OUTPUT_PIN2))
+#define OUTPUT_LOW    PORTD = (lockedAntiphase ? (PORTD | (1<<OUTPUT_PIN2)) & ~(1<<OUTPUT_PIN1) : (PORTD & ~(1<<OUTPUT_PIN1)) |  (1<<OUTPUT_PIN2))
+#define SET_OUTPUTPIN DDRD  = (DDRD | (1<<OUTPUT_PIN1)) | (1<<OUTPUT_PIN2)
 
 //} RECEIVER
 #endif
@@ -115,19 +129,24 @@ volatile uint8_t timer_short = TIMER_SHORT;
 volatile uint8_t timer_val = timer_short; // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 
-volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET} previous_state, state = PREAMBLE;
+volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
 #if ! defined(PREAMBLE_BITS)
+#if defined(TRANSMITTER)
 #define PREAMBLE_BITS 30
+#else
+#define PREAMBLE_BITS 16
 #endif
-uint8_t preamble_bits = 0; // 0 or >= 12
-volatile uint8_t preamble_count = PREAMBLE_BITS+1;
+#endif
+#if defined(TRANSMITTER)
+uint8_t preamble_bits = PREAMBLE_BITS; // Large enough for long cutouts
+#endif
+volatile uint8_t preamble_count = PREAMBLE_BITS;
 #if defined(USE_CUTOUT)
 #pragma message "Defining cutout variables"
-volatile uint8_t cutout_done = 0;
 volatile uint8_t timer_long_cutout[3] = {TIMER_LONG, TIMER_LONG_CUTOUT, TIMER_LONG_CUTOUT};
 uint8_t count_railcom_max[3] = {1,3,5};
 uint8_t count_railcom = 0;
-uint8_t preamble_type = 0; // 0, 1, 2
+uint8_t cutout_type = 0; // 0, 1, 2
 #endif
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
@@ -514,13 +533,12 @@ ISR(TIMER2_OVF_vect) {
 
     every_second_isr = 0;
 #if defined(USE_CUTOUT)
-    if ((previous_state==PREAMBLE) && (!cutout_done)) {
-       timer_val = timer_long_cutout[preamble_type]; // Will be reset below on next cycle
-       count_railcom = (count_railcom+1) % count_railcom_max[preamble_type];
+    if (current_state==CUTOUT) {
+       timer_val = timer_long_cutout[cutout_type]; // Will be reset below on next cycle
+       count_railcom = (count_railcom+1) % count_railcom_max[cutout_type];
        if (count_railcom) {
           every_second_isr = 1; // Stay HIGH
        }
-       else cutout_done = 1; // Stop cutout
     }
 #endif
 
@@ -534,21 +552,54 @@ ISR(TIMER2_OVF_vect) {
 #endif
 
     every_second_isr = 1;
-    previous_state = state;
+    current_state = next_state; 
 
-    switch (state)  {
+    switch (current_state)  {
+      case CUTOUT:
+        timer_val = timer_short; // second half will be reset
+        next_state = PREAMBLE; // 
+        // get next message
+        if (msgIndexOut != msgIndexIn) {
+           msgIndexOut = (msgIndexOut+1) % MAXMSG;
+        }
+        else {// If no new message, send an idle message in the updated msgIndexIn slot
+           msgIndexIn = (msgIndexIn+1) % MAXMSG;
+           msgIndexOut = msgIndexIn;
+           memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+        }
+        dccptrOut = &msg[msgIndexOut]; // For display only
+#if defined(TRANSMITTER)
+        preamble_count = preamble_bits; // large enough to permit long cutouts
+#else
+        preamble_count = msg[msgIndexOut].PreambleBits-1; // Account for cutout
+#endif
+#if defined(USE_CUTOUT)
+        if (msg[msgIndexOut].Data[0] == 0xFF) {
+           cutout_type = 2;
+        }
+        else {
+           if (cutout_type == 2) {
+              cutout_type = 1;
+           }
+           else {
+              cutout_type = 0;
+           }
+        }
+        count_railcom = 0;
+#endif
+      break;
       case PREAMBLE:
         timer_val = timer_short;
         preamble_count--;
         if (preamble_count == 0)  {  // advance to next state
-          state = STARTBYTE; // Really STARTPACKET
+          next_state = STARTBYTE; // Really STARTPACKET
           byteIndex = 0; //start msg with uint8_t 0
         }
       break;
       case STARTBYTE:
         timer_val = timer_long;
         // then advance to next state
-        state = SENDBYTE;
+        next_state = SENDBYTE;
         // goto next uint8_t ...
         cbit = 0x80;  // send this bit next time first
         outbyte = msg[msgIndexOut].Data[byteIndex];
@@ -561,44 +612,17 @@ ISR(TIMER2_OVF_vect) {
           if (byteIndex >= msg[msgIndexOut].Size)  {
 
             // this was already the XOR uint8_t then advance to stop packet! NOT preamble
-            state = STOPPACKET; // NOT preamble!!!
+            next_state = STOPPACKET; // NOT preamble!!!
 
           }  else  {
             // send separtor and advance to next uint8_t
-            state = STARTBYTE;
+            next_state = STARTBYTE;
           }
         }
       break;
       case STOPPACKET:
         timer_val = timer_short;
-        state = PREAMBLE;
-        // get next message
-        if (msgIndexOut != msgIndexIn) {
-           msgIndexOut = (msgIndexOut+1) % MAXMSG;
-        }
-        else {// If no new message, send an idle message in the updated msgIndexIn slot
-           msgIndexIn = (msgIndexIn+1) % MAXMSG;
-           msgIndexOut = msgIndexIn;
-           memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
-        }
-        dccptrOut = &msg[msgIndexOut]; // For display only
-        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS)+1; // Match w/ input to reduce desynchronization
-#if defined(USE_CUTOUT)
-        if (msg[msgIndexOut].Data[0] == 0xFF) {
-           preamble_type = 2;
-        }
-        else {
-           if (preamble_type == 2) {
-              preamble_type = 1;
-           }
-           else {
-              preamble_type = 0;
-           }
-        }
-        cutout_done = 0;
-        count_railcom = 0;
-#endif
-
+        next_state = CUTOUT;
       break;
     } // end of switch
 
@@ -777,13 +801,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.2 S:1.5/27MH");   // Show state
+   lcd.print("H:1.2 S:1.6/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:1.2 S:1.5/26MH");   // Show state
+   lcd.print("H:1.2 S:1.6/26MH");   // Show state
 //}
 #else
 //{
@@ -1288,10 +1312,12 @@ void loop()
                            deviatnval = CVval;
                            startModemFlag = 1; // Reset the modem with a new deviatnval. Not persistent yet
                         break;
+#if defined(TRANSMITTER)
                         case  242:  // Set the preamble counts
-                           CVval = ((!CVval) || (CVval < 12)) ? (CVval):(12); // Validation: either 0 or >= 12. Non-persistent
+                           CVval = (CVval < 25) ? (25):(CVval); // Only used with cutout, setting minimum with cutout
                            preamble_bits = CVval;
                         break;
+#endif
                         case  241:  // Set the timer long counts
                            // CVval = (CVval > 0x43) ? (CVval):(0x43); // Validation >= 95uS. Non-persistent
                            timer_long = CVval;
