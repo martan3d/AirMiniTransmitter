@@ -1,18 +1,21 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.6:
-- Changed the way preamble_bits is assigned to eliminate conditional test in an ISR
-- Cleaned up setting preamble_count w/ preprocessor directives
-- Added CUTOUT state for the location where the next message is obtained and the
-  cutout parameters established for the second half of the bit.
-- Corrected error in location of USE_CUTOUT preprocessing directive
-- Cleaned up variable naming, including state -> next_state and previous_state -> current_state 
-  to improve code understanding
+S:1.7:
+- Added a synchronization technique to even out ISR timing 
+  jitter before setting the waveform. Uses the ADVANCE parameter.
+- Changed to use TIMER1 for improved ISR time resolution
+- Changed TIMER_LONG_CUTOUT2 for 109usec pulse length
+- Changed TIMER_LONG_CUTOUT1 for 106usec pulse length
+- Improved typing using static and volatile where appropriate
+- Went back to PORTD rather than the portOutputRegister and digitalPinToBitMask
+  formalism
+- By default, do NOT turn off interrupts in message assignment sections
+  Resettable in config.h (at your own risk)
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
          as a starting point
 
-Copyright (c) 2022, Martin Sant and Darrell Lamm
+Copyright (c) 2021-2022, Martin Sant and Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -39,6 +42,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #undef DEBUG_LOCAL
+#if defined(TURNOFFINTERRUPTS)
+#pragma message "Turning off interrupts in message re-assigment sections"
+#else
+#pragma message "NOT turning off interrupts in message re-assigment sections"
+#endif
 
 #include <config.h>
 #include <EEPROM.h>
@@ -113,20 +121,23 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 NmraDcc Dcc;
 
-//Timer frequency is 2MHz for ( /8 prescale from 16MHz )
-#define TIMER_SHORT 141  // 58usec pulse length
+//              100 -> 6.25uS @ 16MHz
+#define ADVANCE 100
+//Timer frequency is 16MHz for ( /1 prescale from 16MHz )
+#define TIMER_SHORT 64608 // 58usec pulse length
 #if !defined(TIMER_LONG)
-#define TIMER_LONG  27  // 116usec pulse length
-#define TIMER_LONG_CUTOUT  41  // 107.5usec pulse length
+#define TIMER_LONG 63680 // 116usec pulse length
+#define TIMER_LONG_CUTOUT1 63840 // 106usec pulse length x 3 = 318us
+#define TIMER_LONG_CUTOUT2 63792 // 109usec pulse length x 5 = 545us
 #endif
-volatile uint8_t timer_long = TIMER_LONG;
-volatile uint8_t timer_short = TIMER_SHORT;
-
+volatile uint16_t timer_long  = TIMER_LONG;
+volatile uint16_t timer_short = TIMER_SHORT;
+volatile uint16_t latency = 0;
 
 // definitions for state machine
 // uint8_t last_timer = timer_short; // store last timer value
 // uint8_t timer_val = timer_long; // The timer value
-volatile uint8_t timer_val = timer_short; // The timer value
+volatile uint16_t timer_val = timer_short; // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 
 volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
@@ -143,10 +154,10 @@ uint8_t preamble_bits = PREAMBLE_BITS; // Large enough for long cutouts
 volatile uint8_t preamble_count = PREAMBLE_BITS;
 #if defined(USE_CUTOUT)
 #pragma message "Defining cutout variables"
-volatile uint8_t timer_long_cutout[3] = {TIMER_LONG, TIMER_LONG_CUTOUT, TIMER_LONG_CUTOUT};
-uint8_t count_railcom_max[3] = {1,3,5};
-uint8_t count_railcom = 0;
-uint8_t cutout_type = 0; // 0, 1, 2
+uint16_t timer_long_cutout[3] = {TIMER_LONG, TIMER_LONG_CUTOUT1, TIMER_LONG_CUTOUT2}; // Does NOT change
+static uint8_t count_railcom_max[3] = {1,3,5}; // Does NOT change
+volatile uint8_t count_railcom = 0;
+volatile uint8_t cutout_type = 0; // 0, 1, 2
 #endif
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
@@ -495,31 +506,30 @@ extern void notifyDccMsg( DCC_MSG * Msg ) {
 } // End of notifyDccMsg
 
 // Output timer
-// Setup Timer2.
-// Configures the 8-Bit Timer2 to generate an interrupt at the specified frequency.
-// Returns the time load value which must be loaded into TCNT2 inside your ISR routine.
-void SetupTimer2() {
-  //Timer2 Settings: Timer Prescaler /8, mode 0
-  //Timmer clock = 16MHz/8 = 2MHz or 0.5usec
-  TCCR2A = 0;
-  TCCR2B = 0 << CS22 | 1 << CS21 | 0 << CS20;
+// Setup Timer1.
+// Configures the 16-Bit Timer1 to generate an interrupt at the specified frequency.
+// Returns the time load value which must be loaded into TCNT1 inside your ISR routine.
+void SetupTimer1() {
+  TCCR1A = 0;
+  TCCR1B = 0 << CS12 | 0 << CS11 | 1 << CS10; // No prescaling
 
 
-  //Timer2 Overflow Interrupt Enable
-  TIMSK2 = 1 << TOIE2;
+  //Timer1 Overflow Interrupt Enable
+  TIMSK1 = 1 << TOIE1;
 
   //load the timer for its first cycle
-  TCNT2 = timer_short;
-} // End of SetupTimer2
+  TCNT1 = timer_short;
+} // End of SetupTimer1
 
-//Timer2 overflow interrupt vector handler
-ISR(TIMER2_OVF_vect) {
-  //Capture the current timer value TCTN2. This is how much error we have
+//Timer1 overflow interrupt vector handler
+ISR(TIMER1_OVF_vect) {
+  //Capture the current timer value TCTN1. This is how much error we have
   //due to interrupt latency and the work in this function
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
-  // uint8_t latency;
+  while(TCNT1<=ADVANCE){latency=0;} // A short delay for latency leveling
+  // latency = TCNT1;
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
@@ -626,12 +636,11 @@ ISR(TIMER2_OVF_vect) {
       break;
     } // end of switch
 
+
   } // end of else ! every_seocnd_isr
 
-  // Set up output timer, accounting for latency reflected in TCNT2. It is only reset every second ISR.
-  // latency = TCNT2;
-  // TCNT2 = timer_val + latency;
-  TCNT2 += timer_val;
+  // TCNT1 += timer_val+ADVANCE;
+  TCNT1 += timer_val;
 
 } // End of ISR
 
@@ -801,13 +810,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:1.2 S:1.6/27MH");   // Show state
+   lcd.print("H:2 S:1.7c/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:1.2 S:1.6/26MH");   // Show state
+   lcd.print("H:2 S:1.7c/26MH");   // Show state
 //}
 #else
 //{
@@ -886,6 +895,7 @@ void LCD_Addr_Ch_PL()
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptrTmp->Data[i]);
       }
       // snprintf(&lcd_line[4],5,"P:%02d", dccptrTmp->PreambleBits); // For debugging only!!
+      // snprintf(&lcd_line[4],8,"L:%05d", latency); // For debugging only!!
    }
    else
    {
@@ -1096,6 +1106,7 @@ void setup()
                                       // Important. Pins and interrupt #'s are correlated.
 
    SET_OUTPUTPIN;
+
 #if defined(RECEIVER)
    OUTPUT_OFF;
 #endif
@@ -1125,13 +1136,13 @@ void setup()
 
    inactiveStartTime = micros() + BACKGROUNDTIME;  // Initialize the modem idle time into the future
 
-   // Set up the waveform generator timer
-   SetupTimer2(); // Set up interrupt Timer 2
-
    // Start the coms with the modem
    initializeSPI();                            // Initialize the SPI interface to the radio
    delay(10);                                  // Wait a bit for the SPI
    startModem(CHANNEL, MODE);                  // Start radio on this Channel
+
+   // Set up the waveform generator timer
+   SetupTimer1(); // Set up interrupt Timer 1
 
    sei();                                      // enable interrupts
 
@@ -1165,7 +1176,7 @@ void loop()
 #if defined(TRANSMITTER)
 //{ TRANSMITTER
 
-#if ! defined(DONTTURNOFFINTERRUPTS)
+#if defined(TURNOFFINTERRUPTS)
          cli(); // Turn off interrupts
 #endif
 
@@ -1191,7 +1202,7 @@ void loop()
             msgReplaced = 1;
             memcpy((void *)&msg[msgIndexIn],(void *)&msgIdle,sizeof(DCC_MSG));
          }
-#if ! defined(DONTTURNOFFINTERRUPTS)
+#if defined(TURNOFFINTERRUPTS)
          sei(); // Turn interrupts back on
 #endif
 #if defined(DEBUG_LOCAL)
@@ -1325,6 +1336,18 @@ void loop()
                         case  240:  // Set the timer short counts
                            // Add validation
                            timer_short = CVval;
+                        break;
+                        case  239:  // timer_long_cutout[1]
+                           // Add validation
+                          timer_long_cutout[1]  = 65536 - (uint16_t)CVval;
+                        break;
+                        case  238:  // timer_long_cutout[2]
+                           // Add validation
+                          timer_long_cutout[2]  = 65536 - (uint16_t)CVval;
+                        break;
+                        case  237:  // timer_long_cutout[3]
+                           // Add validation
+                          timer_long_cutout[3]  = 65536 - (uint16_t)CVval;
                         break;
 
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.

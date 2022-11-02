@@ -72,9 +72,9 @@ caution or for development only.
 //////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For receiver*/
-#define RECEIVER
+// #define RECEIVER
 /* For transmitter*/
-// #define TRANSMITTER
+#define TRANSMITTER
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
@@ -132,10 +132,10 @@ caution or for development only.
 /* bit1 and bit0)*/
 // #define SPCRDEFAULT 0x52
 
-/* Do NOT turn off interrupts in "critical" sections dealing with*/
+/* Turn off interrupts in "critical" sections dealing with*/
 /* assignment of messages for transmission.*/
 /* Change at your own risk.*/
-// #define DONTTURNOFFINTERRUPTS
+// #define TURNOFFINTERRUPTS
 
 /*Test of new 2.4GHz setting*/
 // #define ALTERNATIVE2P4
@@ -260,12 +260,6 @@ caution or for development only.
    #pragma message "Info: Changed SPCR value to " xstr(SPCRDEFAULT)
 #endif
 
-#if ! defined(DONTTURNOFFINTERRUPTS)
-   #pragma message "Info: turning off interrupts in critical-sections"
-#else
-   #pragma message "Info: NOT turning off interrupts in critical-sections"
-#endif
-
 ///////////////////////////////////////
 // Special settings to reset messages
 ///////////////////////////////////////
@@ -287,6 +281,9 @@ caution or for development only.
    #pragma message "Info: Compiling with standard DCC preamble count!"
 #endif
 
+//////////////////////////
+// Amplifier type settings
+//////////////////////////
 // For DRV8871 amp
 // #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp
