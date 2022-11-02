@@ -1337,6 +1337,7 @@ void loop()
                            // Add validation
                            timer_short = CVval;
                         break;
+#if defined(USE_CUTOUT)
                         case  239:  // timer_long_cutout[1]
                            // Add validation
                           timer_long_cutout[1]  = 65536 - (uint16_t)CVval;
@@ -1349,6 +1350,7 @@ void loop()
                            // Add validation
                           timer_long_cutout[3]  = 65536 - (uint16_t)CVval;
                         break;
+#endif
 
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                            checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
