@@ -10,6 +10,7 @@ awk
 bin
 attic
 save
+test
 *,v
 foo
 i2c_scanner_arduino_code/Untitled
