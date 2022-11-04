@@ -288,6 +288,13 @@ caution or for development only.
 // #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp
 // #define LOCKEDANTIPHASEDEFAULT 1
+//////////////////////////
+
+///////////////////////
+// DEBUGGING of LATENCY
+///////////////////////
+// #define PRINT_LATENCY
+///////////////////////
 
 ///////////////////////////
 // End of entire include //
