@@ -122,7 +122,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 NmraDcc Dcc;
 
 //              100 -> 6.25uS @ 16MHz
-#define ADVANCE 100
+#define ADVANCE 200
+volatile uint16_t advance = ADVANCE;
 //Timer frequency is 16MHz for ( /1 prescale from 16MHz )
 #define TIMER_SHORT 64608 // 58usec pulse length
 #if !defined(TIMER_LONG)
@@ -133,6 +134,7 @@ NmraDcc Dcc;
 volatile uint16_t timer_long  = TIMER_LONG;
 volatile uint16_t timer_short = TIMER_SHORT;
 volatile uint16_t latency = 0;
+#define sleep() asm volatile ("nop")
 
 // definitions for state machine
 // uint8_t last_timer = timer_short; // store last timer value
@@ -528,8 +530,12 @@ ISR(TIMER1_OVF_vect) {
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
-  while(TCNT1<=ADVANCE){latency=0;} // A short delay for latency leveling
-  // latency = TCNT1;
+  // while(TCNT1<=ADVANCE){latency=0;} // A short delay for latency leveling
+  // latency = (latency > TCNT1) ? latency : TCNT1;
+  while(TCNT1<advance)sleep(); // A short delay for latency leveling
+#if defined(PRINT_LATENCY)
+  latency = TCNT1;
+#endif
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
@@ -810,13 +816,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:2 S:1.7c/27MH");   // Show state
+   lcd.print("H:2 S:1.7d/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:2 S:1.7c/26MH");   // Show state
+   lcd.print("H:2 S:1.7d/26MH");   // Show state
 //}
 #else
 //{
@@ -895,7 +901,9 @@ void LCD_Addr_Ch_PL()
          snprintf(&lcd_line[2*i+4],3,"%02X", dccptrTmp->Data[i]);
       }
       // snprintf(&lcd_line[4],5,"P:%02d", dccptrTmp->PreambleBits); // For debugging only!!
-      // snprintf(&lcd_line[4],8,"L:%05d", latency); // For debugging only!!
+#if defined(PRINT_LATENCY)
+      snprintf(&lcd_line[4],8,"L:%05d", latency); // For debugging only!!
+#endif
    }
    else
    {
@@ -1351,6 +1359,10 @@ void loop()
                           timer_long_cutout[3]  = 65536 - (uint16_t)CVval;
                         break;
 #endif
+                        case  236:  // timer_long_cutout[3]
+                           // Add validation
+                          advance  = 2*(uint16_t)CVval;
+                        break;
 
                         case 29:    // Set the Configuration CV and reset related EEPROM values. Verified this feature works.
                            checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1); 
