@@ -1,16 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7:
-- Added a synchronization technique to even out ISR timing 
-  jitter before setting the waveform. Uses the ADVANCE parameter.
-- Changed to use TIMER1 for improved ISR time resolution
-- Changed TIMER_LONG_CUTOUT2 for 109usec pulse length
-- Changed TIMER_LONG_CUTOUT1 for 106usec pulse length
-- Improved typing using static and volatile where appropriate
-- Went back to PORTD rather than the portOutputRegister and digitalPinToBitMask
-  formalism
-- By default, do NOT turn off interrupts in message assignment sections
-  Resettable in config.h (at your own risk)
+S:1.7e:
+- Streamlined cutout_type computation. Seems to work. Data collection will verify
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
          as a starting point
@@ -593,14 +584,7 @@ ISR(TIMER1_OVF_vect) {
         if (msg[msgIndexOut].Data[0] == 0xFF) {
            cutout_type = 2;
         }
-        else {
-           if (cutout_type == 2) {
-              cutout_type = 1;
-           }
-           else {
-              cutout_type = 0;
-           }
-        }
+        else if (cutout_type) cutout_type--;
         count_railcom = 0;
 #endif
       break;
@@ -645,7 +629,6 @@ ISR(TIMER1_OVF_vect) {
 
   } // end of else ! every_seocnd_isr
 
-  // TCNT1 += timer_val+ADVANCE;
   TCNT1 += timer_val;
 
 } // End of ISR
@@ -816,13 +799,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:2 S:1.7d/27MH");   // Show state
+   lcd.print("H:2 S:1.7e/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:2 S:1.7d/26MH");   // Show state
+   lcd.print("H:2 S:1.7e/26MH");   // Show state
 //}
 #else
 //{
