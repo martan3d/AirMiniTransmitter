@@ -124,7 +124,9 @@ volatile uint16_t advance = ADVANCE;
 #endif
 volatile uint16_t timer_long  = TIMER_LONG;
 volatile uint16_t timer_short = TIMER_SHORT;
+#if defined(PRINT_LATENCY)
 volatile uint16_t latency = 0;
+#endif
 #define sleep() asm volatile ("nop")
 
 // definitions for state machine
@@ -521,8 +523,6 @@ ISR(TIMER1_OVF_vect) {
   //Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
 
-  // while(TCNT1<=ADVANCE){latency=0;} // A short delay for latency leveling
-  // latency = (latency > TCNT1) ? latency : TCNT1;
   while(TCNT1<advance)sleep(); // A short delay for latency leveling
 #if defined(PRINT_LATENCY)
   latency = TCNT1;
@@ -799,13 +799,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:2 S:1.7e/27MH");   // Show state
+   lcd.print("H:2 S:1.7f/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:2 S:1.7e/26MH");   // Show state
+   lcd.print("H:2 S:1.7f/26MH");   // Show state
 //}
 #else
 //{
