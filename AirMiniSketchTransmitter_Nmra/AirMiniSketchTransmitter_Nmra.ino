@@ -476,6 +476,12 @@ LiquidCrystal_I2C lcd;               // Create the LCD object with a default add
 char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
 #endif
 
+volatile uint8_t cutout_count = 0;
+#if defined(RECEIVER)
+#define CUTOUT_COUNT_MAX 40
+#else
+#define CUTOUT_COUNT_MAX 0
+#endif
 
 ///////////////////
 // Start of code //
@@ -540,7 +546,7 @@ ISR(TIMER1_OVF_vect) {
 
     every_second_isr = 0;
 #if defined(USE_CUTOUT)
-    if (current_state==CUTOUT) {
+    if ((current_state==CUTOUT) && (next_state==PREAMBLE)) {
        timer_val = timer_long_cutout[cutout_type]; // Will be reset below on next cycle
        count_railcom = (count_railcom+1) % count_railcom_max[cutout_type];
        if (count_railcom) {
@@ -563,30 +569,36 @@ ISR(TIMER1_OVF_vect) {
 
     switch (current_state)  {
       case CUTOUT:
+        cutout_count++;
         timer_val = timer_short; // second half will be reset
-        next_state = PREAMBLE; // 
         // get next message
         if (msgIndexOut != msgIndexIn) {
            msgIndexOut = (msgIndexOut+1) % MAXMSG;
+           next_state = PREAMBLE; // 
         }
-        else {// If no new message, send an idle message in the updated msgIndexIn slot
-           msgIndexIn = (msgIndexIn+1) % MAXMSG;
-           msgIndexOut = msgIndexIn;
-           memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+        else if (cutout_count > CUTOUT_COUNT_MAX) {// If no new message, send an idle message in the updated msgIndexIn slot
+              msgIndexIn = (msgIndexIn+1) % MAXMSG;
+              msgIndexOut = msgIndexIn;
+              memcpy((void *)&msg[msgIndexOut], (void *)&msgIdle, sizeof(DCC_MSG)); // copy the idle message
+              next_state = PREAMBLE; // 
         }
-        dccptrOut = &msg[msgIndexOut]; // For display only
+        if (next_state == PREAMBLE) {
+           dccptrOut = &msg[msgIndexOut]; // For display only
 #if defined(TRANSMITTER)
-        preamble_count = preamble_bits; // large enough to permit long cutouts
+           preamble_count = preamble_bits; // large enough to permit long cutouts
 #else
-        preamble_count = msg[msgIndexOut].PreambleBits-1; // Account for cutout
+           preamble_count = msg[msgIndexOut].PreambleBits; // Account for cutout below
 #endif
 #if defined(USE_CUTOUT)
-        if (msg[msgIndexOut].Data[0] == 0xFF) {
-           cutout_type = 2;
-        }
-        else if (cutout_type) cutout_type--;
-        count_railcom = 0;
+           if (msg[msgIndexOut].Data[0] == 0xFF) {
+              cutout_type = 2;
+           }
+           else if (cutout_type) cutout_type--;
+           count_railcom = 0;
 #endif
+           if (preamble_count > cutout_count) preamble_count -= cutout_count;
+           else preamble_count = 1;
+        }
       break;
       case PREAMBLE:
         timer_val = timer_short;
@@ -623,6 +635,7 @@ ISR(TIMER1_OVF_vect) {
       case STOPPACKET:
         timer_val = timer_short;
         next_state = CUTOUT;
+        cutout_count = 0;
       break;
     } // end of switch
 
@@ -799,13 +812,13 @@ void LCD_Banner()
    lcd.setCursor(0,1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-   lcd.print("H:2 S:1.7f/27MH");   // Show state
+   lcd.print("H:2 S:1.7g/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-   lcd.print("H:2 S:1.7f/26MH");   // Show state
+   lcd.print("H:2 S:1.7g/26MH");   // Show state
 //}
 #else
 //{
