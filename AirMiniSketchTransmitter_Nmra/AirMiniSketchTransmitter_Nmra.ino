@@ -228,7 +228,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #define POWERLEVELDEFAULT 6
 #endif
 
-#define DCLEVEL_INDEFAULT 1
+#define DCLEVELDEFAULT 1
 
 #if !defined(LOCKEDANTIPHASEDEFAULT)
 #define LOCKEDANTIPHASEDEFAULT 1
@@ -1035,9 +1035,9 @@ void setup() {
 
   // Set the alternate DC output level to HIGH or LOW (i.e., bad CC1101 data)
   // The level of this output can be used by some decoders. The default is HIGH.
-  // eeprom_update_byte(&EEdcLevelDefault, DCLEVEL_INDEFAULT );
+  // eeprom_update_byte(&EEdcLevelDefault, DCLEVELDEFAULT );
   checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel,
-                    (uint8_t)DCLEVEL_INDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set
+                    (uint8_t)DCLEVELDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set, otherwise set
                                                                // to 1 and set EEPROM values
   // Turn the lockedAntiphase OFF/ON option.
   // eeprom_update_byte(&EElockedAntiphaseDefault, LOCKEDANTIPHASEDEFAULT );
