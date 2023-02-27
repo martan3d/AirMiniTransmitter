@@ -72,9 +72,9 @@ caution or for development only.
 //////////////////////////////
 /* Uncomment ONLY ONE #define*/
 /* For receiver*/
-// #define RECEIVER
+#define RECEIVER
 /* For transmitter*/
-#define TRANSMITTER
+// #define TRANSMITTER
 
 /////////////////////////////////////////////////
 // Set the default channel for NA/EU 900MHz only!
