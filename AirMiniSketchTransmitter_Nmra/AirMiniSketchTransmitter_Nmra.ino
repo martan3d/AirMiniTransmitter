@@ -1,9 +1,8 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7n:
-- Removed autoidle insertion as default:
-- Changed idle insertion logic to the following:
-- Changed dccptrRepeatCountMax to 1
+S:1.7O:
+- Eliminated the use of USE_CUTOUT from the receiver since
+  this feature is NOT required from Airwire.
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -64,12 +63,20 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(RECEIVER)
 //{
 #undef USE_CUTOUT
-#pragma message "Not using cutout waveform"
 //}
 #else
 //{
-#define USE_CUTOUT
+#undef USE_CUTOUT
+//}
+#endif
+
+#if defined(USE_CUTOUT)
+//{
 #pragma message "Using cutout waveform"
+//}
+#else
+//{
+#pragma message "Not using cutout waveform"
 //}
 #endif
 
@@ -623,15 +630,15 @@ ISR(TIMER1_OVF_vect) {
            if (next_state == PREAMBLE) {  // Preparation for next state
               dccptrOut = dccptrISR;  // For display only
 #if defined(TRANSMITTER)
-              preamble_count = preamble_bits;  // large enough to permit long cutouts
+              preamble_count = preamble_bits;  // large enough to satisfy Airwire!
 #else
               preamble_count = dccptrISR->PreambleBits;  // Account for cutout below
 #endif
               // Account for preamble bits already sent
               if (preamble_count > cutout_count) 
-                 preamble_count -= cutout_count+1;
+                 preamble_count -= cutout_count;
               else
-                 preamble_count = 2;
+                 preamble_count = 1; // Minimum needed for decrement logic below
            }
         break;
         case PREAMBLE:
@@ -839,13 +846,13 @@ void LCD_Banner() {
   lcd.setCursor(0, 1);              // Set next line column, row
 #if defined(TWENTY_SEVEN_MHZ)
 //{
-  lcd.print("H:2 S:1.7N/27MH");   // Show state
+  lcd.print("H:2 S:1.7O/27MH");   // Show state
 //}
 #else
 //{
 #if defined(TWENTY_SIX_MHZ)
 //{
-  lcd.print("H:2 S:1.7N/26MH");   // Show state
+  lcd.print("H:2 S:1.7O/26MH");   // Show state
 //}
 #else
 //{
