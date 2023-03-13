@@ -1,3 +1,4 @@
+
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
 S:1.7O:
@@ -33,13 +34,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#undef DEBUG_LOCAL
-#if defined(TURNOFFINTERRUPTS)
-#pragma message "Turning off interrupts in message re-assigment sections"
-#else
-#pragma message "NOT turning off interrupts in message re-assigment sections"
-#endif
-
 #include <config.h>
 #include <EEPROM.h>
 #include <spi.h>
@@ -50,6 +44,37 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <util/atomic.h>
 #include <string.h>
 #include <NmraDcc.h>
+
+#define HWVERSION "2"
+#pragma message "Info: Hardware version is " xstr(HWVERSION)
+#define SWVERSION "1.7P"
+#pragma message "Info: Software version is " xstr(SWVERSION)
+
+#if defined(TWENTY_SEVEN_MHZ)
+//{
+#define FREQMH "27"
+//}
+#else
+//{
+#if defined(TWENTY_SIX_MHZ)
+//{
+#define FREQMH "26"
+//}
+#else
+//{
+#error "Undefined crystal frequency"
+//}
+#endif
+//}
+#endif
+#pragma message "Info: FREQMH is " xstr(FREQMH)
+
+#undef DEBUG_LOCAL
+#if defined(TURNOFFINTERRUPTS)
+#pragma message "Turning off interrupts in message re-assigment sections"
+#else
+#pragma message "NOT turning off interrupts in message re-assigment sections"
+#endif
 
 #if defined(TRANSMITTER)
 #undef RECEIVER
@@ -167,7 +192,7 @@ volatile uint8_t cutout_type = 0;  // 0, 1, 2
 #endif
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
-volatile int byteIndex = 0;
+volatile uint8_t byteIndex = 0;
 
 // For NmraDcc
 #define OUTPUT_ENABLE 5  // Output Enable
@@ -715,7 +740,7 @@ void reboot() {
 }
 
 void eepromClear() {
-  for (int i = 0 ; i < (int)(EEPROM.length()) ; i++) {
+  for (unsigned int i = 0 ; i < EEPROM.length() ; i++) {
      EEPROM.write(i, 0);
   }
 }
@@ -844,23 +869,7 @@ void LCD_Banner() {
   else
      lcd.print("ProMini Air Info");
   lcd.setCursor(0, 1);              // Set next line column, row
-#if defined(TWENTY_SEVEN_MHZ)
-//{
-  lcd.print("H:2 S:1.7O/27MH");   // Show state
-//}
-#else
-//{
-#if defined(TWENTY_SIX_MHZ)
-//{
-  lcd.print("H:2 S:1.7O/26MH");   // Show state
-//}
-#else
-//{
-#error "Undefined crystal frequency"
-//}
-#endif
-//}
-#endif
+  lcd.print("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }  // end of LCD_Banner
@@ -875,23 +884,39 @@ void LCD_Addr_Ch_PL() {
   uint16_t AirMiniAddress = (uint16_t)(AirMiniCV17&0b00111111);
   AirMiniAddress <<= 8;
   AirMiniAddress |= AirMiniCV17;
-  int AirMiniAddress_int = (int)AirMiniAddress;
+  uint16_t AirMiniAddress_int = (uint16_t)AirMiniAddress;
   // snprintf(lcd_line,sizeof(lcd_line),"Addr: %d",AirMiniAddress_int);
   */
   if (printDCC) {
      // Detect long or short address
      tmpuint8 = dccptrTmp->Data[0] & 0b11000000;
      if ((tmpuint8 == 0b11000000) && (dccptrTmp->Data[0] != 0b11111111)) {
-        int TargetAddress_int = ((int)dccptrTmp->Data[0]-192)*256+(int)dccptrTmp->Data[1];
-        // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptrTmp->Data[0],
+        uint16_t TargetAddress = ((uint16_t)dccptrTmp->Data[0]-192)*256+(uint16_t)dccptrTmp->Data[1];
+        // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress,dccptrTmp->Data[0],
         //          dccptrTmp->Data[1]);
-        snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(L)", TargetAddress_int);
+        snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(L)", TargetAddress);
      } else {
-        snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(S)", (int)dccptrTmp->Data[0]);
+        if (tmpuint8 != 0b10000000) {
+           snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(S)", (uint16_t)dccptrTmp->Data[0]);
+        } else {
+           // Accessory address decoding
+           uint16_t TargetAddress = (uint16_t)(dccptrTmp->Data[0] & 0b00111111); // Lower 6 bits, 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0)
+           if (dccptrTmp->Data[1] & 0b10000000) {
+              tmpuint8 = (~dccptrTmp->Data[1] & 0b01110000) >> 4; // Ones complement upper 3 bits 0b0(A8)(A7)(A6)0000-> 0b00000(A8)(A7)(A6)
+              // 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0) | 0b0000000(A8) (A7)(A6)000000 -> 0b0000000(A8) (A7)(A6)(A5)(A4)(A3)(A2)(A1)(A0)
+              TargetAddress = ((((((uint16_t)tmpuint8 << 6) | TargetAddress) - 1) << 2) | ((dccptrTmp->Data[1] & 0b00000110) >> 1)) + 1;
+           } else {
+              tmpuint8  = (dccptrTmp->Data[1] & 0b00000110) >> 1; // 0b0000(A7)(A6)0 -> 0b000000(A7)(A6)
+              tmpuint8 |= (dccptrTmp->Data[1] & 0b01110000) >> 2; // 0b00000(A7)(A6) | 0b0(A10)(A9)(A8)0000 -> 0b000(A10)(A9)(A8)(A7)(A6)
+              // 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0) | 0b00000(A10)(A9)(A8) (A7)(A6)000000 -> 0b00000(A10)(A9)(A8) (A7)(A6)(A5)(A4)(A3)(A2)(A1)(A0)
+              TargetAddress |= ((uint16_t)tmpuint8 << 6); 
+           }
+           snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(A)", TargetAddress);
+        }
      }
   } else {
      if (AirMiniCV29Bit5) {
-        int AirMiniAddress_int = ((int)AirMiniCV17-192)*256+(int)AirMiniCV18;
+        uint16_t AirMiniAddress_int = ((uint16_t)AirMiniCV17-192)*256+(uint16_t)AirMiniCV18;
         // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
         snprintf(lcd_line, sizeof(lcd_line), "My Ad: %d(L)", AirMiniAddress_int);
      } else {
@@ -971,7 +996,7 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
   return;
 }  // end of LCD_CVval_Status
 
-void LCD_Wait_Period_Over(int status) {
+void LCD_Wait_Period_Over(uint16_t status) {
   lcd.clear();
   lcd.setCursor(0, 0);  // column, row
   if (!status) {
