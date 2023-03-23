@@ -902,9 +902,8 @@ void LCD_Addr_Ch_PL() {
            // Accessory address decoding
            uint16_t TargetAddress = (uint16_t)(dccptrTmp->Data[0] & 0b00111111); // Lower 6 bits, 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0)
            if (dccptrTmp->Data[1] & 0b10000000) {
-              tmpuint8 = (~dccptrTmp->Data[1] & 0b01110000) >> 4; // Ones complement upper 3 bits 0b0(A8)(A7)(A6)0000-> 0b00000(A8)(A7)(A6)
-              // 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0) | 0b0000000(A8) (A7)(A6)000000 -> 0b0000000(A8) (A7)(A6)(A5)(A4)(A3)(A2)(A1)(A0)
-              TargetAddress = ((((((uint16_t)tmpuint8 << 6) | TargetAddress) - 1) << 2) | ((dccptrTmp->Data[1] & 0b00000110) >> 1)) + 1;
+              tmpuint8 = ~dccptrTmp->Data[1] & 0b01110000; // Ones complement upper 3 bits 0b0(A8)(A7)(A6)0000
+              TargetAddress = ((((((uint16_t)tmpuint8 << 2) | TargetAddress) - 1) << 2) | ((dccptrTmp->Data[1] & 0b00000110) >> 1)) + 1;
            } else {
               tmpuint8  = (dccptrTmp->Data[1] & 0b00000110) >> 1; // 0b0000(A7)(A6)0 -> 0b000000(A7)(A6)
               tmpuint8 |= (dccptrTmp->Data[1] & 0b01110000) >> 2; // 0b00000(A7)(A6) | 0b0(A10)(A9)(A8)0000 -> 0b000(A10)(A9)(A8)(A7)(A6)
