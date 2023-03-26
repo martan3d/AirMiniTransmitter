@@ -1,9 +1,8 @@
 
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7O:
-- Eliminated the use of USE_CUTOUT from the receiver since
-  this feature is NOT required from Airwire.
+S:1.7R:
+- No idle insertion, just add preamble pulses
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -47,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7P"
+#define SWVERSION "1.7R"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -85,26 +84,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #error "Error: Neither TRANSMITTER or RECEIVER is defined"
 #endif
 
-#if defined(RECEIVER)
-//{
-#undef USE_CUTOUT
-//}
-#else
-//{
-#undef USE_CUTOUT
-//}
-#endif
-
-#if defined(USE_CUTOUT)
-//{
-#pragma message "Using cutout waveform"
-//}
-#else
-//{
-#pragma message "Not using cutout waveform"
-//}
-#endif
-
 #if defined(USE_LCD)
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -113,7 +92,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(TRANSMITTER)
 //{ TRANSMITTER
 
-// Actual input pin. No conversion do PD3! Dcc.init does this.
+// Actual input pin. No conversion do PD3! DCC.init does this.
 // #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
 #define INPUT_PIN 3
 #define EXTINT_NUM 1
@@ -129,7 +108,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #else
 //{ RECEIVER
 
-// Actual input pin. No conversion do PD3! Dcc.init does this.
+// Actual input pin. No conversion do PD3! DCC.init does this.
 // #define INPUT_PIN  PD2  // 3.3V unipolar DCC input from raw modem output
 #define INPUT_PIN 2
 #define EXTINT_NUM 0
@@ -146,7 +125,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 //} RECEIVER
 #endif
 
-NmraDcc Dcc;
+NmraDcc DCC;
 
 //              100 -> 6.25uS @ 16MHz
 #define ADVANCE 200
@@ -155,8 +134,6 @@ volatile uint16_t advance = ADVANCE;
 #define TIMER_SHORT 64608  // 58usec pulse length
 #if !defined(TIMER_LONG)
 #define TIMER_LONG 63680  // 116usec pulse length
-#define TIMER_LONG_CUTOUT1 63840  // 106usec pulse length x 3 = 318us
-#define TIMER_LONG_CUTOUT2 63792  // 109usec pulse length x 5 = 545us
 #endif
 volatile uint16_t timer_long  = TIMER_LONG;
 volatile uint16_t timer_short = TIMER_SHORT;
@@ -183,13 +160,6 @@ volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state,
 uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for long cutouts
 #endif
 volatile uint8_t preamble_count = PREAMBLE_BITS;
-#if defined(USE_CUTOUT)
-#pragma message "Defining cutout variables"
-uint16_t timer_long_cutout[3] = {TIMER_LONG, TIMER_LONG_CUTOUT1, TIMER_LONG_CUTOUT2};  // Does NOT change
-static uint8_t count_railcom_max[3] = {1, 3, 5};  // Does NOT change
-volatile uint8_t count_railcom = 0;
-volatile uint8_t cutout_type = 0;  // 0, 1, 2
-#endif
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
 volatile uint8_t byteIndex = 0;
@@ -316,7 +286,6 @@ uint8_t CVResetCount = 0;
 uint8_t sendbuffer[sizeof(DCC_MSG)];
 uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
-volatile uint8_t dccptrISRRepeatCount = 0;
 #if defined(TRANSMITTER)
 #define DCCPTRISRREPEATCOUNTMAX 1
 #else
@@ -527,12 +496,6 @@ LiquidCrystal_I2C lcd;               // Create the LCD object with a default add
 char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
 #endif
 
-volatile uint8_t cutout_count = 0;
-#if defined(RECEIVER)
-#define CUTOUT_COUNT_MAX 40
-#else
-#define CUTOUT_COUNT_MAX 0
-#endif
 // #define TURNOFFNOTIFYINTERRUPTS
 #if defined(TURNOFFNOTIFYINTERRUPTS)
 #pragma message "Turning off interrupts in notifyDccMsg"
@@ -599,17 +562,6 @@ ISR(TIMER1_OVF_vect) {
 #endif
 
      every_second_isr = 0;
-#if defined(USE_CUTOUT)
-     // Ensure the second-half of the cut-out waveform is performed
-     // at the start of the CUTOUT state
-     if ((current_state == CUTOUT) && (cutout_count == 1)) {
-        timer_val = timer_long_cutout[cutout_type];  // Will be reset below on next cycle
-        count_railcom = (count_railcom+1) % count_railcom_max[cutout_type];
-        if (count_railcom) {
-           every_second_isr = 1;  // Stay HIGH
-        }
-     }
-#endif
   }  else  {  // != every second interrupt, advance bit or state
 #if defined(RECEIVER)
      if (useModemData)        // If not using modem data, the level is set elsewhere
@@ -623,47 +575,18 @@ ISR(TIMER1_OVF_vect) {
 
      switch (current_state)  {
         case CUTOUT:
-           cutout_count++;
            timer_val = timer_short;  // second half will be reset
            // get next message
            if (msgIndexOut != msgIndexIn) {
               msgIndexOut = (msgIndexOut+1) % MAXMSG;
               dccptrISR = &msg[msgIndexOut];
-              dccptrISRRepeatCount = 0;
               next_state = PREAMBLE;  // jump out of state
-           } else {
-              if (cutout_count > CUTOUT_COUNT_MAX) {  // If no new message, insert the previous message 
-                                                      // or and IDLE message after waiting COUTOUT_COUNT_MAX times
-                 dccptrISRRepeatCount = (dccptrISRRepeatCount+1) % DCCPTRISRREPEATCOUNTMAX;
-                 if (!dccptrISRRepeatCount)
-                    dccptrISR = (volatile DCC_MSG*)&msgIdle;          // Insert an IDLE message
-                 next_state = PREAMBLE; // Jump out of state
-              }
-           }
-#if defined(USE_CUTOUT)
-           // Set-up for cut-out in second half of the waveform
-           if (cutout_count == 1) {
-              if (dccptrISR->Data[0] == 0xFF) {
-                 cutout_type = 2;
-              } else {
-                 if (cutout_type) cutout_type--;
-              }
-              count_railcom = 0;
-              // next_state = PREAMBLE;
-           }
-#endif
-           if (next_state == PREAMBLE) {  // Preparation for next state
               dccptrOut = dccptrISR;  // For display only
 #if defined(TRANSMITTER)
               preamble_count = preamble_bits;  // large enough to satisfy Airwire!
 #else
-              preamble_count = dccptrISR->PreambleBits;  // Account for cutout below
+              preamble_count = dccptrISR->PreambleBits;
 #endif
-              // Account for preamble bits already sent
-              if (preamble_count > cutout_count) 
-                 preamble_count -= cutout_count;
-              else
-                 preamble_count = 1; // Minimum needed for decrement logic below
            }
         break;
         case PREAMBLE:
@@ -699,7 +622,6 @@ ISR(TIMER1_OVF_vect) {
         case STOPPACKET:
            timer_val = timer_short;
            next_state = CUTOUT;
-           cutout_count = 0;
         break;
      }  // end of switch
   }  // end of else ! every_seocnd_isr
@@ -1163,7 +1085,7 @@ void setup() {
 
   // Set up the input and output pins
 
-  Dcc.pin(EXTINT_NUM, INPUT_PIN, 0);  // register External Interrupt # and Input Pin of input source.
+  DCC.pin(EXTINT_NUM, INPUT_PIN, 1);  // register External Interrupt # and Input Pin of input source. Enable pullup!
                                       // Important. Pins and interrupt #'s are correlated.
 
   SET_OUTPUTPIN;
@@ -1182,7 +1104,7 @@ void setup() {
 #endif
 
   // Call the main DCC Init function to enable the DCC Receiver
-  Dcc.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
+  DCC.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
   timeOfValidDCC = micros();
 
 #if defined(RECEIVER)
@@ -1207,7 +1129,7 @@ void setup() {
 
 void loop() {
   /* Check High Priority Tasks First */
-  Dcc.process();  // The DCC library does it all with the callback notifyDccMsg!
+  DCC.process();  // The DCC library does it all with the callback notifyDccMsg!
 
   switch (masterSchedule()) {
      case TASK0:                      // Highest Priority Task goes here
@@ -1393,20 +1315,6 @@ void loop() {
                           // Add validation
                           timer_short = CVval;
                        break;
-#if defined(USE_CUTOUT)
-                       case  239:  // timer_long_cutout[1]
-                          // Add validation
-                         timer_long_cutout[1]  = 65536 - (uint16_t)CVval;
-                       break;
-                       case  238:  // timer_long_cutout[2]
-                          // Add validation
-                         timer_long_cutout[2]  = 65536 - (uint16_t)CVval;
-                       break;
-                       case  237:  // timer_long_cutout[3]
-                          // Add validation
-                         timer_long_cutout[3]  = 65536 - (uint16_t)CVval;
-                       break;
-#endif
                        case  236:  // timer_long_cutout[3]
                           // Add validation
                          advance  = 2*(uint16_t)CVval;
@@ -1475,7 +1383,7 @@ void loop() {
                       if (startModemFlag) {
                          strobeSPI(SIDLE);         // Stop the modem
                          // Call the main DCC Init function to enable the DCC Receiver
-                         // Dcc.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
+                         // DCC.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
                          startModem(CHANNEL, MODE);  // Restart on possible-new Airwire Channel and mode
                                                      // or power level
                       }
@@ -1641,7 +1549,7 @@ void loop() {
               // Stop the modem
               strobeSPI(SIDLE);
               // Call the main DCC Init function to enable the DCC Receiver
-              // Dcc.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 );
+              // DCC.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0 );
               // Restart on Airwire selected and mode (or power level)
               startModem(CHANNEL, MODE);
            }  // end of wait time over
