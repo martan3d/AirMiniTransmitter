@@ -1,5 +1,3 @@
-#undef SEND_DUPLICATE_PACKETS // Not sending duplicate packets if a new packet is NOT ready
-#undef SEND_PREAMBLE_PULSES   // Not using extra preamble pulses if a new packet is NOT ready. Using an IDLE packet instead
 
 #include <config.h>
 #include "DCCLibrary.h"
@@ -43,12 +41,10 @@ extern volatile uint8_t timer_long;
 byte timer_val = TIMER_SHORT;  // store last timer value
 byte every_second_isr = 0;      // pulse up or down
 
-enum {PREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
+enum {PREAMBLE, EXTENDPREAMBLE, SEPERATOR, SENDBYTE} state = PREAMBLE;
 extern byte preamble_bits;
-#if ! defined(PREAMBLE_BITS)
-#define PREAMBLE_BITS 16
-#endif
-byte preamble_count = PREAMBLE_BITS;
+byte preamble_count = preamble_bits;
+byte extra_preamble_count = 0;
 byte outbyte = 0;
 byte cbit = 0x80;
 int byteIndex = 0;
@@ -102,7 +98,7 @@ ISR(TIMER2_OVF_vect){
         // latency = TCNT2;
         // TCNT2 = latency + last_timer;
       
-    }else{                                    // != every second interrupt, advance bit or state
+    } else {                                    // != every second interrupt, advance bit or state
         // digitalWrite(OUTPUT_PIN,0);
         PORTD &= ~(1<<OUTPUT_PIN);  // OUTPUT_PIN Low
         every_second_isr = 1;
@@ -111,30 +107,26 @@ ISR(TIMER2_OVF_vect){
             case PREAMBLE:
                 timer_val = TIMER_SHORT;
                 preamble_count--;
-                if(preamble_count == 0){      // advance to next state
+                if(!preamble_count){      // advance to next state
                     // get next message
-#if defined(SEND_DUPLICATE_PACKETS)
-                    GetNextMessage();
-                    if (true)                 // Will NOT put in extra preamble pulses if a new msg is NOT ready, just use the old packet
-#else
-                    if (GetNextMessage())     // Will use idle message by setting msgExtractedIndex, or send extra preamble pulses, if a new msg is NOT ready
-#endif
-                    {
-                       state = SEPERATOR;        // Ready to go to next state with new msg
+                    if (GetNextMessage()) {   // Will use idle message by setting msgExtractedIndex, or send extra preamble pulses, if a new msg is NOT ready
                        byteIndex = 0;            // Start msg with byte 0
                        msgExtractedIndex = 0;    // Use message extracted from DCC input
-                    }
-                    else
-                    {
-#if defined(SEND_PREAMBLE_PULSES)
+                       if (msgExtracted[msgExtractedIndex].PreambleBits > preamble_bits) {
+                          extra_preamble_count = msgExtracted[msgExtractedIndex].PreambleBits - preamble_bits;
+                          state = EXTENDPREAMBLE; // Add extra preamble bits to match the message's preable bits
+                       } else {
+                          state = SEPERATOR;     // Ready to go to SEPARATOR state with new msg
+                       }
+                    } else {
                       preamble_count++;          // No change in state, just adding extra preamble pulses
-#else
-                      state = SEPERATOR;         // Ready to go to next state with new msg
-                      byteIndex = 0;             // Start msg with byte 0
-                      msgExtractedIndex = 1;     // Use idle-packet, keep-alive for Airwire?
-#endif
                     }
                 }
+                break;
+            case EXTENDPREAMBLE:
+                timer_val = TIMER_SHORT;
+                extra_preamble_count--;
+                if (!extra_preamble_count) state = SEPERATOR; // Ready to go to SEPARATOR state with new msg
                 break;
             case SEPERATOR:
                 timer_val = timer_long;
@@ -152,7 +144,7 @@ ISR(TIMER2_OVF_vect){
                     if(byteIndex >= msgExtracted[msgExtractedIndex].Size){
                         // this was already the XOR byte then advance to preamble
                         state = PREAMBLE;
-                        preamble_count = (preamble_bits ? preamble_bits : PREAMBLE_BITS); 
+                        preamble_count = preamble_bits;
                     }else{
                         // send separator and advance to next byte
                         state = SEPERATOR ;
