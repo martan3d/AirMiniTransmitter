@@ -42,7 +42,7 @@ extern "C" {
 
 #if defined(TRANSMITTER)
 #define INPUT_PIN  PD3  // 5V unipolar DCC input from opto-coupler
-#define OUTPUT_PIN PD4  // 5V unipolar DCC diagnostic output, not currently used
+#define OUTPUT_PIN PD4  // 5V unipolar DCC diagnostic output, not currently used, actual transciever output is handled elsewhere!
 #define OUTPUT_OFF    PORTD &= ~(1<<OUTPUT_PIN)
 #define OUTPUT_HIGH   PORTD |=  (1<<OUTPUT_PIN)
 #define OUTPUT_LOW    PORTD &= ~(1<<OUTPUT_PIN)
