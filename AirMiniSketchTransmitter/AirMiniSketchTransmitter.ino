@@ -86,14 +86,31 @@ extern bool (*GetNextMessage)(void); // For DCCLibrary
 // Implement a ring buffer
 // Make the preamble as short as possible !
 #if !defined(PREAMBLE_BITS)
+#if defined(TRANSMITTER)
+#define PREAMBLE_BITS 30
+#else
 #define PREAMBLE_BITS 16
 #endif
-uint8_t preamble_bits = 0; // 0 or >= 12
+#endif
+uint8_t preamble_bits = PREAMBLE_BITS;
 volatile Message msg[MAXMSG] = {      // -> to DCCLibrary.c
-    { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-    { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-    { 0, 0,  { 0,    0, 0,    0, 0, 0}}
-   };
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+};
 
 // Private msg sent to DCCLibrary.c ISR
 volatile Message msgExtracted[2] = {    // -> to DCCLibrary.c
@@ -187,7 +204,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #else
 //{ TRANSMITTER
 #if ! defined(AUTOIDLEOFFDEFAULT)
-#define AUTOIDLEOFFDEFAULT 0
+#define AUTOIDLEOFFDEFAULT 1
 #endif
 //} TRANSMITTER
 #endif
@@ -936,6 +953,9 @@ void loop()
       case TASK1:                      // Just pick a priority for the DCC packet, TASK1 will do 
 
          dccptr = getDCC();       // we are here, so a packet has been assembled, get a pointer to our DCC data
+#if defined(TRANSMITTER)
+         if (PREAMBLE_BITS > dccptr->PreambleBits) dccptr->PreambleBits = PREAMBLE_BITS; // Important for Airwire compatibility!!!
+#endif
 
          if (memcmp((void *)sendbuffer,(void *)dccptr,sizeof(DCC_MSG))) dccptrRepeatCount=0;  // If they don't match, reset the repeat count
          else dccptrRepeatCount++;                                            // If they do match, increment the repeat count
