@@ -40,10 +40,10 @@
 //------------------------------------------------------------------------
 
 // Uncomment the following Line to Enable Service Mode CV Programming
-#define NMRA_DCC_PROCESS_SERVICEMODE
+// #define NMRA_DCC_PROCESS_SERVICEMODE
 
 // Uncomment the following line to Enable MultiFunction Decoder Operations
-#define NMRA_DCC_PROCESS_MULTIFUNCTION
+// #define NMRA_DCC_PROCESS_MULTIFUNCTION
 
 // Uncomment the following line to Enable 14 Speed Step Support
 //#define NMRA_DCC_ENABLE_14_SPEED_STEP_MODE
