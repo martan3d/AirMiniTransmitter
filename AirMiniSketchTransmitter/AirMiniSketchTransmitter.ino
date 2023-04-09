@@ -648,9 +648,9 @@ void LCD_Addr_Ch_PL()
       tmpuint8 = dccptr->Data[0]&0b11000000;
       if ((tmpuint8==0b11000000) && (dccptr->Data[0]!=0b11111111))
       {
-         int TargetAddress_int = ((int)dccptr->Data[0]-192)*256+(int)dccptr->Data[1];
-         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress_int,dccptr->Data[0],dccptr->Data[1]);
-         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress_int);
+         uint16_t TargetAddress = ((uint16_t)dccptr->Data[0]-192)*256+(uint16_t)dccptr->Data[1];
+         // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress,dccptr->Data[0],dccptr->Data[1]);
+         snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(L)",TargetAddress);
       }
       else
       {
