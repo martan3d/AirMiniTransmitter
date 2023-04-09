@@ -1,8 +1,8 @@
 
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7R:
-- No idle insertion, just add preamble pulses
+S:1.7S:
+- Experimental, new display
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -46,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7R"
+#define SWVERSION "1.7S"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -75,18 +75,31 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma message "NOT turning off interrupts in message re-assigment sections"
 #endif
 
+#define USE_NEW_LCD
+
 #if defined(TRANSMITTER)
 #undef RECEIVER
-#define USE_LCD
+#if ! defined(USE_NEW_LCD)
+#define USE_OLD_LCD
+#endif
 #elif defined(RECEIVER)
-#define USE_LCD
+#if ! defined(USE_NEW_LCD)
+#define USE_OLD_LCD
+#endif
 #else
 #error "Error: Neither TRANSMITTER or RECEIVER is defined"
 #endif
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD)
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#elif defined(USE_NEW_LCD)
+// #include <Wire.h>
+// #include <Adafruit_GFX.h>
+// #include <Adafruit_SSD1306.h>
+#include <Wire.h>
+#include <SSD1306Ascii.h>
+#include <SSD1306AsciiAvrI2c.h>
 #endif
 
 #if defined(TRANSMITTER)
@@ -215,9 +228,9 @@ volatile uint8_t msgIndexIn = 0;  // runs from 0 to MAXMSG-1
 
 // Setting up double pass for OPS mode
 #if defined(TRANSMITTER)
-#define DOUBLE_PASS 1            // Do a double pass on CV setting
+#define DOUBLE_PASS 0            // Do a double pass on CV setting
 #else
-#define DOUBLE_PASS 1            // Do a double pass on CV setting
+#define DOUBLE_PASS 0            // Do a double pass on CV setting
 #endif
 
 // DEFAULT defines
@@ -283,19 +296,9 @@ volatile DCC_MSG *dccptrISR;
 volatile bool printIn = true;
 
 uint8_t CVResetCount = 0;
-uint8_t sendbuffer[sizeof(DCC_MSG)];
 uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
-#if defined(TRANSMITTER)
-#define DCCPTRISRREPEATCOUNTMAX 1
-#else
-#define DCCPTRISRREPEATCOUNTMAX 2
-#endif
-#pragma message "Info: ISR Maximum Repeat Count is " xstr(DCCPTRISRREPEATCOUNTMAX)
-uint8_t dccptrRepeatCount = 0;
-uint8_t dccptrRepeatCountMax = 1;
 uint8_t tmpuint8 = 0;
-uint8_t do_not_filter = 0;
 uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
@@ -311,8 +314,6 @@ uint8_t filterModemData = 0;                 // Set the logical for whether to a
                                              // Initialized elsewhere
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-uint64_t idlePeriod = 0;                     // changed to variable that might be changed by SW
-uint8_t idlePeriodms = 0;                    // changed to variable that might be changed by SW
 uint64_t lastIdleTime = 0;
 uint64_t tooLong = 16ULL*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
@@ -326,7 +327,6 @@ uint8_t searchChannelIndex = 0;              // Initialial channel search order 
 //} RECEIVER
 #else
 //{ TRANSMITTER
-uint8_t AutoIdleOff;                         // Automatic Idle off. Will be intialized later
 //} TRANSMITTER
 #endif
 
@@ -347,10 +347,9 @@ uint8_t searchChannels[19] = {0, 18, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 
                                                                                                   // order
 #endif
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
 const char *bannerString = "ProMini Air NA/E";
 const char *regionString[] = {"N", "E"};  // Region code: N=North America, E=Europe, W=Worldwide
-bool lcdInitialized = false;
 #endif
 //}
 #else
@@ -364,7 +363,7 @@ bool lcdInitialized = false;
 uint8_t searchChannels[8] = {0, 1, 2, 3, 4, 5, 6, 7};  // Channel search order
 #endif
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
 const char *bannerString = "ProMini Air EU";
 const char *regionString[] = {"E"};  // Region code: N=North America, E=Europe, W=Worldwide
 #endif
@@ -380,7 +379,7 @@ const char *regionString[] = {"E"};  // Region code: N=North America, E=Europe, 
 uint8_t searchChannels[8] = {0, 1, 2, 3, 4, 5, 6, 7};  // Channel search order
 #endif
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
 const char *bannerString = "ProMini Air WW";
 const char *regionString[] = {"W"};  // Region code: N=North America, E=Europe, W=Worldwide
 #endif
@@ -440,41 +439,34 @@ uint8_t  EEisSetpowerLevel = 7;            // Stored DC output power level is se
 uint8_t  EEpowerLevel = 8;                 // Stored DC output power level
 // uint8_t  EEpowerLevelDefault;              // Stored DC output power level
 
-uint8_t  EEisSetidlePeriodms = 9;          // Stored idlePeriodms set flag
-uint8_t  EEidlePeriodms = 10;              // Stored idlePeriod in ms
-// uint8_t  EEidlePeriodmsDefault;            // Stored idlePeriod in ms
-
-uint8_t  EEisSetfilterModemData = 11;       // Stored filterModemData set flag
-uint8_t  EEfilterModemData = 12;            // Stored filterModemData
+uint8_t  EEisSetfilterModemData = 9;       // Stored filterModemData set flag
+uint8_t  EEfilterModemData = 10;            // Stored filterModemData
 // uint8_t  EEfilterModemDataDefault;          // Stored filterModemData
 
-uint8_t  EEisSetAirMiniCV1 = 13;            // Stored AirMini decoder short address is set
-uint8_t  EEAirMiniCV1 = 14;                 // Stored AirMini decoder short address
+uint8_t  EEisSetAirMiniCV1 = 11;            // Stored AirMini decoder short address is set
+uint8_t  EEAirMiniCV1 = 12;                 // Stored AirMini decoder short address
 // uint8_t  EEAirMiniCV1Default;               // Stored AirMini decoder short address
 
-uint8_t  EEisSetAirMiniCV17 = 15;           // Stored AirMini decoder high uint8_t address is set
-uint8_t  EEAirMiniCV17 = 16;                // Stored AirMini decoder high uint8_t address
+uint8_t  EEisSetAirMiniCV17 = 13;           // Stored AirMini decoder high uint8_t address is set
+uint8_t  EEAirMiniCV17 = 14;                // Stored AirMini decoder high uint8_t address
 // uint8_t  EEAirMiniCV17Default;
 
-uint8_t  EEisSetAirMiniCV18 = 17;           // Stored AirMini decoder low uint8_t address is set
-uint8_t  EEAirMiniCV18 = 18;                // Stored AirMini decoder low uint8_t address
+uint8_t  EEisSetAirMiniCV18 = 15;           // Stored AirMini decoder low uint8_t address is set
+uint8_t  EEAirMiniCV18 = 16;                // Stored AirMini decoder low uint8_t address
 // uint8_t  EEAirMiniCV18Default;              // Stored AirMini decoder low uint8_t address
 
-uint8_t  EEisSetAirMiniCV29 = 19;           // Stored AirMini decoder configuration variable is set
-uint8_t  EEAirMiniCV29 = 20;                // Stored AirMini decoder configuration variable
+uint8_t  EEisSetAirMiniCV29 = 17;           // Stored AirMini decoder configuration variable is set
+uint8_t  EEAirMiniCV29 = 18;                // Stored AirMini decoder configuration variable
 // uint8_t  EEAirMiniCV29Default;              // Stored AirMini decoder configuration variable
 
 #if defined(RECEIVER)
 //{ RECEIVER
-uint8_t  EEisSetInitialWaitPeriodSEC = 21;  // Stored AirMini decoder configuration variable
-uint8_t  EEInitialWaitPeriodSEC = 22;       // Stored AirMini decoder configuration variable
+uint8_t  EEisSetInitialWaitPeriodSEC = 19;  // Stored AirMini decoder configuration variable
+uint8_t  EEInitialWaitPeriodSEC = 20;       // Stored AirMini decoder configuration variable
 // uint8_t  EEInitialWaitPeriodSECDefault;     // Stored AirMini decoder configuration variable
 //} RECEIVER
 #else
 //{ TRANSMITTER
-uint8_t  EEisSetAutoIdleOff = 23;  // Stored AirMini decoder configuration variable
-uint8_t  EEAutoIdleOff = 24;       // Stored AirMini decoder configuration variable
-// uint8_t  EEAutoIdleOffDefault;     // Stored AirMini decoder configuration variable
 //} TRANSMITTER
 #endif
 
@@ -484,16 +476,29 @@ uint8_t  EEAutoIdleOff = 24;       // Stored AirMini decoder configuration varia
 
 enum {ACCEPTED, IGNORED, PENDING} CVStatus = ACCEPTED;
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+//{
 uint8_t LCDAddress;                  // The I2C address of the LCD
 bool LCDFound = false;               // Whether a valid lcd was found
+#if defined(USE_OLD_LCD)
 #define LCDCOLUMNS 16                // Number of LCD columns
 #define LCDROWS 2                    // Number of LCD rows
+#else
+#define LCDCOLUMNS 128               // Number of LCD columns
+// #define LCDROWS 32                   // Number of LCD rows
+#define LCDROWS 64                   // Number of LCD rows
+#endif
 uint64_t LCDTimePeriod = 2ULL*SEC;   // Set up the LCD re-display time interval, 2 s
 uint64_t LCDprevTime = 0;            // Initialize the last time displayed
 bool LCDrefresh = false;             // Whether to refresh
-LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
 char lcd_line[LCDCOLUMNS+1];         // Note the "+1" to insert an end null!
+#if defined(USE_OLD_LCD)
+LiquidCrystal_I2C lcd;               // Create the LCD object with a default address
+#else
+// Adafruit_SSD1306 lcd(LCDCOLUMNS, LCDROWS, &Wire, -1);
+SSD1306AsciiAvrI2c lcd;
+#endif
+//}
 #endif
 
 // #define TURNOFFNOTIFYINTERRUPTS
@@ -782,26 +787,44 @@ void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
   eeprom_busy_wait();
 }  // end of checkSetDefaultEE
 
-#if defined(USE_LCD)
-//{  // USE_LCD
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+//{  // USE_OLD_LCD
 void LCD_Banner() {
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 0);              // Set initial column, row
+#else
+  lcd.clear();              // Set initial column, row
+#endif
   if (whichBanner == INITIAL)
+#if defined(USE_OLD_LCD)
      lcd.print(bannerString);   // Banner
+#else
+     lcd.println(bannerString);   // Banner
+#endif
   else
+#if defined(USE_OLD_LCD)
      lcd.print("ProMini Air Info");
+#else
+     lcd.println("ProMini Air Info");
+#endif
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);              // Set next line column, row
   lcd.print("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
+#else
+  lcd.println("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
+#endif
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }  // end of LCD_Banner
 
 void LCD_Addr_Ch_PL() {
-  dccptrTmp = dccptrIn;
   if (!printIn) dccptrTmp = dccptrOut;
+  else dccptrTmp = dccptrIn;
 
   lcd.clear();
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 0);  // column, row
+#endif
   /*
   uint16_t AirMiniAddress = (uint16_t)(AirMiniCV17&0b00111111);
   AirMiniAddress <<= 8;
@@ -846,8 +869,12 @@ void LCD_Addr_Ch_PL() {
      }
   }
 
+#if defined(USE_OLD_LCD)
   lcd.print(lcd_line);
   lcd.setCursor(0, 1);  // column, row
+#else
+  lcd.println(lcd_line);
+#endif
 
   if (printDCC) {
      snprintf(lcd_line, sizeof(lcd_line), "                ");
@@ -891,9 +918,12 @@ void LCD_Addr_Ch_PL() {
 }  // end of LCD_Addr_Ch_PL
 
 void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
+
   lcd.clear();
 
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 0);  // column, row
+#endif
   switch (CVStatus) {
      case ACCEPTED:
         snprintf(lcd_line, sizeof(lcd_line), "Changed:");
@@ -905,9 +935,15 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
         snprintf(lcd_line, sizeof(lcd_line), "Pending:");
      break;
   }
+#if defined(USE_OLD_LCD)
   lcd.print(lcd_line);
+#else
+  lcd.println(lcd_line);
+#endif
 
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);  // column, row
+#endif
   snprintf(lcd_line, sizeof(lcd_line), "CV%d=%d", CVnum, CVval);
   lcd.print(lcd_line);
 
@@ -918,16 +954,26 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
 }  // end of LCD_CVval_Status
 
 void LCD_Wait_Period_Over(uint16_t status) {
+
   lcd.clear();
+
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 0);  // column, row
+#endif
   if (!status) {
      snprintf(lcd_line, sizeof(lcd_line), "NO valid");
   } else {
      snprintf(lcd_line, sizeof(lcd_line), "Found valid");
   }
+#if defined(USE_OLD_LCD)
   lcd.print(lcd_line);
+#else
+  lcd.println(lcd_line);
+#endif
 
+#if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);  // column, row
+#endif
 
 #if defined(NAEU_900MHz)
   if (CHANNEL <= channels_na_max)
@@ -943,7 +989,7 @@ void LCD_Wait_Period_Over(uint16_t status) {
 
   return;
 }  // end of LCD_Wait_Period_Over
-//}  // USE_LCD
+//}  // USE_OLD_LCD
 #endif
 
 void setup() {
@@ -998,14 +1044,6 @@ void setup() {
                     (uint8_t)LOCKEDANTIPHASEDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set,
                                                                     // otherwise set to 1 and set EEPROM values
 
-  // Set the DCC time-out period for sending IDLE packets.
-  // Used along with duplicate DCC packet detection for inserting IDLE packets
-  // eeprom_update_byte(&EEidlePeriodmsDefault, IDLEPERIODMSDEFAULT );
-  checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms,
-                    (uint8_t)IDLEPERIODMSDEFAULT, SET_DEFAULT);  // Use EEPROM value if it's been set,
-                                                                 // otherwise set to 0 ms
-  idlePeriod = (uint64_t)idlePeriodms * MILLISEC;  // Convert to time counts
-
   // Set whether to always use modem data on transmit
   // eeprom_update_byte(&EEfilterModemDataDefault, FILTERMODEMDATADEFAULT );
   checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData, &EEfilterModemData,
@@ -1040,9 +1078,6 @@ void setup() {
 //} RECEIVER
 #else
 //{ TRANSMITTER
-  // eeprom_update_byte(&EEAutoIdleOffDefault, AUTOIDLEOFFDEFAULT );
-  // Set AutoIdleOff
-  checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (uint8_t)AUTOIDLEOFFDEFAULT, SET_DEFAULT);
 //} TRANSMITTER
 #endif
 
@@ -1099,8 +1134,42 @@ void setup() {
   // Set up slow-time variables
   then = micros();                            // Grab Current Clock value for the loop below
 
-#if defined(USE_LCD)
-  LCDprevTime = micros()+LCDTimePeriod;
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+  // Scan for I2C devices
+  Wire.begin();  // Wire communication begin
+  uint8_t nDevices = 0;
+  uint8_t address;
+  uint8_t error;
+  for (address = 1; address < 127; address++) {
+     // The i2c_scanner uses the return value of
+     // the Write.endTransmisstion to see if
+     // a device did acknowledge to the address.
+     Wire.beginTransmission(address);
+     error = Wire.endTransmission();
+
+     if (error == 0) {
+        nDevices++;
+        LCDAddress = address;
+     }
+  }
+
+  if (nDevices == 1) {
+     LCDFound = true;
+     LCDrefresh = true;
+#if defined(USE_OLD_LCD)
+     lcd.init(LCDAddress, LCDCOLUMNS, LCDROWS);    // Initialize the LCD
+     lcd.backlight();                            // Backlight it
+#else
+     // lcd.begin(&Adafruit128x64, LCDAddress);
+     lcd.begin(&Adafruit128x32, LCDAddress);
+     lcd.setFont(Adafruit5x7);
+#endif
+     whichBanner = INITIAL;
+     LCDprevTime = micros()+LCDTimePeriod;
+  } else {
+     LCDFound = false;
+     LCDrefresh = false;
+  }
 #endif
 
   // Call the main DCC Init function to enable the DCC Receiver
@@ -1137,57 +1206,6 @@ void loop() {
      break;
      case TASK1:                      // Just pick a priority for the DCC packet, TASK1 will do
         // dccptrIn = getDCC();       // we are here, so a packet has been assembled, get a pointer to our DCC data
-
-        if (memcmp((void *)sendbuffer, (void *)dccptrIn, sizeof(DCC_MSG)))
-           dccptrRepeatCount = 0;     // If they don't match, reset the repeat count
-        else
-           dccptrRepeatCount++;       // If they do match, increment the repeat count
-
-        // decodeDCCPacket((DCC_MSG*) dccptrIn);      // Send debug data
-        memcpy((void *)sendbuffer, (void *)dccptrIn, sizeof(DCC_MSG));
-
-#if defined(TRANSMITTER)
-//{ TRANSMITTER
-
-#if defined(TURNOFFINTERRUPTS)
-        cli();  // Turn off interrupts
-#endif
-
-        // Detect long or short address
-        tmpuint8 = dccptrIn->Data[0] & 0b11000000; // Ignore first 6 bits
-        if ((tmpuint8 == 0b11000000) && (dccptrIn->Data[0] != 0b11111111))
-           countPtr = 2;
-        else
-           countPtr = 1;
-
-        // if either a short or long address message is to change the CV, DO NOT FILTER IT OUT!
-        tmpuint8 = dccptrIn->Data[countPtr] & 0b11100000;  // Ignore first 5 bits of first byte after the address byte(s)
-        do_not_filter = (tmpuint8 == 0b11100000) ? 1 : 0;  // Is this one of 4 OPS mode commands
-
-        // Is this a Service Mode command, if so, do not filter
-        if (!do_not_filter) {                                 // Service mode programming mode
-           tmpuint8 = dccptrIn->Data[0] & 0b11110000;         // Ignore first 4 bits of first byte
-           do_not_filter = (tmpuint8 == 0b01110000) ? 1 : 0;  // Is this any of 4 Service mode commands?
-        }
-
-        // Logic to pass through packet or send an IDLE packet to keep Airwire keep-alive
-        if ((dccptrRepeatCount <= dccptrRepeatCountMax) || AutoIdleOff || do_not_filter) {
-            ;;  // memcpy... went here
-        } else {                                     // Send out an idle packet (for keep-alive!)
-           if (((uint64_t)micros() - lastIdleTime) >= idlePeriod) {
-              dccptrRepeatCount = 0;
-              lastIdleTime = micros();
-              memcpy((void *)&msg[msgIndexIn], (void *)&msgIdle, sizeof(DCC_MSG));
-#if defined(DEBUG_LOCAL)
-              Serial.print("Replaced message with msgIdle\n");
-#endif
-           }
-        }
-#if defined(TURNOFFINTERRUPTS)
-        sei();  // Turn interrupts back on
-#endif
-//} TRANSMITTER
-#endif
 
 #if defined(RECEIVER)
         if (!useModemData) {  // If not using modem data, ensure that the output
@@ -1270,11 +1288,6 @@ void loop() {
                           checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel, (uint8_t)CVval, 1);
                           // Set dcLevel and reset EEPROM values
                        break;
-                       case  247:  // Set the idle period (in ms) and reset related EEPROM values. Verified it works.
-                          checkSetDefaultEE(&idlePeriodms, &EEisSetidlePeriodms, &EEidlePeriodms, (uint8_t)CVval, 1);
-                          // Set idlePeriodms and reset EEPROM values (in ms!)
-                          idlePeriod = (uint64_t)idlePeriodms * MILLISEC;  // Convert to cycles
-                       break;
                        case  246:  // Set whether to always use modem data
                           if (CVval) CVval = 1;  // Non-zero reset to 1
                           checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData,
@@ -1293,9 +1306,6 @@ void loop() {
 #endif
 
 #if defined(TRANSMITTER)
-                       case  244:  // Turn off automatic IDLE insertion
-                          checkSetDefaultEE(&AutoIdleOff, &EEisSetAutoIdleOff, &EEAutoIdleOff,  (uint8_t)CVval, 1);
-                       break;
 #endif
                        case  243:  // Set the DEVIATN hex code
                           deviatnval = CVval;
@@ -1346,16 +1356,26 @@ void loop() {
                        break;
                        case  8:  // Full EEPROM Reset and reboot!
                           if (CVval == 8) {
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+//{
                              if (LCDFound) {
-                                lcd.clear();
-                                lcd.setCursor(0, 0);  // column, row
+
                                 snprintf(lcd_line, sizeof(lcd_line), "Keep Power ON!");
+
+                                lcd.clear();
+#if defined(USE_OLD_LCD)
+                                lcd.setCursor(0, 0);  // column, row
                                 lcd.print(lcd_line);
-                                lcd.setCursor(0, 1);  // column, row
+#else
+                                lcd.println(lcd_line);
+#endif
                                 snprintf(lcd_line, sizeof(lcd_line), "Factory Reset...");
+#if defined(USE_OLD_LCD)
+                                lcd.setCursor(0, 1);  // column, row
+#endif
                                 lcd.print(lcd_line);
                              }
+//}
 #endif
                              eepromClear();
                              reboot();  // No need for sei, you're starting over...
@@ -1377,7 +1397,7 @@ void loop() {
                        break;
                     }  // end of switch (CVnum)
 
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
                     if (LCDFound) LCD_CVval_Status(CVnum, CVval);
 #endif
                       if (startModemFlag) {
@@ -1425,41 +1445,8 @@ void loop() {
                                                  // A priority Schedule could be implemented in here if needed
      then = micros();             // Grab Clock Value for next time
 
-#if defined(USE_LCD)
-     if (!lcdInitialized && ((then-LCDprevTime) >= LCDTimePeriod)) {
-        lcdInitialized = true;
-
-        // Scan for I2C devices
-        Wire.begin();  // Wire communication begin
-        uint8_t nDevices = 0;
-        uint8_t address;
-        uint8_t error;
-        for (address = 1; address < 127; address++) {
-           // The i2c_scanner uses the return value of
-           // the Write.endTransmisstion to see if
-           // a device did acknowledge to the address.
-           Wire.beginTransmission(address);
-           error = Wire.endTransmission();
-
-           if (error == 0) {
-              nDevices++;
-              LCDAddress = address;
-           }
-        }
-
-        if (nDevices == 1) {
-           LCDFound = true;
-           LCDrefresh = true;
-           lcd.init(LCDAddress, LCDCOLUMNS, LCDROWS);    // Initialize the LCD
-           lcd.backlight();                            // Backlight it
-           whichBanner = INITIAL;
-           LCDprevTime = then+LCDTimePeriod;
-        } else {
-           LCDFound = false;
-           LCDrefresh = false;
-        }
-     }
-
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+//{
      if (LCDrefresh && ((then-LCDprevTime) >= LCDTimePeriod)) {
         if (whichBanner == NONE) {
            LCD_Addr_Ch_PL();           // Update the display of address, chanel #, and power level
@@ -1477,6 +1464,7 @@ void loop() {
         LCDprevTime = then;              // Slowly... at 1 sec intervals
         LCDrefresh = true;
      }
+//}
 #endif
 
 #if defined(TRANSMITTER)
@@ -1521,13 +1509,13 @@ void loop() {
         // If we received a valid DCC signal during the intial wait period, stop waiting and proceed normally
         if (timeOfValidDCC > startInitialWaitTime) {
            initialWait = 0;
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
            if (LCDFound) LCD_Wait_Period_Over(1);
 #endif
         } else {  // Othewise, continue to wait
            // If it's too long, then reset the modem to the next channel
            if (then > endInitialWaitTime) {
-#if defined(USE_LCD)
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
               if (LCDFound) LCD_Wait_Period_Over(0);
 #endif
               if (++searchChannelIndex <= sizeof(searchChannels)) {
