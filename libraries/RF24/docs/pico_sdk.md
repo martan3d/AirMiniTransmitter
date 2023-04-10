@@ -1,15 +1,14 @@
-# RaspberryPi Pico SDK (for the RP2040)
+# Raspberry Pi Pico SDK (for the RP2040)
 
 <!-- markdownlint-disable MD031 MD046 -->
 Just to be very clear and concise: The following instructions are
 **not required to use the Arduino IDE** with any RP2040-based boards.
-These instructions pertain to using only the
-[Raspberry Pi foundation's Pico SDK](https://github.com/raspberrypi/pico-sdk)
+These instructions pertain to using only [Raspberry Pi's Pico SDK](https://github.com/raspberrypi/pico-sdk)
 for RP2040 based boards.
 
 ## Prerequisite
 
-Follow the Raspberry Pi Foundation's
+Follow Raspberry Pi's
 ["Getting Started with Pico" document](https://rptl.io/pico-get-started) to
 setup a proper development environment on your host PC (the machine that
 will build your project). Notice that the setup instructions are a little
@@ -38,17 +37,17 @@ come from the Pico SDK repository's
 
 1. Create a "build" directory in the RF24 repository's root directory and
    navigate to it:
-   ```shell
+   ```sh
    cd RF24
    mkdir build
    cd build
    ```
 2. Configure CMake for your desired build type and specific RP2040-based board
-   ```shell
+   ```sh
    cmake ../examples_pico -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico
    ```
    Or if building on a Windows PC:
-   ```shell
+   ```sh
    cmake -G "NMake Makefiles" ../examples_pico -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico
    ```
    The supported RP2040-based boards are listed in header files in the Pico SDK
@@ -56,7 +55,7 @@ come from the Pico SDK repository's
    If the `-DPICO_BOARD` option is not specified, then the Pico SDK will default to building for the Raspberry Pi Pico board.
 3. Build the examples using the CMakeLists.txt file located in the
    RF24/examples_pico directory.
-   ```shell
+   ```sh
    cmake --build . --config Release
    ```
    Notice we specified the build type again using the `--config` option.
