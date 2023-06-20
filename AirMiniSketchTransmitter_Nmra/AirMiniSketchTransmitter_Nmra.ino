@@ -1235,8 +1235,8 @@ void loop() {
            if (tmpuint8 == 0b11101100) {  // Determine if the bit pattern is for modifying CV's with
                                           // the first two bits don't care
               if (CVResetCount == 0 && DOUBLE_PASS) {             // Processing for identifying first
-                                                                       // or second valid call
-                 CVResetCount++;                                 // Update the CV reset counter
+                                                                  // or second valid call
+                 CVResetCount++;                                  // Update the CV reset counter
                  memcpy((void *)dccptrAirMiniCVReset, (void *)dccptrIn, sizeof(DCC_MSG));  // Save the dcc
                                                                                            // packet for comparison
               } else {
@@ -1304,9 +1304,6 @@ void loop() {
                           else
                              CVStatus = IGNORED;
                        break;
-#endif
-
-#if defined(TRANSMITTER)
 #endif
                        case  243:  // Set the DEVIATN hex code
                           deviatnval = CVval;
