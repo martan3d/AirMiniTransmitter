@@ -475,6 +475,7 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #endif
 
 uint8_t deviatnval=DEVIATNVAL;
+uint8_t deviatn_changed=0;
 
 #define SCK_PIN  13
 #define MISO_PIN 12
@@ -693,6 +694,13 @@ void startModem(uint8_t channel, uint8_t mode)
        clockSPI(DEVIATN);           // Deviatn Command
        clockSPI(deviatnval);
        endSPI();
+    }
+    if (deviatn_changed) {
+       beginSPI();
+       clockSPI(DEVIATN);           // Deviatn Command
+       clockSPI(deviatnval);
+       endSPI();
+       deviatn_changed = 0;          // Change flag back
     }
  
     if (mode == TX) {

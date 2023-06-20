@@ -1,8 +1,8 @@
 
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7S:
-- Experimental, new display
+S:1.7T:
+- Added change of deviatn value to test changing deviatn
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -46,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7S"
+#define SWVERSION "1.7T"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -400,6 +400,7 @@ uint8_t lockedAntiphase;                     // Do NOT intialize, in EEPROM
 volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
 extern uint8_t powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
 extern uint8_t deviatnval;                   // FSK deviation hex code
+extern uint8_t deviatn_changed;              // Deviatn changed?
 
 uint8_t AirMiniCV1;                          // The AirMini's address, HIGH uint8_t
 
@@ -1309,6 +1310,7 @@ void loop() {
 #endif
                        case  243:  // Set the DEVIATN hex code
                           deviatnval = CVval;
+                          deviatn_changed = 1;
                           startModemFlag = 1;  // Reset the modem with a new deviatnval. Not persistent yet
                        break;
 #if defined(TRANSMITTER)
