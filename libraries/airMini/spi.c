@@ -434,8 +434,8 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 
 // Set DEVIATN register
 #define DEVIATN 0x15
-// Set CHAN register
-#define CHAN    0x0A
+// Set CHANNR register
+#define CHANNR  0x0A
 // Set FREQ2 register
 #define FREQ2   0x0D
 // Set FREQ1 register
@@ -459,21 +459,25 @@ const uint8_t powers[1][11] = {{0x55, 0x8D, 0xC6, 0x97, 0x6E, 0x7F, 0xA9, 0xBB, 
 #define READ_SINGLE 0x80
 #define READ_BURST  0xC0
 
-// For 27MHz Tam Valley Rx compatibility
+// For 27MHz Tam Valley Rx compatibility (Channel 17)
 #if defined(TWENTY_SEVEN_MHZ)
-#define FREQ2VAL 0x21
-#define FREQ1VAL 0xF1
-#define FREQ0VAL 0x97
-#define CHANVAL  0x00
+#define FREQ2VAL   0x21
+#define FREQ1VAL   0xF1
+#define FREQ0VAL   0x97
+#define CHANNRVAL  0x00
 #define DEVIATNVAL 0x3F
 #else
-#define FREQ2VAL 0x23
-#define FREQ1VAL 0x3F
-#define FREQ0VAL 0xCE
-#define CHANVAL  0x00
+#define FREQ2VAL   0x23
+#define FREQ1VAL   0x3F
+#define FREQ0VAL   0xCE
+#define CHANNRVAL  0x00
 #define DEVIATNVAL 0x40
 #endif
 
+uint8_t freq_changed=0;
+uint8_t freq2val=0;
+uint8_t freq1val=0;
+uint8_t freq0val=0;
 uint8_t deviatnval=DEVIATNVAL;
 uint8_t deviatn_changed=0;
 
@@ -664,11 +668,11 @@ void startModem(uint8_t channel, uint8_t mode)
     endSPI();
 
     beginSPI();
-    clockSPI(CHAN);              // Channel Command
+    clockSPI(CHANNR);              // Channel Command
     clockSPI(channelCode);
     endSPI();
  
-    // For compatibility with Tam Valley Depot Tx
+    // For compatibility with Tam Valley Depot Tx (Ch 17)
     if (channel_l == 17) {
        beginSPI();
        clockSPI(FREQ2);             // Frequency byte 2 Command
@@ -686,8 +690,8 @@ void startModem(uint8_t channel, uint8_t mode)
        endSPI();
 
        beginSPI();
-       clockSPI(CHAN);              // Channel Command
-       clockSPI(CHANVAL);
+       clockSPI(CHANNR);            // Channel Command
+       clockSPI(CHANNRVAL);
        endSPI();
 
        beginSPI();
@@ -695,13 +699,45 @@ void startModem(uint8_t channel, uint8_t mode)
        clockSPI(deviatnval);
        endSPI();
     }
+
     if (deviatn_changed) {
        beginSPI();
        clockSPI(DEVIATN);           // Deviatn Command
        clockSPI(deviatnval);
        endSPI();
-       deviatn_changed = 0;          // Change flag back
+       deviatn_changed = 0;         // Reset the flag
     }
+
+    // Detailed setting of FREQ[012], CHANNR, DEVIATN 
+    if (freq_changed == 0b1111) {
+       beginSPI();
+       clockSPI(FREQ2);             // Frequency byte 2 Command
+       clockSPI(freq2val);
+       endSPI();
+    
+       beginSPI();
+       clockSPI(FREQ1);             // Frequency byte 1 Command
+       clockSPI(freq1val);
+       endSPI();
+
+       beginSPI();
+       clockSPI(FREQ0);             // Frequency byte 0 Command
+       clockSPI(freq0val);
+       endSPI();
+
+       beginSPI();
+       clockSPI(CHANNR);            // Channel Command
+       clockSPI(0x0);
+       endSPI();
+
+       beginSPI();
+       clockSPI(DEVIATN);           // Deviatn Command
+       clockSPI(deviatnval);
+       endSPI();
+   
+       freq_changed = 0b1000;
+    }
+
  
     if (mode == TX) {
        strobeSPI(SIDLE); // Ensure Modem is in IDLE for TX

@@ -1,8 +1,10 @@
-
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7T:
-- Added change of deviatn value to test changing deviatn
+S:1.7U:
+- Added FREQ2, FREQ1, and FREQ0 to CVs
+- Eliminating unused variables
+- Macro for lcd.print or lcd.println depending on whether
+  using older LCD or newer OLED displays
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -46,7 +48,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7T"
+#define SWVERSION "1.7U"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -76,16 +78,21 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #define USE_NEW_LCD
+#if ! defined(USE_NEW_LCD)
+#define USE_OLD_LCD
+#endif
+
+#if defined(USE_NEW_LCD)
+#pragma message "Using OLED display"
+#define LCD_PRINT lcd.println
+#else
+#pragma message "Using LCD display"
+#define LCD_PRINT lcd.print
+#endif
 
 #if defined(TRANSMITTER)
 #undef RECEIVER
-#if ! defined(USE_NEW_LCD)
-#define USE_OLD_LCD
-#endif
 #elif defined(RECEIVER)
-#if ! defined(USE_NEW_LCD)
-#define USE_OLD_LCD
-#endif
 #else
 #error "Error: Neither TRANSMITTER or RECEIVER is defined"
 #endif
@@ -401,6 +408,10 @@ volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) o
 extern uint8_t powerLevel;                   // The modem power level (>=0 and <=10). Communicated to spi.c
 extern uint8_t deviatnval;                   // FSK deviation hex code
 extern uint8_t deviatn_changed;              // Deviatn changed?
+extern uint8_t freq_changed;                 // FREQ[012] changed?
+extern uint8_t freq0val;                     // FREQ0 value
+extern uint8_t freq1val;                     // FREQ1 value
+extern uint8_t freq2val;                     // FREQ2 value
 
 uint8_t AirMiniCV1;                          // The AirMini's address, HIGH uint8_t
 
@@ -693,11 +704,16 @@ void checkSetDefault(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
 //    - FALSE:  extract and use EEPROM data, if previously-set, to set the TargetPtr's value
 void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
                        const uint8_t *EETargetPtr, uint8_t defaultValue, uint8_t forceDefault) {
-  uint8_t isSet, isSet_Save;
+  uint8_t isSet;
+#if defined(DEBUG)
+  uint8_t isSet_Save;
+#endif
   eeprom_busy_wait();
   isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
   if ((isSet != ISSET) || forceDefault) {
+#if defined(DEBUG)
      isSet_Save = isSet;
+#endif
      *TargetPtr = defaultValue;
      eeprom_busy_wait();
 
@@ -797,23 +813,13 @@ void LCD_Banner() {
   lcd.clear();              // Set initial column, row
 #endif
   if (whichBanner == INITIAL)
-#if defined(USE_OLD_LCD)
-     lcd.print(bannerString);   // Banner
-#else
-     lcd.println(bannerString);   // Banner
-#endif
+     LCD_PRINT(bannerString);   // Banner
   else
-#if defined(USE_OLD_LCD)
-     lcd.print("ProMini Air Info");
-#else
-     lcd.println("ProMini Air Info");
-#endif
+     LCD_PRINT("ProMini Air Info");
 #if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);              // Set next line column, row
-  lcd.print("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
-#else
-  lcd.println("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
 #endif
+  LCD_PRINT("H:" HWVERSION " S:" SWVERSION "/" FREQMH "MH");   // Show state
   LCDprevTime  = micros();     // Set up the previous display time
   LCDrefresh = true;
 }  // end of LCD_Banner
@@ -870,11 +876,9 @@ void LCD_Addr_Ch_PL() {
      }
   }
 
+  LCD_PRINT(lcd_line);
 #if defined(USE_OLD_LCD)
-  lcd.print(lcd_line);
   lcd.setCursor(0, 1);  // column, row
-#else
-  lcd.println(lcd_line);
 #endif
 
   if (printDCC) {
@@ -936,11 +940,7 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
         snprintf(lcd_line, sizeof(lcd_line), "Pending:");
      break;
   }
-#if defined(USE_OLD_LCD)
-  lcd.print(lcd_line);
-#else
-  lcd.println(lcd_line);
-#endif
+  LCD_PRINT(lcd_line);
 
 #if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);  // column, row
@@ -966,11 +966,7 @@ void LCD_Wait_Period_Over(uint16_t status) {
   } else {
      snprintf(lcd_line, sizeof(lcd_line), "Found valid");
   }
-#if defined(USE_OLD_LCD)
-  lcd.print(lcd_line);
-#else
-  lcd.println(lcd_line);
-#endif
+  LCD_PRINT(lcd_line);
 
 #if defined(USE_OLD_LCD)
   lcd.setCursor(0, 1);  // column, row
@@ -1305,11 +1301,15 @@ void loop() {
                              CVStatus = IGNORED;
                        break;
 #endif
+
                        case  243:  // Set the DEVIATN hex code
                           deviatnval = CVval;
                           deviatn_changed = 1;
+                          freq_changed |= 0b0001;
+                          freq_changed &= 0b0111;
                           startModemFlag = 1;  // Reset the modem with a new deviatnval. Not persistent yet
                        break;
+
 #if defined(TRANSMITTER)
                        case  242:  // Set the preamble counts
                           CVval = (CVval < 25) ? (25):(CVval);  // Only used with cutout, setting minimum with cutout
@@ -1327,6 +1327,30 @@ void loop() {
                        case  236:  // timer_long_cutout[3]
                           // Add validation
                          advance  = 2*(uint16_t)CVval;
+                       break;
+
+                       // CVs for resetting the FREQ
+                       case  235:  // Set the FREQ2 hex code
+                          if (freq_changed == 0b0111) { // freq1val, freq0val, deviatnval all set
+                             freq_changed |= 0b1000;
+                             freq2val = CVval;
+                             CHANNEL = 19;
+                             startModemFlag = 1;  // Now reset the frequency
+                          }
+                          else {
+                             if (freq_changed!=0b1000) CVStatus = IGNORED;
+                             else freq_changed = 0b0000;
+                          }
+                       break;
+                       case  234:  // Set the FREQ1 hex code
+                             freq_changed |= 0b0100;
+                             freq_changed &= 0b0111;
+                             freq1val = CVval;
+                       break;
+                       case  233:  // Set the FREQ0 hex code
+                             freq_changed |= 0b0010;
+                             freq_changed &= 0b0111;
+                             freq0val = CVval;
                        break;
 
                        case 29:    // Set the Configuration CV and reset related EEPROM values.
@@ -1364,10 +1388,8 @@ void loop() {
                                 lcd.clear();
 #if defined(USE_OLD_LCD)
                                 lcd.setCursor(0, 0);  // column, row
-                                lcd.print(lcd_line);
-#else
-                                lcd.println(lcd_line);
 #endif
+                                LCD_PRINT(lcd_line);
                                 snprintf(lcd_line, sizeof(lcd_line), "Factory Reset...");
 #if defined(USE_OLD_LCD)
                                 lcd.setCursor(0, 1);  // column, row
