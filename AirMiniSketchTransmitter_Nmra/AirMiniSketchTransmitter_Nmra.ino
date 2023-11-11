@@ -1,10 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7U:
-- Added FREQ2, FREQ1, and FREQ0 to CVs
-- Eliminating unused variables
-- Macro for lcd.print or lcd.println depending on whether
-  using older LCD or newer OLED displays
+S:1.7V:
+- Remove lcd.print calls in code to use macro
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -48,7 +45,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7U"
+#define SWVERSION "1.7V"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -917,7 +914,7 @@ void LCD_Addr_Ch_PL() {
 #endif
   }
 
-  lcd.print(lcd_line);
+  LCD_PRINT(lcd_line);
 
   return;
 }  // end of LCD_Addr_Ch_PL
@@ -946,7 +943,7 @@ void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
   lcd.setCursor(0, 1);  // column, row
 #endif
   snprintf(lcd_line, sizeof(lcd_line), "CV%d=%d", CVnum, CVval);
-  lcd.print(lcd_line);
+  LCD_PRINT(lcd_line);
 
   LCDprevTime  = micros();
   LCDrefresh = true;
@@ -980,7 +977,7 @@ void LCD_Wait_Period_Over(uint16_t status) {
 #endif
 
   snprintf(lcd_line, sizeof(lcd_line), "RF on Ch: %d(%s)", CHANNEL, regionString[regionNum]);
-  lcd.print(lcd_line);
+  LCD_PRINT(lcd_line);
   LCDprevTime  = micros();
   LCDrefresh = true;
 
@@ -1394,7 +1391,7 @@ void loop() {
 #if defined(USE_OLD_LCD)
                                 lcd.setCursor(0, 1);  // column, row
 #endif
-                                lcd.print(lcd_line);
+                                LCD_PRINT(lcd_line);
                              }
 //}
 #endif
