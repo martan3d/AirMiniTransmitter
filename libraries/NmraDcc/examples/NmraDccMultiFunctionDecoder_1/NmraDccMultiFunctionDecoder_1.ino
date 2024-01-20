@@ -178,7 +178,7 @@ void setup()
   // Many Arduino Cores now support the digitalPinToInterrupt() function that makes it easier to figure out the
   // Interrupt Number for the Arduino Pin number, which reduces confusion. 
 #ifdef digitalPinToInterrupt
-  Dcc.pin(DCC_PIN, 0);
+  Dcc.pin(DCC_PIN, 1);
 #else
   Dcc.pin(0, DCC_PIN, 1);
 #endif

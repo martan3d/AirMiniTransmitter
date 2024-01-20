@@ -373,7 +373,10 @@ DCC_PROCESSOR_STATE DccProcState ;
     uint8_t DccBitVal;
     static int8_t  bit1, bit2 ;
     static unsigned int  lastMicros = 0;
-    static byte halfBit, DCC_IrqRunning, preambleBitCount;
+    static byte halfBit, preambleBitCount;
+    #ifdef ALLOW_NESTED_IRQ
+    static DCC_IrqRunning;
+    #endif
     unsigned int  actMicros, bitMicros;
     #ifdef ALLOW_NESTED_IRQ
     if (DCC_IrqRunning)
