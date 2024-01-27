@@ -102,10 +102,14 @@ void RF24::csn(bool mode)
 
 void RF24::ce(bool level)
 {
+#ifndef RF24_LINUX
     //Allow for 3-pin use on ATTiny
     if (ce_pin != csn_pin) {
+#endif
         digitalWrite(ce_pin, level);
+#ifndef RF24_LINUX
     }
+#endif
 }
 
 /****************************************************************************/
@@ -573,7 +577,7 @@ uint8_t RF24::sprintf_address_register(char* out_buffer, uint8_t reg, uint8_t qt
 
 /****************************************************************************/
 
-RF24::RF24(uint16_t _cepin, uint16_t _cspin, uint32_t _spi_speed)
+RF24::RF24(rf24_gpio_pin_t _cepin, rf24_gpio_pin_t _cspin, uint32_t _spi_speed)
     : ce_pin(_cepin), csn_pin(_cspin), spi_speed(_spi_speed), payload_size(32), _is_p_variant(false), _is_p0_rx(false), addr_width(5), dynamic_payloads_enabled(true), csDelay(5)
 {
     _init_obj();
@@ -582,7 +586,7 @@ RF24::RF24(uint16_t _cepin, uint16_t _cspin, uint32_t _spi_speed)
 /****************************************************************************/
 
 RF24::RF24(uint32_t _spi_speed)
-    : ce_pin(0xFFFF), csn_pin(0xFFFF), spi_speed(_spi_speed), payload_size(32), _is_p_variant(false), _is_p0_rx(false), addr_width(5), dynamic_payloads_enabled(true), csDelay(5)
+    : ce_pin(RF24_PIN_INVALID), csn_pin(RF24_PIN_INVALID), spi_speed(_spi_speed), payload_size(32), _is_p_variant(false), _is_p0_rx(false), addr_width(5), dynamic_payloads_enabled(true), csDelay(5)
 {
     _init_obj();
 }
@@ -956,7 +960,7 @@ bool RF24::begin(_SPI* spiBus)
 
 /****************************************************************************/
 
-bool RF24::begin(_SPI* spiBus, uint16_t _cepin, uint16_t _cspin)
+bool RF24::begin(_SPI* spiBus, rf24_gpio_pin_t _cepin, rf24_gpio_pin_t _cspin)
 {
     ce_pin = _cepin;
     csn_pin = _cspin;
@@ -967,7 +971,7 @@ bool RF24::begin(_SPI* spiBus, uint16_t _cepin, uint16_t _cspin)
 
 /****************************************************************************/
 
-bool RF24::begin(uint16_t _cepin, uint16_t _cspin)
+bool RF24::begin(rf24_gpio_pin_t _cepin, rf24_gpio_pin_t _cspin)
 {
     ce_pin = _cepin;
     csn_pin = _cspin;
@@ -999,6 +1003,7 @@ bool RF24::begin(void)
     _spi->begin(csn_pin);
 
 #elif defined(RF24_RP2)
+    _spi = new SPI();
     _spi->begin(PICO_DEFAULT_SPI ? spi1 : spi0);
 
 #else // using an Arduino platform || defined (LITTLEWIRE)
@@ -1146,7 +1151,7 @@ bool RF24::isChipConnected()
 
 bool RF24::isValid()
 {
-    return ce_pin != 0xFFFF && csn_pin != 0xFFFF;
+    return ce_pin != RF24_PIN_INVALID && csn_pin != RF24_PIN_INVALID;
 }
 
 /****************************************************************************/
@@ -1516,21 +1521,21 @@ uint8_t RF24::getDynamicPayloadSize(void)
 
 bool RF24::available(void)
 {
-    return available(NULL);
+    uint8_t pipe = RF24_NO_FETCH_PIPE;
+    return available(&pipe);
 }
 
 /****************************************************************************/
 
 bool RF24::available(uint8_t* pipe_num)
 {
-    // get implied RX FIFO empty flag from status byte
-    uint8_t pipe = (get_status() >> RX_P_NO) & 0x07;
-    if (pipe > 5)
+    if (read_register(FIFO_STATUS) & 1) { // if RX FIFO is empty
         return 0;
+    }
 
     // If the caller wants the pipe number, include that
-    if (pipe_num)
-        *pipe_num = pipe;
+    if (*pipe_num != RF24_NO_FETCH_PIPE)
+        *pipe_num = (get_status() >> RX_P_NO) & 0x07;
 
     return 1;
 }

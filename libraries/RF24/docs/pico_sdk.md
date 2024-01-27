@@ -1,5 +1,7 @@
 # Raspberry Pi Pico SDK (for the RP2040)
 
+@tableofcontents
+
 <!-- markdownlint-disable MD031 MD046 -->
 Just to be very clear and concise: The following instructions are
 **not required to use the Arduino IDE** with any RP2040-based boards.
@@ -142,6 +144,7 @@ This option is the most reliable and flexible. It involves calling `SPI.begin()`
 #include <RF24.h>
 
 RF24 radio(7, 8); // pin numbers connected to the radio's CE and CSN pins (respectively)
+SPI spi;
 
 int main()
 {
@@ -172,3 +175,60 @@ To specify the default SPI pins used at build time, you can use either:
    ```shell
    cmake --build . --config Release -DPICO_DEFAULT_SPI=0 -DPICO_DEFAULT_SPI_SCK_PIN=2 -DPICO_DEFAULT_SPI_TX_PIN=3 -DPICO_DEFAULT_SPI_RX_PIN=4
    ```
+
+## Using Multiple Radios
+
+It is possible to drive multiple nRF24L01 transceivers on a single board. To do this each radio needs dedicated digital output pins for the CE and CSN pins.
+
+@warning The RPi Pico board's 3v regulator is typically insufficient to power more than 1 radio.
+It is also worth mentioning that the RPi Pico board uses a switching regulator which inherently
+produces electrical noise (a not steady 3v signal otherwise referred to as "power instability").
+
+If you want to drive each radio with a separate SPI bus, then the following example will demonstrate how to do that.
+
+```cpp
+#include <RF24.h>
+
+// Declare the pin numbers connected to the radios' CE and CSN pins (respectively)
+RF24 radio0(8, 5);   // first radio object
+RF24 radio1(14, 13); // second radio object
+
+// By default, one SPI bus instance is created by the RF24 lib. We'll use this
+// default instance of the `spi0` interface for our first radio, but we want a
+// different SPI bus for the second radio.
+// 
+// So, here we declare a second SPI bus instance:
+SPI my_spi; // we specify the `spi1` bus interface below
+
+bool setupRadios()
+{
+    // Initialize the first radio using the default SPI instance
+    if (!radio0.begin()) {
+        printf("Radio0 hardware is not responding!\n");
+        return false;
+    }
+    // first radio object initialized successfully
+
+    // specify the the second SPI bus interface and corresponding GPIO pins
+    my_spi.begin(spi1, 10, 11, 12); // spi1 bus, SCK, TX, RX
+    if (!radio1.begin(&my_spi)) {
+        printf("Radio1 hardware is not responding!\n");
+        return false;
+    }
+    // second radio object initialized successfully
+
+    return true;
+}
+
+int main()
+{
+    stdio_init_all(); // init necessary IO for the RP2040
+
+    while (!setupRadios()) { // if either radioX.begin() failed
+        sleep_ms(1000); // add 1 second delay for console readability
+        // hold program in infinite attempts to initialize the radios
+    }
+
+    // continue with program as normal ...
+}
+```
