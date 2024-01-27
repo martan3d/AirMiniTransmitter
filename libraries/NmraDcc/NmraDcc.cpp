@@ -373,10 +373,7 @@ DCC_PROCESSOR_STATE DccProcState ;
     uint8_t DccBitVal;
     static int8_t  bit1, bit2 ;
     static unsigned int  lastMicros = 0;
-    static byte halfBit, preambleBitCount;
-    #ifdef ALLOW_NESTED_IRQ
-    static DCC_IrqRunning;
-    #endif
+    static byte halfBit, DCC_IrqRunning, preambleBitCount;
     unsigned int  actMicros, bitMicros;
     #ifdef ALLOW_NESTED_IRQ
     if (DCC_IrqRunning)
@@ -812,7 +809,7 @@ void writeEEPROM (unsigned int CV, uint8_t Value)
 {
     EEPROM.write (CV, Value) ;
     
-	#if defined(ESP8266) || defined(ESP32)
+	#if defined(ESP8266)
 	noInterrupts();
 	#endif
 
@@ -820,7 +817,7 @@ void writeEEPROM (unsigned int CV, uint8_t Value)
     EEPROM.commit();
     #endif
     
-	#if defined(ESP8266) || defined(ESP32)
+	#if defined(ESP8266)
 	interrupts();
 	#endif
 }
