@@ -286,8 +286,8 @@ caution or for development only.
 //////////////////////////
 // For DRV8871 amp
 // #define LOCKEDANTIPHASEDEFAULT 0
-// For Cytron MD13S amp
-// #define LOCKEDANTIPHASEDEFAULT 1
+// For Cytron MD13S amp and DRV8874
+#define LOCKEDANTIPHASEDEFAULT 1
 //////////////////////////
 
 ///////////////////////
