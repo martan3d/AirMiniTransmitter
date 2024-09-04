@@ -1,6 +1,6 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7@:
+S:1.7W: 6
 - Keep last DCC message rather than sending zillions of
   preamble pulses
 
@@ -319,7 +319,6 @@ uint8_t filterModemData = 0;                 // Set the logical for whether to a
                                              // Initialized elsewhere
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-uint64_t lastIdleTime = 0;
 uint64_t tooLong = 16ULL*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
 
@@ -594,10 +593,10 @@ ISR(TIMER1_OVF_vect) {
            // get next message
            if (msgIndexOut != msgIndexIn) {
               msgIndexOut = (msgIndexOut+1) % MAXMSG;
+              dccptrISR = &msg[msgIndexOut];
+              dccptrOut = dccptrISR;  // For display only
            } // else, repeat the last message, keeping msgIndexOut
-           dccptrISR = &msg[msgIndexOut];
            next_state = PREAMBLE;  // jump out of state
-           dccptrOut = dccptrISR;  // For display only
 #if defined(TRANSMITTER)
            preamble_count = preamble_bits;  // large enough to satisfy Airwire!
 #else
@@ -1099,6 +1098,7 @@ void setup() {
 
   dccptrIn = (volatile DCC_MSG *)&msgIdle;   // Well, set it to something.
   dccptrOut = (volatile DCC_MSG *)&msgIdle;  // Well, set it to something.
+  dccptrISR = (volatile DCC_MSG *)&msgIdle;  // Well, set it to something.
 
   ///////////////////////////////////////////////
   // Set up the hardware and related variables //
@@ -1201,16 +1201,6 @@ void loop() {
      break;
      case TASK1:                      // Just pick a priority for the DCC packet, TASK1 will do
         // dccptrIn = getDCC();       // we are here, so a packet has been assembled, get a pointer to our DCC data
-
-#if defined(RECEIVER)
-        if (!useModemData) {  // If not using modem data, ensure that the output
-                              // is set to a DC level after coming back from the ISR
-           if (dcLevel)
-              OUTPUT_HIGH;  // HIGH
-           else
-              OUTPUT_LOW;   // LOW
-        }
-#endif
 
         /////////////////////////////////////////////
         // Special processing for AirMini OPS mode //
