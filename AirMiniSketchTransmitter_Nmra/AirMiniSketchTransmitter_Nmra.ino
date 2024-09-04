@@ -1,7 +1,8 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7V:
-- Remove lcd.print calls in code to use macro
+S:1.7@:
+- Keep last DCC message rather than sending zillions of
+  preamble pulses
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -45,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7V"
+#define SWVERSION "1.7W"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -593,15 +594,15 @@ ISR(TIMER1_OVF_vect) {
            // get next message
            if (msgIndexOut != msgIndexIn) {
               msgIndexOut = (msgIndexOut+1) % MAXMSG;
-              dccptrISR = &msg[msgIndexOut];
-              next_state = PREAMBLE;  // jump out of state
-              dccptrOut = dccptrISR;  // For display only
+           } // else, repeat the last message, keeping msgIndexOut
+           dccptrISR = &msg[msgIndexOut];
+           next_state = PREAMBLE;  // jump out of state
+           dccptrOut = dccptrISR;  // For display only
 #if defined(TRANSMITTER)
-              preamble_count = preamble_bits;  // large enough to satisfy Airwire!
+           preamble_count = preamble_bits;  // large enough to satisfy Airwire!
 #else
-              preamble_count = dccptrISR->PreambleBits;
+           preamble_count = dccptrISR->PreambleBits;
 #endif
-           }
         break;
         case PREAMBLE:
            timer_val = timer_short;
