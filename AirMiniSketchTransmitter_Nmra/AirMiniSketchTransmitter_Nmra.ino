@@ -1,6 +1,6 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7W: 6
+S:1.7W: 8
 - Keep last DCC message rather than sending zillions of
   preamble pulses
 
@@ -167,17 +167,16 @@ volatile uint16_t timer_val = timer_short;  // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 
 volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
+#define MINIMUM_PREAMBLE_BITS 16
+#define MAXIMUM_PREAMBLE_BITS 30
+#if defined(TRANSMITTER)
 #if !defined(PREAMBLE_BITS)
-#if defined(TRANSMITTER)
 #define PREAMBLE_BITS 30
-#else
-#define PREAMBLE_BITS 16
 #endif
+uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for Airwire
+#pragma message "Info: Transmitter PREAMBLE_BITS is " xstr(PREAMBLE_BITS)
 #endif
-#if defined(TRANSMITTER)
-uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for long cutouts
-#endif
-volatile uint8_t preamble_count = PREAMBLE_BITS;
+volatile uint8_t preamble_count = MINIMUM_PREAMBLE_BITS;
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
 volatile uint8_t byteIndex = 0;
@@ -188,26 +187,26 @@ volatile uint8_t byteIndex = 0;
 #define MAXMSG 16        // The size of the ring buffer. Per Martin's new code
 // Implement a ring buffer
 volatile DCC_MSG msg[MAXMSG] = {
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
-  { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
+  { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}},
 };
 
 // Idle message
-const DCC_MSG msgIdle = { 3, PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}};  // idle msg
+const DCC_MSG msgIdle = { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}};  // idle msg
 
 volatile uint8_t msgIndexOut = 0;
 volatile uint8_t msgIndexIn = 0;  // runs from 0 to MAXMSG-1
@@ -573,7 +572,9 @@ ISR(TIMER1_OVF_vect) {
         OUTPUT_HIGH;  // Output high
 #else
      OUTPUT_HIGH;  // Output high
+     if ((current_state == CUTOUT) && (preamble_bits >= MAXIMUM_PREAMBLE_BITS)) timer_val = timer_long;
 #endif
+
 
      every_second_isr = 0;
   }  else  {  // != every second interrupt, advance bit or state
@@ -598,7 +599,10 @@ ISR(TIMER1_OVF_vect) {
            } // else, repeat the last message, keeping msgIndexOut
            next_state = PREAMBLE;  // jump out of state
 #if defined(TRANSMITTER)
-           preamble_count = preamble_bits;  // large enough to satisfy Airwire!
+           if (preamble_bits >= MINIMUM_PREAMBLE_BITS)  // Ensure meets a reasonable minimum
+              preamble_count = preamble_bits;  // large enough to satisfy Airwire!
+           else
+              preamble_count = dccptrISR->PreambleBits; // use what was given
 #else
            preamble_count = dccptrISR->PreambleBits;
 #endif
@@ -1300,7 +1304,6 @@ void loop() {
 
 #if defined(TRANSMITTER)
                        case  242:  // Set the preamble counts
-                          CVval = (CVval < 25) ? (25):(CVval);  // Only used with cutout, setting minimum with cutout
                           preamble_bits = CVval;
                        break;
 #endif
