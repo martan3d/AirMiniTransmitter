@@ -1,8 +1,10 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7W: 8
+S:1.7W:
 - Keep last DCC message rather than sending zillions of
   preamble pulses
+- Add a CUTOUT (1/2 "1", 1/2 "0") when the number of
+  preamble pulses are set to => 30 (transmitter only).
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -171,12 +173,12 @@ volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state,
 #define MAXIMUM_PREAMBLE_BITS 30
 #if defined(TRANSMITTER)
 #if !defined(PREAMBLE_BITS)
-#define PREAMBLE_BITS 30
+#define PREAMBLE_BITS MAXIMUM_PREAMBLE_BITS
 #endif
 uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for Airwire
 #pragma message "Info: Transmitter PREAMBLE_BITS is " xstr(PREAMBLE_BITS)
 #endif
-volatile uint8_t preamble_count = MINIMUM_PREAMBLE_BITS;
+volatile uint8_t preamble_count = MINIMUM_PREAMBLE_BITS; // will be reset in the ISR
 volatile uint8_t outbyte = 0;
 volatile uint8_t cbit = 0x80;
 volatile uint8_t byteIndex = 0;
@@ -209,7 +211,7 @@ volatile DCC_MSG msg[MAXMSG] = {
 const DCC_MSG msgIdle = { 3, MINIMUM_PREAMBLE_BITS, { 0xFF, 0, 0xFF, 0, 0, 0}};  // idle msg
 
 volatile uint8_t msgIndexOut = 0;
-volatile uint8_t msgIndexIn = 0;  // runs from 0 to MAXMSG-1
+volatile uint8_t msgIndexIn  = 0;  // runs from 0 to MAXMSG-1
 
 // Times
 // #if defined(TRANSMITTER)
