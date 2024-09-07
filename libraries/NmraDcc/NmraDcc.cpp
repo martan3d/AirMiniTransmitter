@@ -272,7 +272,7 @@
     static byte  ISRWatch;  // Interrupt Handler Edge Filter
 #else
     static byte  ISREdge;   // Holder of the Next Edge we're looking for: RISING or FALLING
-    static byte  ISRWatch;  // Interrupt Handler Edge Filter
+    // static byte  ISRWatch;  // Interrupt Handler Edge Filter DRL: Not used
 #endif
 byte ISRLevel;          // expected Level at DCC input during ISR ( to detect glitches )
 byte ISRChkMask;       // Flag if Level must be checked
@@ -1348,8 +1348,8 @@ void execDccProcessor (DCC_MSG * pDccMsg)
             {
                 if (DccProcState.Flags & FLAGS_DCC_ACCESSORY_DECODER)
                 {
-                    int16_t BoardAddress ;
-                    int16_t OutputAddress ;
+                    uint16_t BoardAddress ;
+                    uint16_t OutputAddress ;
                     uint8_t TurnoutPairIndex ;
 
                     #ifdef DEBUG_PRINT
