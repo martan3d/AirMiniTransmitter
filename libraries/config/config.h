@@ -284,7 +284,7 @@ caution or for development only.
 //////////////////////////
 // Amplifier type settings
 //////////////////////////
-// For DRV8871 amp
+// For DRV8871 amp and GWire
 // #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
 #define LOCKEDANTIPHASEDEFAULT 1
