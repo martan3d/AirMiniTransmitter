@@ -253,7 +253,7 @@ caution or for development only.
 #if ! defined(CHANNELDEFAULT)
    #error "ERROR: CHANNELDEFAULT is undefined"
 #else
-   #pragma message "Info: Default channel is " xstr(CHANNELDEFAULT) 
+   #pragma message "Info: default channel is " xstr(CHANNELDEFAULT) 
 #endif
 
 #if defined(SPCRDEFAULT)
@@ -281,13 +281,26 @@ caution or for development only.
    #pragma message "Info: Compiling with standard DCC preamble count!"
 #endif
 
+// Turn on receiver data filtering so that it acts like Airwire
+#if defined(RECEIVER)
+// Define whether to turnn on/off filtering
+// Change the default, which is 0
+// #define FILTERMODEMDATADEFAULT 1
+#endif
+
+// Define output 1's DC level when not using modem data like Airewire
+#if defined(RECEIVER)
+// Change  output 1's DC level default
+// #define DCLEVELDEFAULT 0
+#endif
+
 //////////////////////////
 // Amplifier type settings
 //////////////////////////
 // For DRV8871 amp and GWire
 // #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
-#define LOCKEDANTIPHASEDEFAULT 1
+// #define LOCKEDANTIPHASEDEFAULT 1
 //////////////////////////
 
 ///////////////////////

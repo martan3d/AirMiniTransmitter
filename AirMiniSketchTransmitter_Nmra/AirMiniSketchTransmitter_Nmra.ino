@@ -1,10 +1,8 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7W:
-- Keep last DCC message rather than sending zillions of
-  preamble pulses
-- Add a CUTOUT (1/2 "1", 1/2 "0") when the number of
-  preamble pulses are set to => 30 (transmitter only).
+S:1.7V:
+- Added opportunity to reset filtering and DC level defaults
+  from the config.h file
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -48,7 +46,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7W"
+#define SWVERSION "1.7V"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -249,21 +247,30 @@ extern uint8_t channels_na_max;  // From spi.c
 #define POWERLEVELDEFAULT 6
 #endif
 
-#define DCLEVELDEFAULT 1
-
 #if !defined(LOCKEDANTIPHASEDEFAULT)
 #define LOCKEDANTIPHASEDEFAULT 1
 #endif
-#pragma message "Info: Default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
+#pragma message "Info: default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
 
 #define IDLEPERIODMSDEFAULT 128
+
+#if ! defined(FILTERMODEMDATADEFAULT)
 #define FILTERMODEMDATADEFAULT 0
+#endif
+#pragma message "Info: default filtering modem data value is " xstr(FILTERMODEMDATADEFAULT)
+
+#if ! defined(DCLEVELDEFAULT)
+#define DCLEVELDEFAULT 1
+#endif
+#pragma message "Info: default output 1 DC level value is " xstr(DCLEVELDEFAULT)
+
+
 #define AIRMINICV1DEFAULT 3
 
 #if !defined(AIRMINICV17DEFAULT)
 #define AIRMINICV17DEFAULT 230
 #endif
-#pragma message "Info: Default CV17 is " xstr(AIRMINICV17DEFAULT)
+#pragma message "Info: default CV17 is " xstr(AIRMINICV17DEFAULT)
 
 #if !defined(AIRMINICV18DEFAULT)
 //{
@@ -274,7 +281,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #endif
 //}
 #endif
-#pragma message "Info: Default CV18 is " xstr(AIRMINICV18DEFAULT)
+#pragma message "Info: default CV18 is " xstr(AIRMINICV18DEFAULT)
 
 #define AIRMINICV29DEFAULT 32
 
@@ -287,7 +294,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #if !defined(AUTOIDLEOFFDEFAULT)
 #define AUTOIDLEOFFDEFAULT 1
 #endif
-#pragma message "Info: Default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
+#pragma message "Info: default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
 //} TRANSMITTER
 #endif
 
