@@ -274,16 +274,17 @@ caution or for development only.
 #endif
 
 #undef RESET_PREAMBLE_BITS
-#if defined(RESET_PREAMBLE_BITS) && defined(TRANSMITTER)
-   #define PREAMBLE_BITS 30
-   #pragma message "Info: reset preamble count to " xstr(PREAMBLE_BITS) 
-#else
-   #pragma message "Info: Compiling with standard DCC preamble count!"
+#if defined(TRANSMITTER)
+   #if defined(RESET_PREAMBLE_BITS)
+      #define PREAMBLE_BITS 0
+      #pragma message "Info: reset preamble count to " xstr(PREAMBLE_BITS) 
+   #else
+      #pragma message "Info: Compiling with Airwire cutout + large DCC preamble count!"
+   #endif
 #endif
 
-// Turn on receiver data filtering so that it acts like Airwire
+// Turn on receiver data filtering on so that it acts like Airwire
 #if defined(RECEIVER)
-// Define whether to turnn on/off filtering
 // Change the default, which is 0
 // #define FILTERMODEMDATADEFAULT 1
 #endif
