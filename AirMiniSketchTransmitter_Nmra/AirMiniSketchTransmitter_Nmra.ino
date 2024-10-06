@@ -1,8 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7V:
-- Added opportunity to reset filtering and DC level defaults
-  from the config.h file
+S:1.7X:
+- Added a cutout grace period
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -46,7 +45,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7V"
+#define SWVERSION "1.7X"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -165,6 +164,11 @@ volatile uint16_t latency = 0;
 // uint8_t timer_val = timer_long;  // The timer value
 volatile uint16_t timer_val = timer_short;  // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
+volatile uint8_t num_cutout = 0;
+#if ! defined(MAX_NUM_CUTOUT)
+#define MAX_NUM_CUTOUT 20
+#endif
+#pragma message "Info: MAX_NUM_CUTOUT: " xstr(MAX_NUM_CUTOUT)
 
 volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
 #define MINIMUM_PREAMBLE_BITS 16
@@ -327,7 +331,11 @@ uint8_t filterModemData = 0;                 // Set the logical for whether to a
                                              // Initialized elsewhere
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-uint64_t tooLong = 16ULL*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
+#if ! defined(TOO_LONG)
+#define TOO_LONG 16
+#endif
+#pragma message "Info: TOO_LONG interval (number of 1/4 sec intervals): " xstr(TOO_LONG)
+uint64_t tooLong = (uint64_t)(TOO_LONG)*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
 
 #if defined(RECEIVER)
@@ -581,7 +589,11 @@ ISR(TIMER1_OVF_vect) {
         OUTPUT_HIGH;  // Output high
 #else
      OUTPUT_HIGH;  // Output high
-     if ((current_state == CUTOUT) && (preamble_bits >= MAXIMUM_PREAMBLE_BITS)) timer_val = timer_long;
+     if ((current_state == CUTOUT) && (preamble_bits >= MAXIMUM_PREAMBLE_BITS)) {
+        if (num_cutout==1) {
+           timer_val = timer_long;
+        }
+     }
 #endif
 
 
@@ -600,21 +612,27 @@ ISR(TIMER1_OVF_vect) {
      switch (current_state)  {
         case CUTOUT:
            timer_val = timer_short;  // second half will be reset
+           num_cutout++;
            // get next message
            if (msgIndexOut != msgIndexIn) {
               msgIndexOut = (msgIndexOut+1) % MAXMSG;
               dccptrISR = &msg[msgIndexOut];
               dccptrOut = dccptrISR;  // For display only
+              next_state = PREAMBLE;  // jump out of state
            } // else, repeat the last message, keeping msgIndexOut
-           next_state = PREAMBLE;  // jump out of state
+           else if (num_cutout >= MAX_NUM_CUTOUT) { // Just repeat the last message
+                 next_state = PREAMBLE;  // jump out of state
+           }
+           if (next_state == PREAMBLE) {
 #if defined(TRANSMITTER)
-           if (preamble_bits >= MINIMUM_PREAMBLE_BITS)  // Ensure meets a reasonable minimum
-              preamble_count = preamble_bits;  // large enough to satisfy Airwire!
-           else
-              preamble_count = dccptrISR->PreambleBits; // use what was given
+              if (preamble_bits >= MINIMUM_PREAMBLE_BITS)  // Ensure meets a reasonable minimum
+                 preamble_count = preamble_bits;  // large enough to satisfy Airwire!
+              else
+                 preamble_count = dccptrISR->PreambleBits; // use what was given
 #else
-           preamble_count = dccptrISR->PreambleBits;
+              preamble_count = dccptrISR->PreambleBits;
 #endif
+           }
         break;
         case PREAMBLE:
            timer_val = timer_short;
@@ -649,6 +667,7 @@ ISR(TIMER1_OVF_vect) {
         case STOPPACKET:
            timer_val = timer_short;
            next_state = CUTOUT;
+           num_cutout = 0;
         break;
      }  // end of switch
   }  // end of else ! every_seocnd_isr

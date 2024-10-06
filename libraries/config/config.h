@@ -284,25 +284,31 @@ caution or for development only.
 #endif
 
 // Turn on receiver data filtering on so that it acts like Airwire
+// Also necessary for PMA Rx/WCS
 #if defined(RECEIVER)
+//{
+///////////////////////////
+// Turn filtering on/off
 // Change the default, which is 0
 // #define FILTERMODEMDATADEFAULT 1
-#endif
-
+///////////////////////////
 // Define output 1's DC level when not using modem data like Airewire
-#if defined(RECEIVER)
 // Change  output 1's DC level default
 // #define DCLEVELDEFAULT 0
-#endif
-
+///////////////////////////
+// Change TOO_LONG interval (in 1/4 sec intervals)
+// Default is 16
+// #define TOO_LONG 4
 //////////////////////////
 // Amplifier type settings
 //////////////////////////
-// For DRV8871 amp and GWire
+// For DRV8871, GWire, and PMA Rx/WCS
 // #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
 // #define LOCKEDANTIPHASEDEFAULT 1
 //////////////////////////
+//}
+#endif
 
 ///////////////////////
 // DEBUGGING of LATENCY
