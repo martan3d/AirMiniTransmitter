@@ -535,7 +535,7 @@ SSD1306AsciiAvrI2c lcd;
 // Start of code //
 ///////////////////
 
-extern void notifyDccMsg(DCC_MSG * Msg) {
+void notifyDccMsg(DCC_MSG * Msg) {
 #if defined(TURNOFFNOTIFYINTERRUPTS)
   noInterrupts();  // Turning on/off interrupts does not seem to be needed
 #endif
@@ -621,7 +621,8 @@ ISR(TIMER1_OVF_vect) {
               next_state = PREAMBLE;  // jump out of state
            } // else, repeat the last message, keeping msgIndexOut
            else if (num_cutout >= MAX_NUM_CUTOUT) { // Just repeat the last message
-                 next_state = PREAMBLE;  // jump out of state
+             dccptrOut = dccptrISR = (volatile DCC_MSG *)&msgIdle;
+             next_state = PREAMBLE;  // jump out of state
            }
            if (next_state == PREAMBLE) {
 #if defined(TRANSMITTER)
