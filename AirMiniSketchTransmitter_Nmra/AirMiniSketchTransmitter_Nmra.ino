@@ -1,7 +1,10 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7X:
+S:1.7XX:
 - Added a cutout grace period
+- Turn off output if no valid packet if filtering is ON
+  Output preamble bits if filtering is OFF. 
+  Filtering by default is ON
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -259,7 +262,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #define IDLEPERIODMSDEFAULT 128
 
 #if ! defined(FILTERMODEMDATADEFAULT)
-#define FILTERMODEMDATADEFAULT 0
+#define FILTERMODEMDATADEFAULT 1
 #endif
 #pragma message "Info: default filtering modem data value is " xstr(FILTERMODEMDATADEFAULT)
 
@@ -306,17 +309,13 @@ extern uint8_t channels_na_max;  // From spi.c
 uint64_t now;
 uint64_t then;
 
-volatile DCC_MSG *dccptrIn;
-volatile DCC_MSG *dccptrTmp;
-volatile DCC_MSG *dccptrOut;
-volatile DCC_MSG *dccptrISR;
+volatile DCC_MSG *dccptrIn  = (volatile DCC_MSG *)&msgIdle;
+volatile DCC_MSG *dccptrTmp = (volatile DCC_MSG *)&msgIdle;
+volatile DCC_MSG *dccptrOut = (volatile DCC_MSG *)&msgIdle;
+volatile DCC_MSG *dccptrISR = (volatile DCC_MSG *)&msgIdle;
 volatile bool printIn = true;
 
-uint8_t CVResetCount = 0;
-uint8_t dccptrAirMiniCVReset[sizeof(DCC_MSG)];
 uint8_t dccptrNULL[sizeof(DCC_MSG)];
-uint8_t tmpuint8 = 0;
-uint8_t countPtr = 1;
 
 #if defined(TRANSMITTER)
 uint8_t MODE = TX;                           // Mode is now a variable. Don't have the courage to change
@@ -327,15 +326,10 @@ uint8_t MODE = RX;                           // Mode is now a variable. Don't ha
 #endif
 
 uint8_t startModemFlag = 0;                  // Initial setting for calling startModem under some circumstances
-uint8_t filterModemData = 0;                 // Set the logical for whether to always use modem data.
+uint8_t filterModemData = 1;                 // Set the logical for whether to always use modem data.
                                              // Initialized elsewhere
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
-#if ! defined(TOO_LONG)
-#define TOO_LONG 16
-#endif
-#pragma message "Info: TOO_LONG interval (number of 1/4 sec intervals): " xstr(TOO_LONG)
-uint64_t tooLong = (uint64_t)(TOO_LONG)*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
 
 #if defined(RECEIVER)
@@ -413,8 +407,8 @@ const char *regionString[] = {"W"};  // Region code: N=North America, E=Europe, 
 #endif
 
 // Changing with CV's
-uint16_t CVnum;                              // CV numbers consume 10 bits
-uint8_t CVval;                               // CV values consume only 8 bits
+// uint16_t CVnum;                              // CV numbers consume 10 bits
+// uint8_t CVval;                               // CV values consume only 8 bits
 uint8_t CHANNEL;                             // Airwire Channel for both TX/RX, may change in SW. Do NOT initialize
 uint8_t lockedAntiphase;                     // Do NOT intialize, in EEPROM
 volatile uint8_t dcLevel;                    // The output level (HIGH or LOW) output if modem data is invalid
@@ -534,6 +528,35 @@ SSD1306AsciiAvrI2c lcd;
 ///////////////////
 // Start of code //
 ///////////////////
+uint8_t notifyCVRead (uint16_t CV) {
+    switch(CV) {
+       case(1):
+          return AirMiniCV1;
+          break;
+       case(17):
+          return AirMiniCV17;
+          break;
+       case(18):
+          return AirMiniCV18;
+          break;
+       case(29):
+          return AirMiniCV29;
+          break;
+       case(255):
+          return CHANNEL;
+          break;
+       case(254):
+          return powerLevel;
+          break;
+       default:
+          return (uint8_t)0;
+          break;
+    }
+} // end of notifyCVRead
+
+uint8_t notifyCVValid (uint16_t CV, uint8_t Writable) {
+   return (uint8_t)1;
+}
 
 void notifyDccMsg(DCC_MSG * Msg) {
 #if defined(TURNOFFNOTIFYINTERRUPTS)
@@ -553,6 +576,193 @@ void notifyDccMsg(DCC_MSG * Msg) {
   printMsgSerial();
 #endif
 }  // End of notifyDccMsg
+
+uint8_t decoderInitialized = 0;
+
+uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
+
+   if (!decoderInitialized) return CVval;
+
+   // Internal status defaults
+   startModemFlag = 0;             // Initialize whether the modem will be restarted
+   CVStatus = ACCEPTED;            // Set the default CV status
+
+   switch (CVnum) {
+      case  255:  // Set the channel number and reset related EEPROM values.
+                  // Modest error checking. Verified this feature works
+         if (CVval <= channels_max) {         // Check for good values
+            checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (uint8_t)CVval, 1);
+            startModemFlag = 1;
+         } else {                    // Ignore bad values
+            CVStatus = IGNORED;
+         }
+      break;
+      case  254:  // Set the RF power level and reset related EEPROM values.
+                  // Verified this feature works.
+         if (CVval <= 10) {
+            checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel,
+                              &EEpowerLevel, (uint8_t)CVval, 1);  // Set powerLevel and reset
+                                                                  // EEPROM values. Ignore bad values
+            startModemFlag = 1;
+         } else {
+            CVStatus = IGNORED;
+            CVval = powerLevel;
+         }
+      break;
+      case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values.
+                  // Verified this feature works
+         checkSetDefaultEE(&lockedAntiphase, &EEisSetlockedAntiphase,
+                           &EElockedAntiphase, (uint8_t)CVval, 1);  // Set lockedAntiphase
+                                                                    // and reset EEPROM values
+      break;
+      case  248:  // Set the DC output level and reset related EEPROM values.
+                  // Verified this feature works.
+         checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel, (uint8_t)CVval, 1);
+         // Set dcLevel and reset EEPROM values
+      break;
+      case  246:  // Set whether to always use modem data
+         if (CVval) CVval = 1;  // Non-zero reset to 1
+         checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData,
+                           &EEfilterModemData, (uint8_t)CVval, 1);  // Set filterModemData
+                                                                    // and reset EEPROM values
+      break;
+#if defined(RECEIVER)
+      case  245:  // Set the wait period in 1 second intervals
+                  // - Nothing can be done with this until reset
+         if (CVval <= 60)
+            checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC,
+                              &EEInitialWaitPeriodSEC,  (uint8_t)CVval, 1);  // Wait time in sec
+         else
+            CVStatus = IGNORED;
+            CVval = InitialWaitPeriodSEC;
+      break;
+#endif
+
+      case  243:  // Set the DEVIATN hex code
+         deviatnval = CVval;
+         deviatn_changed = 1;
+         freq_changed |= 0b0001;
+         freq_changed &= 0b0111;
+         startModemFlag = 1;  // Reset the modem with a new deviatnval. Not persistent yet
+      break;
+
+#if defined(TRANSMITTER)
+      case  242:  // Set the preamble counts
+         preamble_bits = CVval;
+      break;
+#endif
+      case  241:  // Set the timer long counts
+         // CVval = (CVval > 0x43) ? (CVval):(0x43);  // Validation >= 95uS. Non-persistent
+         timer_long = CVval;
+      break;
+      case  240:  // Set the timer short counts
+         // Add validation
+         timer_short = CVval;
+      break;
+      case  236:  // timer_long_cutout[3]
+         // Add validation
+        advance  = 2*(uint16_t)CVval;
+      break;
+
+      // CVs for resetting the FREQ
+      case  235:  // Set the FREQ2 hex code
+         if (freq_changed == 0b0111) { // freq1val, freq0val, deviatnval all set
+            freq_changed |= 0b1000;
+            freq2val = CVval;
+            CHANNEL = 19;
+            startModemFlag = 1;  // Now reset the frequency
+         }
+         else {
+            if (freq_changed!=0b1000) CVStatus = IGNORED;
+            else freq_changed = 0b0000;
+         }
+      break;
+      case  234:  // Set the FREQ1 hex code
+            freq_changed |= 0b0100;
+            freq_changed &= 0b0111;
+            freq1val = CVval;
+      break;
+      case  233:  // Set the FREQ0 hex code
+            freq_changed |= 0b0010;
+            freq_changed &= 0b0111;
+            freq0val = CVval;
+      break;
+
+      case 29:    // Set the Configuration CV and reset related EEPROM values.
+                  // Verified this feature works.
+         checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1);
+         AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;  // Save the bit 5 value of CV29
+                                                      // (0: Short address, 1: Long address)
+      break;
+      case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values.
+                  // Verified this feature works.
+                  // See NMRA S-9.2.1 Footnote 8.
+         checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17,
+                           (uint8_t)AirMiniCV17tmp, 1);
+         checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (uint8_t)CVval, 1);
+      break;
+      case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT
+                  // write to AirMini's CV17 or EEPROM yet!).
+         if ((0b11000000 <= CVval) && (CVval <= 0b11100111)) {  // NMRA standard 9.2.2,
+                                                                // Paragraphs 129-135, footnote 8
+            AirMiniCV17tmp = CVval;    // Do not take effect until CV18 is written!
+                                       // NMRA Standard 9.2.1, footnote 8.
+            CVStatus = PENDING;
+         } else {
+            CVStatus = IGNORED;
+         }
+      break;
+      case  8:  // Full EEPROM Reset and reboot!
+         if (CVval == 8) {
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+//{
+            if (LCDFound) {
+
+               snprintf(lcd_line, sizeof(lcd_line), "Keep Power ON!");
+
+               lcd.clear();
+#if defined(USE_OLD_LCD)
+               lcd.setCursor(0, 0);  // column, row
+#endif
+               LCD_PRINT(lcd_line);
+               snprintf(lcd_line, sizeof(lcd_line), "Factory Reset...");
+#if defined(USE_OLD_LCD)
+               lcd.setCursor(0, 1);  // column, row
+#endif
+               LCD_PRINT(lcd_line);
+            }
+//}
+#endif
+            eepromClear();
+            reboot();  // No need for sei, you're starting over...
+         } else {
+            CVStatus = IGNORED;
+         }
+      break;
+      case 1:     // Set the Short Address CV and reset related EEPROM values after validation.
+                  // Verified this feature works.
+         if ((0 < CVval) && (CVval < 128)) {  // CV1 cannot be outside this range.
+                                              // Some decoders limit 0<CVval<100
+            checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, (uint8_t)CVval, 1);
+         } else {
+            CVStatus = IGNORED;
+         }
+      break;
+      default:
+         CVStatus = IGNORED;
+      break;
+   }  // end of switch (CVnum)
+
+#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
+   if (LCDFound) LCD_CVval_Status(CVnum, CVval, CVStatus);
+#endif
+   if (startModemFlag) {
+      strobeSPI(SIDLE);         // Stop the modem
+      startModem(CHANNEL, MODE);  // Restart on possible-new Airwire Channel and mode
+                                  // or power level
+   }
+   return CVval;
+} // end of notifyCVWrite
 
 // Output timer
 // Setup Timer1.
@@ -584,27 +794,23 @@ ISR(TIMER1_OVF_vect) {
 
   // for every second interupt just toggle signal
   if (every_second_isr)  {
-#if defined(RECEIVER)
-     if (useModemData)        // If not using modem data, the level is set elsewhere
-        OUTPUT_HIGH;  // Output high
-#else
-     OUTPUT_HIGH;  // Output high
-     if ((current_state == CUTOUT) && (preamble_bits >= MAXIMUM_PREAMBLE_BITS)) {
-        if (num_cutout==1) {
-           timer_val = timer_long;
-        }
-     }
-#endif
 
+     if (useModemData) {      // If not using modem data, the level is set elsewhere
+        OUTPUT_HIGH;  // Output high
+#if defined(TRANSMITTER)
+        if ((preamble_bits >= MAXIMUM_PREAMBLE_BITS) && (current_state == CUTOUT)) {
+           if (num_cutout==1) {
+              timer_val = timer_long;
+           }
+        }
+#endif
+     }
 
      every_second_isr = 0;
   }  else  {  // != every second interrupt, advance bit or state
-#if defined(RECEIVER)
+
      if (useModemData)        // If not using modem data, the level is set elsewhere
         OUTPUT_LOW;  // Output low
-#else
-     OUTPUT_LOW;  // Output low
-#endif
 
      every_second_isr = 1;
      current_state = next_state;
@@ -618,11 +824,18 @@ ISR(TIMER1_OVF_vect) {
               msgIndexOut = (msgIndexOut+1) % MAXMSG;
               dccptrISR = &msg[msgIndexOut];
               dccptrOut = dccptrISR;  // For display only
+              useModemData = 1;
               next_state = PREAMBLE;  // jump out of state
-           } // else, repeat the last message, keeping msgIndexOut
-           else if (num_cutout >= MAX_NUM_CUTOUT) { // Just repeat the last message
-             dccptrOut = dccptrISR = (volatile DCC_MSG *)&msgIdle;
-             next_state = PREAMBLE;  // jump out of state
+           } // else, repeat the pulse or turn on DC output
+           else if (num_cutout >= MAX_NUM_CUTOUT) { // Set up filtering for either DC or preamble bits
+              num_cutout = 2; // restart the counter, but prevent long pulse cutout
+              if (filterModemData) {
+                 useModemData = 0;
+                 if (dcLevel)
+                    OUTPUT_HIGH;  // HIGH
+                 else
+                    OUTPUT_LOW;   // LOW
+              }
            }
            if (next_state == PREAMBLE) {
 #if defined(TRANSMITTER)
@@ -862,48 +1075,34 @@ void LCD_Addr_Ch_PL() {
 #if defined(USE_OLD_LCD)
   lcd.setCursor(0, 0);  // column, row
 #endif
-  /*
-  uint16_t AirMiniAddress = (uint16_t)(AirMiniCV17&0b00111111);
-  AirMiniAddress <<= 8;
-  AirMiniAddress |= AirMiniCV17;
-  uint16_t AirMiniAddress_int = (uint16_t)AirMiniAddress;
-  // snprintf(lcd_line,sizeof(lcd_line),"Addr: %d",AirMiniAddress_int);
-  */
   if (printDCC) {
-     // Detect long or short address
-     tmpuint8 = dccptrTmp->Data[0] & 0b11000000;
-     if ((tmpuint8 == 0b11000000) && (dccptrTmp->Data[0] != 0b11111111)) {
-        uint16_t TargetAddress = ((uint16_t)dccptrTmp->Data[0]-192)*256+(uint16_t)dccptrTmp->Data[1];
-        // snprintf(lcd_line,sizeof(lcd_line),"Msg Ad: %d(%d,%d)",TargetAddress,dccptrTmp->Data[0],
-        //          dccptrTmp->Data[1]);
-        snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(L)", TargetAddress);
-     } else {
-        if (tmpuint8 != 0b10000000) {
+     if (dccptrTmp->Data[0] < 128) {
            snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(S)", (uint16_t)dccptrTmp->Data[0]);
+     } else if (dccptrTmp->Data[0] >= 192) {
+           uint16_t TargetAddress = (dccptrTmp->Data[0]-192)<<8 | dccptrTmp->Data[1];
+           snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(L)", TargetAddress);
+
+     } else {
+        // Accessory address decoding
+        uint8_t tmpuint8;
+        uint16_t TargetAddress = (dccptrTmp->Data[0] & 0b00111111); // Lower 6 bits, 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0)
+        if (dccptrTmp->Data[1] & 0b10000000) {
+           tmpuint8 = ~dccptrTmp->Data[1] & 0b01110000; // Ones complement upper 3 bits 0b0(A8)(A7)(A6)0000
+           TargetAddress = (((((tmpuint8 << 2) | TargetAddress) - 1) << 2) | ((dccptrTmp->Data[1] & 0b00000110) >> 1)) + 1;
         } else {
-           // Accessory address decoding
-           uint16_t TargetAddress = (uint16_t)(dccptrTmp->Data[0] & 0b00111111); // Lower 6 bits, 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0)
-           if (dccptrTmp->Data[1] & 0b10000000) {
-              tmpuint8 = ~dccptrTmp->Data[1] & 0b01110000; // Ones complement upper 3 bits 0b0(A8)(A7)(A6)0000
-              TargetAddress = ((((((uint16_t)tmpuint8 << 2) | TargetAddress) - 1) << 2) | ((dccptrTmp->Data[1] & 0b00000110) >> 1)) + 1;
-           } else {
-              tmpuint8  = (dccptrTmp->Data[1] & 0b00000110) >> 1; // 0b0000(A7)(A6)0 -> 0b000000(A7)(A6)
-              tmpuint8 |= (dccptrTmp->Data[1] & 0b01110000) >> 2; // 0b00000(A7)(A6) | 0b0(A10)(A9)(A8)0000 -> 0b000(A10)(A9)(A8)(A7)(A6)
-              // 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0) | 0b00000(A10)(A9)(A8) (A7)(A6)000000 -> 0b00000(A10)(A9)(A8) (A7)(A6)(A5)(A4)(A3)(A2)(A1)(A0)
-              TargetAddress |= ((uint16_t)tmpuint8 << 6); 
-           }
-           snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(A)", TargetAddress);
+           tmpuint8  = (dccptrTmp->Data[1] & 0b00000110) >> 1; // 0b0000(A7)(A6)0 -> 0b000000(A7)(A6)
+           tmpuint8 |= (dccptrTmp->Data[1] & 0b01110000) >> 2; // 0b00000(A7)(A6) | 0b0(A10)(A9)(A8)0000 -> 0b000(A10)(A9)(A8)(A7)(A6)
+           // 0b00000000 00(A5)(A4)(A3)(A2)(A1)(A0) | 0b00000(A10)(A9)(A8) (A7)(A6)000000 -> 0b00000(A10)(A9)(A8) (A7)(A6)(A5)(A4)(A3)(A2)(A1)(A0)
+           TargetAddress |= ((uint16_t)tmpuint8 << 6); 
         }
+        snprintf(lcd_line, sizeof(lcd_line), "Msg Ad: %d(A)", TargetAddress);
      }
   } else {
-     if (AirMiniCV29Bit5) {
-        uint16_t AirMiniAddress_int = ((uint16_t)AirMiniCV17-192)*256+(uint16_t)AirMiniCV18;
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad: %d(%d,%d)",AirMiniAddress_int,AirMiniCV17,AirMiniCV18);
-        snprintf(lcd_line, sizeof(lcd_line), "My Ad: %d(L)", AirMiniAddress_int);
-     } else {
-        // snprintf(lcd_line,sizeof(lcd_line),"My Ad(CV1): %d",AirMiniCV1);
-        snprintf(lcd_line, sizeof(lcd_line), "My Ad: %d(S)", AirMiniCV1);
-     }
+     uint16_t AirMiniAddress_int = DCC.getAddr();
+        if (AirMiniCV29Bit5) 
+           snprintf(lcd_line, sizeof(lcd_line), "My Ad: %d(L)", AirMiniAddress_int);
+        else
+           snprintf(lcd_line, sizeof(lcd_line), "My Ad: %d(S)", AirMiniAddress_int);
   }
 
   LCD_PRINT(lcd_line);
@@ -952,7 +1151,7 @@ void LCD_Addr_Ch_PL() {
   return;
 }  // end of LCD_Addr_Ch_PL
 
-void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval) {
+void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval, uint8_t CVStatus) {
 
   lcd.clear();
 
@@ -1124,12 +1323,9 @@ void setup() {
   startModemFlag = 0;                          // Initialize the start-modem flag
   useModemData = 1;                            // Initialize use-of-modem-data state
 
-  CVResetCount = 0;
-
   memset(dccptrNULL, 0, sizeof(dccptrNULL));                      // Create a null dccptrIn for CV setting
-  memset(dccptrAirMiniCVReset, 0, sizeof(dccptrAirMiniCVReset));  // Initialize the reset dccptrIn for CV setting
 
-  dccptrIn = (volatile DCC_MSG *)&msgIdle;   // Well, set it to something.
+  dccptrIn =  (volatile DCC_MSG *)&msgIdle;  // Well, set it to something.
   dccptrOut = (volatile DCC_MSG *)&msgIdle;  // Well, set it to something.
   dccptrISR = (volatile DCC_MSG *)&msgIdle;  // Well, set it to something.
 
@@ -1201,7 +1397,9 @@ void setup() {
 #endif
 
   // Call the main DCC Init function to enable the DCC Receiver
-  DCC.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
+  decoderInitialized = 0;
+  DCC.init(MAN_ID_DIY, 10,   FLAGS_MY_ADDRESS_ONLY, 0);
+  decoderInitialized = 1;
   timeOfValidDCC = micros();
 
 #if defined(RECEIVER)
@@ -1235,235 +1433,14 @@ void loop() {
      case TASK1:                      // Just pick a priority for the DCC packet, TASK1 will do
         // dccptrIn = getDCC();       // we are here, so a packet has been assembled, get a pointer to our DCC data
 
-        /////////////////////////////////////////////
+        //
         // Special processing for AirMini OPS mode //
-        /////////////////////////////////////////////
-        if (((dccptrIn->Data[0] == AirMiniCV17) && (dccptrIn->Data[1] == AirMiniCV18) &&  AirMiniCV29Bit5) ||
-           ((dccptrIn->Data[0] == AirMiniCV1)                                         && !AirMiniCV29Bit5) ) {
-           // According the NMRA standards, two identical packets should be received
-           // before modifying CV values. This feature now works (i.e., DOUBLE_PASS=1(=true)).
-           countPtr = 1;
-           if (AirMiniCV29Bit5) countPtr = 2;
-           tmpuint8 = dccptrIn->Data[countPtr] & 0b11111100;  // The first two bits are part of the CV address used
-                                                                // below and we don't care right now.
-                                                                // Do NOT increment countPtr because we aren't finished
-                                                                // with dccptrIn->Data[countPtr] yet;
-           // we need its two low bytes for the upper two bytes of the CV address below!
-           if (tmpuint8 == 0b11101100) {  // Determine if the bit pattern is for modifying CV's with
-                                          // the first two bits don't care
-              if (CVResetCount == 0 && DOUBLE_PASS) {             // Processing for identifying first
-                                                                  // or second valid call
-                 CVResetCount++;                                  // Update the CV reset counter
-                 memcpy((void *)dccptrAirMiniCVReset, (void *)dccptrIn, sizeof(DCC_MSG));  // Save the dcc
-                                                                                           // packet for comparison
-              } else {
-                 if (!memcmp((void *)dccptrAirMiniCVReset, (void *)dccptrIn, sizeof(DCC_MSG)) || !DOUBLE_PASS) {
-                    // If they don't compare, break out
-                    startModemFlag = 0;             // Initialize whether the modem will be restarted
-                    tmpuint8 = dccptrIn->Data[countPtr++] & (0b00000011);  // zero out the first 6 bits of
-                                                                           // dccptrIn->Data[countPtr],
-                                                                           // we want to use the first two bits
-                    CVnum = (uint16_t)tmpuint8;     // cast the result to a 2 uint8_t CVnum
-                    CVnum <<= 8;                    // now move these two bit over 8 places, now that it's two bytes
-                    CVnum |= (uint16_t)dccptrIn->Data[countPtr++];  // set the first 8 bits with dccptrIn->Data[countPtr] 
-                                                                    // by first casting to uint16_t
-                    CVnum++;                        // NMRA Std of plus one, good grief, to set the final CV number
-                    CVval = dccptrIn->Data[countPtr++];  // Set CVval to dccptrIn->Data[countPtr], one uint8_t only!
-                    CVStatus = ACCEPTED;            // Set the default CV status
-
-                    switch (CVnum) {
-                       case  255:  // Set the channel number and reset related EEPROM values.
-                                   // Modest error checking. Verified this feature works
-                          if (CVval <= channels_max) {         // Check for good values
-                             checkSetDefaultEE(&CHANNEL, &EEisSetCHANNEL, &EECHANNEL, (uint8_t)CVval, 1);
-                             startModemFlag = 1;
-                          } else {                    // Ignore bad values
-                             CVStatus = IGNORED;
-                          }
-                       break;
-                       case  254:  // Set the RF power level and reset related EEPROM values.
-                                   // Verified this feature works.
-                          if (CVval <= 10) {
-                             checkSetDefaultEE(&powerLevel, &EEisSetpowerLevel,
-                                               &EEpowerLevel, (uint8_t)CVval, 1);  // Set powerLevel and reset
-                                                                                   // EEPROM values. Ignore bad values
-                             startModemFlag = 1;
-                          } else {
-                             CVStatus = IGNORED;
-                          }
-                       break;
-                       case  253:  // Turn off/on the modem for bad packet intervals and reset related EEPROM values.
-                                   // Verified this feature works
-                          checkSetDefaultEE(&lockedAntiphase, &EEisSetlockedAntiphase,
-                                            &EElockedAntiphase, (uint8_t)CVval, 1);  // Set lockedAntiphase
-                                                                                     // and reset EEPROM values
-                       break;
-                       case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values.
-                          tooLong = (uint64_t)CVval * QUARTERSEC;
-                       break;
-                       case  248:  // Set the DC output level and reset related EEPROM values.
-                                   // Verified this feature works.
-                          checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel, (uint8_t)CVval, 1);
-                          // Set dcLevel and reset EEPROM values
-                       break;
-                       case  246:  // Set whether to always use modem data
-                          if (CVval) CVval = 1;  // Non-zero reset to 1
-                          checkSetDefaultEE(&filterModemData, &EEisSetfilterModemData,
-                                            &EEfilterModemData, (uint8_t)CVval, 1);  // Set filterModemData
-                                                                                     // and reset EEPROM values
-                       break;
-#if defined(RECEIVER)
-                       case  245:  // Set the wait period in 1 second intervals
-                                   // - Nothing can be done with this until reset
-                          if (CVval <= 60)
-                             checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC,
-                                               &EEInitialWaitPeriodSEC,  (uint8_t)CVval, 1);  // Wait time in sec
-                          else
-                             CVStatus = IGNORED;
-                       break;
-#endif
-
-                       case  243:  // Set the DEVIATN hex code
-                          deviatnval = CVval;
-                          deviatn_changed = 1;
-                          freq_changed |= 0b0001;
-                          freq_changed &= 0b0111;
-                          startModemFlag = 1;  // Reset the modem with a new deviatnval. Not persistent yet
-                       break;
-
-#if defined(TRANSMITTER)
-                       case  242:  // Set the preamble counts
-                          preamble_bits = CVval;
-                       break;
-#endif
-                       case  241:  // Set the timer long counts
-                          // CVval = (CVval > 0x43) ? (CVval):(0x43);  // Validation >= 95uS. Non-persistent
-                          timer_long = CVval;
-                       break;
-                       case  240:  // Set the timer short counts
-                          // Add validation
-                          timer_short = CVval;
-                       break;
-                       case  236:  // timer_long_cutout[3]
-                          // Add validation
-                         advance  = 2*(uint16_t)CVval;
-                       break;
-
-                       // CVs for resetting the FREQ
-                       case  235:  // Set the FREQ2 hex code
-                          if (freq_changed == 0b0111) { // freq1val, freq0val, deviatnval all set
-                             freq_changed |= 0b1000;
-                             freq2val = CVval;
-                             CHANNEL = 19;
-                             startModemFlag = 1;  // Now reset the frequency
-                          }
-                          else {
-                             if (freq_changed!=0b1000) CVStatus = IGNORED;
-                             else freq_changed = 0b0000;
-                          }
-                       break;
-                       case  234:  // Set the FREQ1 hex code
-                             freq_changed |= 0b0100;
-                             freq_changed &= 0b0111;
-                             freq1val = CVval;
-                       break;
-                       case  233:  // Set the FREQ0 hex code
-                             freq_changed |= 0b0010;
-                             freq_changed &= 0b0111;
-                             freq0val = CVval;
-                       break;
-
-                       case 29:    // Set the Configuration CV and reset related EEPROM values.
-                                   // Verified this feature works.
-                          checkSetDefaultEE(&AirMiniCV29, &EEisSetAirMiniCV29, &EEAirMiniCV29, (uint8_t)CVval, 1);
-                          AirMiniCV29Bit5 = AirMiniCV29 & 0b00100000;  // Save the bit 5 value of CV29
-                                                                       // (0: Short address, 1: Long address)
-                       break;
-                       case 18:    // Set the Long Address Low Byte CV and reset related EEPROM values.
-                                   // Verified this feature works.
-                                   // See NMRA S-9.2.1 Footnote 8.
-                          checkSetDefaultEE(&AirMiniCV17, &EEisSetAirMiniCV17, &EEAirMiniCV17,
-                                            (uint8_t)AirMiniCV17tmp, 1);
-                          checkSetDefaultEE(&AirMiniCV18, &EEisSetAirMiniCV18, &EEAirMiniCV18, (uint8_t)CVval, 1);
-                       break;
-                       case 17:    // Set the Long Address High Byte CV and save values after validation (do NOT
-                                   // write to AirMini's CV17 or EEPROM yet!).
-                          if ((0b11000000 <= CVval) && (CVval <= 0b11100111)) {  // NMRA standard 9.2.2,
-                                                                                 // Paragraphs 129-135, footnote 8
-                             AirMiniCV17tmp = CVval;    // Do not take effect until CV18 is written!
-                                                        // NMRA Standard 9.2.1, footnote 8.
-                             CVStatus = PENDING;
-                          } else {
-                             CVStatus = IGNORED;
-                          }
-                       break;
-                       case  8:  // Full EEPROM Reset and reboot!
-                          if (CVval == 8) {
-#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
-//{
-                             if (LCDFound) {
-
-                                snprintf(lcd_line, sizeof(lcd_line), "Keep Power ON!");
-
-                                lcd.clear();
-#if defined(USE_OLD_LCD)
-                                lcd.setCursor(0, 0);  // column, row
-#endif
-                                LCD_PRINT(lcd_line);
-                                snprintf(lcd_line, sizeof(lcd_line), "Factory Reset...");
-#if defined(USE_OLD_LCD)
-                                lcd.setCursor(0, 1);  // column, row
-#endif
-                                LCD_PRINT(lcd_line);
-                             }
-//}
-#endif
-                             eepromClear();
-                             reboot();  // No need for sei, you're starting over...
-                          } else {
-                             CVStatus = IGNORED;
-                          }
-                       break;
-                       case 1:     // Set the Short Address CV and reset related EEPROM values after validation.
-                                   // Verified this feature works.
-                          if ((0 < CVval) && (CVval < 128)) {  // CV1 cannot be outside this range.
-                                                               // Some decoders limit 0<CVval<100
-                             checkSetDefaultEE(&AirMiniCV1, &EEisSetAirMiniCV1, &EEAirMiniCV1, (uint8_t)CVval, 1);
-                          } else {
-                             CVStatus = IGNORED;
-                          }
-                       break;
-                       default:
-                          CVStatus = IGNORED;
-                       break;
-                    }  // end of switch (CVnum)
-
-#if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
-                    if (LCDFound) LCD_CVval_Status(CVnum, CVval);
-#endif
-                      if (startModemFlag) {
-                         strobeSPI(SIDLE);         // Stop the modem
-                         // Call the main DCC Init function to enable the DCC Receiver
-                         // DCC.init(MAN_ID_DIY, 100,   FLAGS_DCC_ACCESSORY_DECODER, 0);
-                         startModem(CHANNEL, MODE);  // Restart on possible-new Airwire Channel and mode
-                                                     // or power level
-                      }
-                 }  // end of if (!memcmp...
-
-                 CVResetCount = 0;  // Reset the CV reset counter
-                 memcpy((void *)dccptrAirMiniCVReset, (void *)dccptrNULL, sizeof(DCC_MSG));  // Reset the dcc packet
-                                                                                             // for comparison
-              }  // end of else (CVResetCount ...
-           // end of if (tmpuint8 ...
-           }  else {  // Not in OPS mode
-              CVResetCount = 0;         // Reset this counter if we didn't get a "hit" on CV changing
-           }  // End of not in OPS mode
-        }  // end of if ((dccptrIn->Data[0] ...
-        ///////////////////////////////////////////////////
+        //
+        // Moved to notifyCVWrite
+        //
         // End ofSpecial processing for AirMini OPS mode //
-        ///////////////////////////////////////////////////
+        //
 
-        timeOfValidDCC = micros();  // Grab Current Clock value for the checking below
         clearScheduledTask(TASK1);      // all done, come back next time we are needed
 
      break;  // TASK1 break
@@ -1473,14 +1450,6 @@ void loop() {
 
   now = micros();
 
-#if defined(RECEIVER)
-  if (!useModemData) {      // If not using modem data, ensure the output is set to DC after coming back from the ISR
-     if (dcLevel)
-        OUTPUT_HIGH;  // HIGH
-     else
-        OUTPUT_LOW;  // LOW
-  }
-#endif
 
   if ((now - then) > BACKGROUNDTIME) {          // Check for Time Scheduled Tasks
                                                  // A priority Schedule could be implemented in here if needed
@@ -1532,18 +1501,6 @@ void loop() {
      //                                  on certain track sections. Might be useful since you can dynamically
      //                                  reset the DC level by accessing the AirMini on 9900 and set CV248
      //                                  to 0 (LOW) or non-zero (HIGH).
-     if (filterModemData && (then-timeOfValidDCC) >= tooLong) {
-         useModemData = 0; // false use-of-modem-data state
-     } else {
-         useModemData = 1;
-     }
-
-     if (!useModemData) {  // If not using modem data, ensure the output is set to a DC level
-         if (dcLevel)
-            OUTPUT_HIGH;  // HIGH
-         else
-            OUTPUT_LOW;   // LOW
-     }
 
      // Special processing for channel search
      if (initialWait) {
