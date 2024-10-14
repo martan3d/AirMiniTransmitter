@@ -1,10 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7XX:
-- Added a cutout grace period
-- Turn off output if no valid packet if filtering is ON
-  Output preamble bits if filtering is OFF. 
-  Filtering by default is ON
+S:1.7Y:
+- Slight change of when to turn off using modem data
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -48,7 +45,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7X"
+#define SWVERSION "1.7Y"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -830,11 +827,13 @@ ISR(TIMER1_OVF_vect) {
            else if (num_cutout >= MAX_NUM_CUTOUT) { // Set up filtering for either DC or preamble bits
               num_cutout = 2; // restart the counter, but prevent long pulse cutout
               if (filterModemData) {
-                 useModemData = 0;
-                 if (dcLevel)
-                    OUTPUT_HIGH;  // HIGH
-                 else
-                    OUTPUT_LOW;   // LOW
+                 if (useModemData) {
+                    useModemData = 0;
+                    if (dcLevel)
+                       OUTPUT_HIGH;  // HIGH
+                    else
+                       OUTPUT_LOW;   // LOW
+                 }
               }
            }
            if (next_state == PREAMBLE) {
