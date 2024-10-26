@@ -289,17 +289,13 @@ caution or for development only.
 //{
 ///////////////////////////
 // Turn filtering on/off
-// Change the default, which is 0
-// #define FILTERMODEMDATADEFAULT 1
+// Change the default, which is 1
+// #define FILTERMODEMDATADEFAULT 0
 ///////////////////////////
 // Define output 1's DC level when not using modem data like Airewire
 // Change  output 1's DC level default
 // #define DCLEVELDEFAULT 0
 ///////////////////////////
-// Change TOO_LONG interval (in 1/4 sec intervals)
-// Default is 16
-// #define TOO_LONG 4
-//////////////////////////
 // Amplifier type settings
 //////////////////////////
 // For DRV8871, GWire, and PMA Rx/WCS
