@@ -6,7 +6,7 @@ S:1.7Y:
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
 
-Copyright (c) 2021-2023, Darrell Lamm
+Copyright (c) 2021-2024, Darrell Lamm
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or
@@ -233,13 +233,6 @@ volatile uint8_t msgIndexIn  = 0;  // runs from 0 to MAXMSG-1
 #define RX      0x34
 #define TX      0x35
 #define SIDLE   0x36
-
-// Setting up double pass for OPS mode
-#if defined(TRANSMITTER)
-#define DOUBLE_PASS 0            // Do a double pass on CV setting
-#else
-#define DOUBLE_PASS 0            // Do a double pass on CV setting
-#endif
 
 // DEFAULT defines
 extern uint8_t channels_max;     // From spi.c
