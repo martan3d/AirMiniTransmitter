@@ -2,6 +2,9 @@
 AirMiniSketchTransmitter_Nmra.ino 
 S:1.7Z:
 - Keep output off until the channel scanning is finished.
+- Reverted back to using a longer time interval before
+  turning on DC output in the absence of a valid DCC
+  packet
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -612,7 +615,7 @@ uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
       break;
       case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values.
          tooLong = (uint64_t)CVval * QUARTERSEC;
-                       break;
+      break;
       case  248:  // Set the DC output level and reset related EEPROM values.
                   // Verified this feature works.
          checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel, (uint8_t)CVval, 1);
