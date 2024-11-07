@@ -1,7 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7Y:
-- Slight change of when to turn off using modem data
+S:1.7Z:
+- Keep output off until the channel scanning is finished.
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -45,7 +45,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7Y"
+#define SWVERSION "1.7Z"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -321,6 +321,8 @@ uint8_t filterModemData = 1;                 // Set the logical for whether to a
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
+
+uint64_t tooLong = 16ULL*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 
 #if defined(RECEIVER)
 //{ RECEIVER
@@ -605,6 +607,9 @@ uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
                            &EElockedAntiphase, (uint8_t)CVval, 1);  // Set lockedAntiphase
                                                                     // and reset EEPROM values
       break;
+      case  252:  // Set the tooLong (in quarter second intervals) and reset related EEPROM values.
+         tooLong = (uint64_t)CVval * QUARTERSEC;
+                       break;
       case  248:  // Set the DC output level and reset related EEPROM values.
                   // Verified this feature works.
          checkSetDefaultEE((uint8_t *)&dcLevel, &EEisSetdcLevel, &EEdcLevel, (uint8_t)CVval, 1);
@@ -762,7 +767,6 @@ void SetupTimer1() {
   TCCR1A = 0;
   TCCR1B = 0 << CS12 | 0 << CS11 | 1 << CS10;  // No prescaling
 
-
   // Timer1 Overflow Interrupt Enable
   TIMSK1 = 1 << TOIE1;
 
@@ -770,9 +774,11 @@ void SetupTimer1() {
   TCNT1 = timer_short;
 }  // End of SetupTimer1
 
+#pragma GCC push_options
+#pragma GCC optimize("-O3")
 // Timer1 overflow interrupt vector handler
 ISR(TIMER1_OVF_vect) {
-  // Capture the current timer value TCTN1. This is how much error we have
+  // Capture the current timer value TCNT1. This is how much error we have
   // due to interrupt latency and the work in this function
   // Reload the timer and correct for latency.
   // for more info, see http://www.uchobby.com/index.php/2007/11/24/arduino-interrupts/
@@ -819,15 +825,6 @@ ISR(TIMER1_OVF_vect) {
            } // else, repeat the pulse or turn on DC output
            else if (num_cutout >= MAX_NUM_CUTOUT) { // Set up filtering for either DC or preamble bits
               num_cutout = 2; // restart the counter, but prevent long pulse cutout
-              if (filterModemData) {
-                 if (useModemData) {
-                    useModemData = 0;
-                    if (dcLevel)
-                       OUTPUT_HIGH;  // HIGH
-                    else
-                       OUTPUT_LOW;   // LOW
-                 }
-              }
            }
            if (next_state == PREAMBLE) {
 #if defined(TRANSMITTER)
@@ -880,6 +877,7 @@ ISR(TIMER1_OVF_vect) {
 
   TCNT1 += timer_val;
 }  // End of ISR
+#pragma GCC pop_options
 
 #if defined(DEBUG)
 void printMsgSerial() {
@@ -1493,6 +1491,20 @@ void loop() {
      //                                  on certain track sections. Might be useful since you can dynamically
      //                                  reset the DC level by accessing the AirMini on 9900 and set CV248
      //                                  to 0 (LOW) or non-zero (HIGH).
+     // It is ESSENTIAL that you do NOT jump to DC output too soon! Otherwise Airwire programming will NOT
+     // work well. Outputting an indefinite number of preamble bits seems to work OK with Airwire programming.
+     // Also, do NOT jump to DC output until the receiver has set its final channel.
+     if (filterModemData & (!initialWait) && ((then-timeOfValidDCC) >= tooLong)) {
+         useModemData = 0; // false use-of-modem-data state
+     } else {
+         useModemData = 1;
+     }
+     if (!useModemData) {  // If not using modem data, ensure the output is set to a DC level
+         if (dcLevel)
+            OUTPUT_HIGH;  // HIGH
+         else
+            OUTPUT_LOW;   // LOW
+     }
 
      // Special processing for channel search
      if (initialWait) {
