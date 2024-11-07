@@ -295,11 +295,15 @@ caution or for development only.
 // Define output 1's DC level when not using modem data like Airewire
 // Change  output 1's DC level default
 // #define DCLEVELDEFAULT 0
+//////////////////////////
+// Change TOO_LONG interval (in 1/4 sec intervals)
+// Default is 16
+// #define TOO_LONG 4
 ///////////////////////////
 // Amplifier type settings
 //////////////////////////
 // For DRV8871, GWire, and PMA Rx/WCS
-// #define LOCKEDANTIPHASEDEFAULT 0
+#define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
 // #define LOCKEDANTIPHASEDEFAULT 1
 //////////////////////////

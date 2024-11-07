@@ -321,8 +321,11 @@ uint8_t filterModemData = 1;                 // Set the logical for whether to a
 
 volatile uint8_t useModemData = 1;           // Initial setting for use-of-modem-data state
 volatile uint64_t timeOfValidDCC;            // Time stamp of the last valid DCC packet
-
-uint64_t tooLong = 16ULL*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
+#if ! defined(TOO_LONG)
+#define TOO_LONG 16
+#endif
+#pragma message "Info: TOO_LONG interval (number of 1/4 sec intervals): " xstr(TOO_LONG)
+uint64_t tooLong = (uint64_t)(TOO_LONG)*QUARTERSEC;         // 1/4 sec, changed to variable that might be changed by SW
 
 #if defined(RECEIVER)
 //{ RECEIVER
