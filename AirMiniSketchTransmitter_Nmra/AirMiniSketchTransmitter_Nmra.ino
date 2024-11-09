@@ -1,6 +1,6 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.7Z:
+S:1.8a:
 - Keep output off until the channel scanning is finished.
 - Reverted back to using a longer time interval before
   turning on DC output in the absence of a valid DCC
@@ -39,7 +39,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <EEPROM.h>
 #include <spi.h>
 #include <uart.h>
-#include <schedule.h>
 #include <avr/eeprom.h>
 #include <avr/io.h>
 #include <util/atomic.h>
@@ -48,7 +47,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.7Z"
+#define SWVERSION "1.8a"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -564,7 +563,6 @@ void notifyDccMsg(DCC_MSG * Msg) {
      msgIndexIn = (msgIndexIn+1) % MAXMSG;
      memcpy((void *)&msg[msgIndexIn], (void *)Msg, sizeof(DCC_MSG));
      dccptrIn = &msg[msgIndexIn];
-     setScheduledTask(TASK1);            // Schedule the background task
      timeOfValidDCC = micros();          // Initialize the valid DCC data time
   }
 #if defined(TURNOFFNOTIFYINTERRUPTS)
@@ -1335,9 +1333,6 @@ void setup() {
   pinMode(DCC_DIAG1, OUTPUT);                 //
   digitalWrite(DCC_DIAG1, 0);                 // Will use this for diagnostics
 
-  // Experimental: Initially clear TASK1
-  clearScheduledTask(TASK1);
-
   // Set up the input and output pins
 
   DCC.pin(EXTINT_NUM, INPUT_PIN, 1);  // register External Interrupt # and Input Pin of input source. Enable pullup!
@@ -1422,26 +1417,6 @@ void loop() {
   /* Check High Priority Tasks First */
   DCC.process();  // The DCC library does it all with the callback notifyDccMsg!
 
-  switch (masterSchedule()) {
-     case TASK0:                      // Highest Priority Task goes here
-        clearScheduledTask(TASK0);
-     break;
-     case TASK1:                      // Just pick a priority for the DCC packet, TASK1 will do
-        // dccptrIn = getDCC();       // we are here, so a packet has been assembled, get a pointer to our DCC data
-
-        //
-        // Special processing for AirMini OPS mode //
-        //
-        // Moved to notifyCVWrite
-        //
-        // End ofSpecial processing for AirMini OPS mode //
-        //
-
-        clearScheduledTask(TASK1);      // all done, come back next time we are needed
-
-     break;  // TASK1 break
-  }  // End of switch (masterSchedule())
-
   /**** After checking highest priority stuff, check for the timed tasks ****/
 
   now = micros();
@@ -1475,11 +1450,11 @@ void loop() {
 
 #if defined(TRANSMITTER)
 //{ TRANSMITTER
-     strobeSPI(MODE);         // keep the radio awake in MODE
+     // strobeSPI(MODE);         // keep the radio awake in MODE
 //} TRANSMITTER
 #else
 //{ RECEIVER
-     strobeSPI(MODE);         // keep the radio awake in MODE
+     // strobeSPI(MODE);         // keep the radio awake in MODE
 
      // If the DCC data collection appears hung up, put the modem to sleep (if we want to)
      // and just ignore its data for a while...
