@@ -135,15 +135,48 @@ caution or for development only.
 /* Turn off interrupts in "critical" sections dealing with*/
 /* assignment of messages for transmission.*/
 /* Change at your own risk.*/
-// #define TURNOFFINTERRUPTS
+// #define TURNOFFNOTIFYINTERRUPTS
+
+// Receiver-only settings
+#if defined(RECEIVER)
+//{
+///////////////////////////
+// Amplifier type settings
+//////////////////////////
+// For DRV8871, GWire, and PMA Rx/WCS
+// #define LOCKEDANTIPHASEDEFAULT 0
+// For Cytron MD13S amp and DRV8874
+// #define LOCKEDANTIPHASEDEFAULT 1
+///////////////////////////
+// Turn on receiver data filtering on so that it acts like Airwire
+// Also necessary for PMA Rx/WCS
+// Turn filtering on/off
+// Change the default, which is 1
+// #define FILTERMODEMDATADEFAULT 0
+///////////////////////////
+// Define output 1's DC level when not using modem data like Airewire
+// Change  output 1's DC level default
+// #define DCLEVELDEFAULT 0
+//////////////////////////
+// Change TOO_LONG interval (in 1/4 sec intervals)
+// Default is 16
+// #define TOO_LONG 4
+//////////////////////////
+//}
+#endif
+
+///////////////////////
+// DEBUGGING of LATENCY
+///////////////////////
+// #define PRINT_LATENCY
+///////////////////////
+
 
 /*Test of new 2.4GHz setting*/
 // #define ALTERNATIVE2P4
 
 //    ^^^ User Entry Area Above ^^^
 ///////////////////////////////////
-
-
 
 ////////////////////////////////
 // Determined from defines above
@@ -282,39 +315,6 @@ caution or for development only.
       #pragma message "Info: Compiling with Airwire cutout + large DCC preamble count!"
    #endif
 #endif
-
-// Turn on receiver data filtering on so that it acts like Airwire
-// Also necessary for PMA Rx/WCS
-#if defined(RECEIVER)
-//{
-///////////////////////////
-// Turn filtering on/off
-// Change the default, which is 1
-// #define FILTERMODEMDATADEFAULT 0
-///////////////////////////
-// Define output 1's DC level when not using modem data like Airewire
-// Change  output 1's DC level default
-// #define DCLEVELDEFAULT 0
-//////////////////////////
-// Change TOO_LONG interval (in 1/4 sec intervals)
-// Default is 16
-// #define TOO_LONG 4
-///////////////////////////
-// Amplifier type settings
-//////////////////////////
-// For DRV8871, GWire, and PMA Rx/WCS
-#define LOCKEDANTIPHASEDEFAULT 0
-// For Cytron MD13S amp and DRV8874
-// #define LOCKEDANTIPHASEDEFAULT 1
-//////////////////////////
-//}
-#endif
-
-///////////////////////
-// DEBUGGING of LATENCY
-///////////////////////
-// #define PRINT_LATENCY
-///////////////////////
 
 ///////////////////////////
 // End of entire include //
