@@ -1,10 +1,13 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.8a:
-- Keep output off until the channel scanning is finished.
-- Reverted back to using a longer time interval before
-  turning on DC output in the absence of a valid DCC
-  packet
+S:1.8c: Experimental Ariel
+- Removal of unused #defines. No functionality change.
+- Insert idle message is after tooLong and filtering
+  is off.
+- Changed the assignment of preamble_count using a trigram
+- Increased MAX_NUM_CUTOUT to 40
+- Added CV244 for setting repeat_packet or not. If not, 
+  then preamble bits are output.
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -47,7 +50,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.8a"
+#define SWVERSION "1.8c"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -70,11 +73,6 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma message "Info: FREQMH is " xstr(FREQMH)
 
 #undef DEBUG_LOCAL
-#if defined(TURNOFFINTERRUPTS)
-#pragma message "Turning off interrupts in message re-assigment sections"
-#else
-#pragma message "NOT turning off interrupts in message re-assigment sections"
-#endif
 
 #define USE_NEW_LCD
 #if ! defined(USE_NEW_LCD)
@@ -168,9 +166,21 @@ volatile uint16_t timer_val = timer_short;  // The timer value
 volatile uint8_t every_second_isr = 0;  // pulse up or down
 volatile uint8_t num_cutout = 0;
 #if ! defined(MAX_NUM_CUTOUT)
-#define MAX_NUM_CUTOUT 20
+#define MAX_NUM_CUTOUT 40
 #endif
 #pragma message "Info: MAX_NUM_CUTOUT: " xstr(MAX_NUM_CUTOUT)
+#if ! defined(REPEATPACKETDEFAULT)
+//{
+#if defined(RECEIVER)
+#define REPEATPACKETDEFAULT 0
+#else
+#define REPEATPACKETDEFAULT 0
+#endif
+//}
+#endif
+#pragma message "Info: REPEATPACKETDEFAULT: " xstr(REPEATPACKETDEFAULT)
+volatile uint8_t RepeatPacket = REPEATPACKETDEFAULT;
+
 
 volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
 #define MINIMUM_PREAMBLE_BITS 16
@@ -179,7 +189,7 @@ volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state,
 #if !defined(PREAMBLE_BITS)
 #define PREAMBLE_BITS MAXIMUM_PREAMBLE_BITS
 #endif
-uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for Airwire
+volatile uint8_t preamble_bits = PREAMBLE_BITS;  // Large enough for Airwire
 #pragma message "Info: Transmitter PREAMBLE_BITS is " xstr(PREAMBLE_BITS)
 #endif
 volatile uint8_t preamble_count = MINIMUM_PREAMBLE_BITS; // will be reset in the ISR
@@ -250,8 +260,6 @@ extern uint8_t channels_na_max;  // From spi.c
 #define LOCKEDANTIPHASEDEFAULT 1
 #endif
 #pragma message "Info: default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
-
-#define IDLEPERIODMSDEFAULT 128
 
 #if ! defined(FILTERMODEMDATADEFAULT)
 #define FILTERMODEMDATADEFAULT 1
@@ -485,6 +493,8 @@ uint8_t  EEInitialWaitPeriodSEC = 20;       // Stored AirMini decoder configurat
 //{ TRANSMITTER
 //} TRANSMITTER
 #endif
+uint8_t  EEisSetRepeatPacket = 21;  // Stored AirMini decoder configuration variable
+uint8_t  EERepeatPacket = 22;       // Stored AirMini decoder configuration variable
 
 ///////////////////
 // End: EEPROM data
@@ -517,9 +527,10 @@ SSD1306AsciiAvrI2c lcd;
 //}
 #endif
 
-// #define TURNOFFNOTIFYINTERRUPTS
 #if defined(TURNOFFNOTIFYINTERRUPTS)
 #pragma message "Turning off interrupts in notifyDccMsg"
+#else
+#pragma message "NOT turning off interrupts in notifyDccMsg"
 #endif
 
 ///////////////////
@@ -636,6 +647,10 @@ uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
             CVval = InitialWaitPeriodSEC;
       break;
 #endif
+      case 244: // Repeat packet
+            checkSetDefaultEE(&RepeatPacket, &EEisSetRepeatPacket,
+                              &EERepeatPacket,  (uint8_t)CVval, 1);  // RepeatPacket
+      break;
 
       case  243:  // Set the DEVIATN hex code
          deviatnval = CVval;
@@ -797,14 +812,14 @@ ISR(TIMER1_OVF_vect) {
 
      if (useModemData) {      // If not using modem data, the level is set elsewhere
         OUTPUT_HIGH;  // Output high
-#if defined(TRANSMITTER)
-        if ((preamble_bits >= MAXIMUM_PREAMBLE_BITS) && (current_state == CUTOUT)) {
-           if (num_cutout==1) {
-              timer_val = timer_long;
-           }
-        }
-#endif
      }
+#if defined(TRANSMITTER)
+     if (current_state == CUTOUT) {
+        if ((num_cutout == 1) && (preamble_bits >= MAXIMUM_PREAMBLE_BITS)) {
+           timer_val = timer_long;
+        }
+     }
+#endif
 
      every_second_isr = 0;
   }  else  {  // != every second interrupt, advance bit or state
@@ -826,16 +841,19 @@ ISR(TIMER1_OVF_vect) {
               dccptrOut = dccptrISR;  // For display only
               useModemData = 1;
               next_state = PREAMBLE;  // jump out of state
-           } // else, repeat the pulse or turn on DC output
-           else if (num_cutout >= MAX_NUM_CUTOUT) { // Set up filtering for either DC or preamble bits
-              num_cutout = 2; // restart the counter, but prevent long pulse cutout
+           }
+           else if (num_cutout >= MAX_NUM_CUTOUT) {
+              if (RepeatPacket)
+                 next_state = PREAMBLE;  // jump out of state w/ same dccptrISR
+              else
+                 num_cutout = 2; // restart the counter, but prevent long pulse cutout
            }
            if (next_state == PREAMBLE) {
 #if defined(TRANSMITTER)
-              if (preamble_bits >= MINIMUM_PREAMBLE_BITS)  // Ensure meets a reasonable minimum
-                 preamble_count = preamble_bits;  // large enough to satisfy Airwire!
-              else
-                 preamble_count = dccptrISR->PreambleBits; // use what was given
+              preamble_count = 
+                 (preamble_bits > dccptrISR->PreambleBits) ? 
+                 preamble_bits :          // large enough to satisfy Airwire!
+                 dccptrISR->PreambleBits; // use what was given
 #else
               preamble_count = dccptrISR->PreambleBits;
 #endif
@@ -1300,6 +1318,9 @@ void setup() {
 //{ TRANSMITTER
 //} TRANSMITTER
 #endif
+  // eeprom_update_byte(&EERepeatPacket, REPEATPACKETDEFAULT );
+  checkSetDefaultEE(&RepeatPacket, &EEisSetRepeatPacket, &EERepeatPacket,
+                    (uint8_t)REPEATPACKETDEFAULT, SET_DEFAULT);  // Repeat packet
 
   // Now set to not first time
   eeprom_update_byte((uint8_t *)&EEFirst, (const uint8_t)ISSET);
@@ -1480,6 +1501,10 @@ void loop() {
      } else {
          useModemData = 1;
      }
+     if ((!filterModemData) && ((then-timeOfValidDCC) >= tooLong)) {
+        notifyDccMsg(&msgIdle);
+     }
+
      if (!useModemData) {  // If not using modem data, ensure the output is set to a DC level
          if (dcLevel)
             OUTPUT_HIGH;  // HIGH
