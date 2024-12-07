@@ -144,7 +144,7 @@ caution or for development only.
 // Amplifier type settings
 //////////////////////////
 // For DRV8871, GWire, and PMA Rx/WCS
-// #define LOCKEDANTIPHASEDEFAULT 0
+#define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
 // #define LOCKEDANTIPHASEDEFAULT 1
 ///////////////////////////
@@ -161,6 +161,12 @@ caution or for development only.
 // Change TOO_LONG interval (in 1/4 sec intervals)
 // Default is 16
 // #define TOO_LONG 4
+//////////////////////////
+// Change whether to repeat a packet
+// or whether to send preamble bits
+// while waiting for the next
+// valid DCC packet
+// #define REPEATPACKETDEFAULT 1
 //////////////////////////
 //}
 #endif

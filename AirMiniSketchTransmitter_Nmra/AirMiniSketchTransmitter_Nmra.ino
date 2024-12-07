@@ -1,6 +1,6 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.8c: Experimental Ariel
+S:1.8c: 
 - Removal of unused #defines. No functionality change.
 - Insert idle message is after tooLong and filtering
   is off.
@@ -172,9 +172,9 @@ volatile uint8_t num_cutout = 0;
 #if ! defined(REPEATPACKETDEFAULT)
 //{
 #if defined(RECEIVER)
-#define REPEATPACKETDEFAULT 0
+#define REPEATPACKETDEFAULT 1
 #else
-#define REPEATPACKETDEFAULT 0
+#define REPEATPACKETDEFAULT 1
 #endif
 //}
 #endif
