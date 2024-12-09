@@ -1,13 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.8c: 
-- Removal of unused #defines. No functionality change.
-- Insert idle message is after tooLong and filtering
-  is off.
-- Changed the assignment of preamble_count using a trigram
-- Increased MAX_NUM_CUTOUT to 40
-- Added CV244 for setting repeat_packet or not. If not, 
-  then preamble bits are output.
+S:1.8d: 
+- Corrected IDLE insertion logic
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -1501,7 +1495,7 @@ void loop() {
      } else {
          useModemData = 1;
      }
-     if ((!filterModemData) && ((then-timeOfValidDCC) >= tooLong)) {
+     if ((!filterModemData) && (!initialWait) && ((then-timeOfValidDCC) >= tooLong)) {
         notifyDccMsg(&msgIdle);
      }
 
