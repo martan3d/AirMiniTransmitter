@@ -44,7 +44,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.8c"
+#define SWVERSION "1.8d"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -173,7 +173,7 @@ volatile uint8_t num_cutout = 0;
 //}
 #endif
 #pragma message "Info: REPEATPACKETDEFAULT: " xstr(REPEATPACKETDEFAULT)
-volatile uint8_t RepeatPacket = REPEATPACKETDEFAULT;
+uint8_t repeatPacket = REPEATPACKETDEFAULT;
 
 
 volatile enum {PREAMBLE, STARTBYTE, SENDBYTE, STOPPACKET, CUTOUT} current_state, next_state = PREAMBLE;
@@ -256,7 +256,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #pragma message "Info: default lockedAntiphase is " xstr(LOCKEDANTIPHASEDEFAULT)
 
 #if ! defined(FILTERMODEMDATADEFAULT)
-#define FILTERMODEMDATADEFAULT 1
+#define FILTERMODEMDATADEFAULT 0
 #endif
 #pragma message "Info: default filtering modem data value is " xstr(FILTERMODEMDATADEFAULT)
 
@@ -287,16 +287,7 @@ extern uint8_t channels_na_max;  // From spi.c
 #define AIRMINICV29DEFAULT 32
 
 #if defined(RECEIVER)
-//{ RECEIVER
 #define INITIALWAITPERIODSECDEFAULT 1
-//} RECEIVER
-#else
-//{ TRANSMITTER
-#if !defined(AUTOIDLEOFFDEFAULT)
-#define AUTOIDLEOFFDEFAULT 1
-#endif
-#pragma message "Info: default AUTOIDLEOFFDEFAULT is " xstr(AUTOIDLEOFFDEFAULT)
-//} TRANSMITTER
 #endif
 
 // Declarations
@@ -642,8 +633,8 @@ uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
       break;
 #endif
       case 244: // Repeat packet
-            checkSetDefaultEE(&RepeatPacket, &EEisSetRepeatPacket,
-                              &EERepeatPacket,  (uint8_t)CVval, 1);  // RepeatPacket
+            checkSetDefaultEE(&repeatPacket, &EEisSetRepeatPacket,
+                              &EERepeatPacket,  (uint8_t)CVval, 1);  // repeatPacket
       break;
 
       case  243:  // Set the DEVIATN hex code
@@ -837,7 +828,7 @@ ISR(TIMER1_OVF_vect) {
               next_state = PREAMBLE;  // jump out of state
            }
            else if (num_cutout >= MAX_NUM_CUTOUT) {
-              if (RepeatPacket)
+              if (repeatPacket)
                  next_state = PREAMBLE;  // jump out of state w/ same dccptrISR
               else
                  num_cutout = 2; // restart the counter, but prevent long pulse cutout
@@ -1313,7 +1304,7 @@ void setup() {
 //} TRANSMITTER
 #endif
   // eeprom_update_byte(&EERepeatPacket, REPEATPACKETDEFAULT );
-  checkSetDefaultEE(&RepeatPacket, &EEisSetRepeatPacket, &EERepeatPacket,
+  checkSetDefaultEE(&repeatPacket, &EEisSetRepeatPacket, &EERepeatPacket,
                     (uint8_t)REPEATPACKETDEFAULT, SET_DEFAULT);  // Repeat packet
 
   // Now set to not first time
