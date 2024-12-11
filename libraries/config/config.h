@@ -137,22 +137,20 @@ caution or for development only.
 /* Change at your own risk.*/
 // #define TURNOFFNOTIFYINTERRUPTS
 
-// Receiver-only settings
-#if defined(RECEIVER)
 //{
 ///////////////////////////
 // Amplifier type settings
 //////////////////////////
 // For DRV8871, GWire, and PMA Rx/WCS
-#define LOCKEDANTIPHASEDEFAULT 0
+// #define LOCKEDANTIPHASEDEFAULT 0
 // For Cytron MD13S amp and DRV8874
-// #define LOCKEDANTIPHASEDEFAULT 1
+#define LOCKEDANTIPHASEDEFAULT 1
 ///////////////////////////
 // Turn on receiver data filtering on so that it acts like Airwire
 // Also necessary for PMA Rx/WCS
 // Turn filtering on/off
-// Change the default, which is 1
-// #define FILTERMODEMDATADEFAULT 0
+// Change the default, which is 0
+// #define FILTERMODEMDATADEFAULT 1
 ///////////////////////////
 // Define output 1's DC level when not using modem data like Airewire
 // Change  output 1's DC level default
@@ -166,10 +164,10 @@ caution or for development only.
 // or whether to send preamble bits
 // while waiting for the next
 // valid DCC packet
-// #define REPEATPACKETDEFAULT 1
+// The default value is 1
+// #define REPEATPACKETDEFAULT 0
 //////////////////////////
 //}
-#endif
 
 ///////////////////////
 // DEBUGGING of LATENCY
