@@ -1,7 +1,7 @@
 /* 
 AirMiniSketchTransmitter_Nmra.ino 
-S:1.8d: 
-- Corrected IDLE insertion logic
+S:1.8e: 
+- Corrected & to && in if statement
 
 Created: Jun 6 2021 using AirMiniSketchTransmitter.ino
         as a starting point
@@ -44,7 +44,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define HWVERSION "2"
 #pragma message "Info: Hardware version is " xstr(HWVERSION)
-#define SWVERSION "1.8d"
+#define SWVERSION "1.8e"
 #pragma message "Info: Software version is " xstr(SWVERSION)
 
 #if defined(TWENTY_SEVEN_MHZ)
@@ -1481,7 +1481,7 @@ void loop() {
      // It is ESSENTIAL that you do NOT jump to DC output too soon! Otherwise Airwire programming will NOT
      // work well. Outputting an indefinite number of preamble bits seems to work OK with Airwire programming.
      // Also, do NOT jump to DC output until the receiver has set its final channel.
-     if (filterModemData & (!initialWait) && ((then-timeOfValidDCC) >= tooLong)) {
+     if (filterModemData && (!initialWait) && ((then-timeOfValidDCC) >= tooLong)) {
          useModemData = 0; // false use-of-modem-data state
      } else {
          useModemData = 1;
