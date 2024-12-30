@@ -569,7 +569,155 @@ void notifyDccMsg(DCC_MSG * Msg) {
 #endif
 }  // End of notifyDccMsg
 
+void reboot() {
+  cli();                     // Ensure that when setup() is called, interrupts are OFF
+  asm volatile ("  jmp 0");  // "Dirty" method because it simply restarts the SW, and does NOT reset the HW
+}
+
+void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval, uint8_t CVStatus) {
+
+  lcd.clear();
+
+#if defined(USE_OLD_LCD)
+  lcd.setCursor(0, 0);  // column, row
+#endif
+  switch (CVStatus) {
+     case ACCEPTED:
+        snprintf(lcd_line, sizeof(lcd_line), "Changed:");
+     break;
+     case IGNORED:
+        snprintf(lcd_line, sizeof(lcd_line), "Ignored:");
+     break;
+     case PENDING:
+        snprintf(lcd_line, sizeof(lcd_line), "Pending:");
+     break;
+  }
+  LCD_PRINT(lcd_line);
+
+#if defined(USE_OLD_LCD)
+  lcd.setCursor(0, 1);  // column, row
+#endif
+  snprintf(lcd_line, sizeof(lcd_line), "CV%d=%d", CVnum, CVval);
+  LCD_PRINT(lcd_line);
+
+  LCDprevTime  = micros();
+  LCDrefresh = true;
+
+  return;
+}  // end of LCD_CVval_Status
+
 uint8_t decoderInitialized = 0;
+
+// Function, based on the value of forceDefault:
+//    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
+//    - FALSE:  extract and use EEPROM data, if previously-set, to set the TargetPtr's value
+void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
+                       const uint8_t *EETargetPtr, uint8_t defaultValue, uint8_t forceDefault) {
+  uint8_t isSet;
+#if defined(DEBUG)
+  uint8_t isSet_Save;
+#endif
+  eeprom_busy_wait();
+  isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
+  if ((isSet != ISSET) || forceDefault) {
+#if defined(DEBUG)
+     isSet_Save = isSet;
+#endif
+     *TargetPtr = defaultValue;
+     eeprom_busy_wait();
+
+     eeprom_update_byte((uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET);
+     delay(EEPROMDELAYMS);  // Magic delay time to ensure update is complete
+     eeprom_busy_wait();
+     for (uint8_t i = 0; i < 10; i++) {
+        isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
+        if (isSet != ISSET) {
+#if defined(DEBUG)
+           Serial.print("ISSET error: isSet, ISSET = ");
+           Serial.print(isSet);
+           Serial.print(", ");
+           Serial.print(ISSET);
+           Serial.print("\n");
+           delay(10);
+#endif
+           eeprom_update_byte((uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET);
+           eeprom_busy_wait();
+        } else {
+            break;
+        }
+     }
+
+     eeprom_update_byte((uint8_t *)EETargetPtr, defaultValue);
+     delay(EEPROMDELAYMS);  // Magic delay time to ensure update is complete
+     eeprom_busy_wait();
+
+     for (uint8_t i = 0; i < 10; i++) {
+        *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
+        if (*TargetPtr != defaultValue) {
+#if defined(DEBUG)
+           Serial.print("TargetPtr error: *TgtPtr, defaultValue = ");
+           Serial.print(*TargetPtr);
+           Serial.print(", ");
+           Serial.print(defaultValue);
+           Serial.print("\n");
+           delay(10);
+#endif
+           eeprom_update_byte((uint8_t *)EETargetPtr, defaultValue);
+           eeprom_busy_wait();
+        } else {
+           break;
+        }
+     }
+
+#if defined(DEBUG)
+     Serial.print("   Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, "
+                  "defaultValue (Orig isSet): ");
+     Serial.print(*TargetPtr);
+     Serial.print(" <");
+     Serial.print(*EEisSetTargetPtr);
+     Serial.print("> <");
+     Serial.print(*EETargetPtr);
+     Serial.print("> ");
+     Serial.print(ISSET);
+     Serial.print(" ");
+     Serial.print(isSet);
+     Serial.print(" ");
+     Serial.print(forceDefault);
+     Serial.print(" ");
+     Serial.print(defaultValue);
+     Serial.print(" (");
+     Serial.print(isSet_Save);
+     Serial.print(")\n");
+#endif
+  } else {
+     *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
+#if defined(DEBUG)
+     Serial.print("No Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue: ");
+     Serial.print(*TargetPtr);
+     Serial.print(" <");
+     Serial.print(*EEisSetTargetPtr);
+     Serial.print("> <");
+     Serial.print(*EETargetPtr);
+     Serial.print("> ");
+     Serial.print(ISSET);
+     Serial.print(" ");
+     Serial.print(isSet);
+     Serial.print(" ");
+     Serial.print(forceDefault);
+     Serial.print(" ");
+     Serial.print(defaultValue);
+     Serial.print("\n");
+#endif
+  }
+
+  eeprom_busy_wait();
+}  // end of checkSetDefaultEE
+
+void eepromClear() {
+  for (unsigned int i = 0 ; i < EEPROM.length() ; i++) {
+     EEPROM.write(i, 0);
+  }
+}
 
 uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
 
@@ -627,9 +775,10 @@ uint8_t notifyCVWrite (uint16_t CVnum, uint8_t CVval) {
          if (CVval <= 60)
             checkSetDefaultEE(&InitialWaitPeriodSEC, &EEisSetInitialWaitPeriodSEC,
                               &EEInitialWaitPeriodSEC,  (uint8_t)CVval, 1);  // Wait time in sec
-         else
+         else 
             CVStatus = IGNORED;
-            CVval = InitialWaitPeriodSEC;
+
+         CVval = InitialWaitPeriodSEC;
       break;
 #endif
       case 244: // Repeat packet
@@ -913,17 +1062,6 @@ uint16_t combineHighLow(uint8_t High, uint8_t Low) {
   return (tmp16);
 }
 
-void reboot() {
-  cli();                     // Ensure that when setup() is called, interrupts are OFF
-  asm volatile ("  jmp 0");  // "Dirty" method because it simply restarts the SW, and does NOT reset the HW
-}
-
-void eepromClear() {
-  for (unsigned int i = 0 ; i < EEPROM.length() ; i++) {
-     EEPROM.write(i, 0);
-  }
-}
-
 /* Not used
 void checkSetDefault(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr, 
                     const uint8_t *EETargetPtr, uint8_t defaultValue, uint8_t forceDefault) {
@@ -939,110 +1077,6 @@ void checkSetDefault(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
 }
 */
 
-// Function, based on the value of forceDefault:
-//    - TRUE:   TargetPtr's value and its related EEPROM variables are forced to use defaultValue
-//    - FALSE:  extract and use EEPROM data, if previously-set, to set the TargetPtr's value
-void checkSetDefaultEE(uint8_t *TargetPtr, const uint8_t *EEisSetTargetPtr,
-                       const uint8_t *EETargetPtr, uint8_t defaultValue, uint8_t forceDefault) {
-  uint8_t isSet;
-#if defined(DEBUG)
-  uint8_t isSet_Save;
-#endif
-  eeprom_busy_wait();
-  isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
-  if ((isSet != ISSET) || forceDefault) {
-#if defined(DEBUG)
-     isSet_Save = isSet;
-#endif
-     *TargetPtr = defaultValue;
-     eeprom_busy_wait();
-
-     eeprom_update_byte((uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET);
-     delay(EEPROMDELAYMS);  // Magic delay time to ensure update is complete
-     eeprom_busy_wait();
-     for (uint8_t i = 0; i < 10; i++) {
-        isSet = (uint8_t)eeprom_read_byte((const uint8_t *)EEisSetTargetPtr);
-        if (isSet != ISSET) {
-#if defined(DEBUG)
-           Serial.print("ISSET error: isSet, ISSET = ");
-           Serial.print(isSet);
-           Serial.print(", ");
-           Serial.print(ISSET);
-           Serial.print("\n");
-           delay(10);
-#endif
-           eeprom_update_byte((uint8_t *)EEisSetTargetPtr, (const uint8_t)ISSET);
-           eeprom_busy_wait();
-        } else {
-            break;
-        }
-     }
-
-     eeprom_update_byte((uint8_t *)EETargetPtr, defaultValue);
-     delay(EEPROMDELAYMS);  // Magic delay time to ensure update is complete
-     eeprom_busy_wait();
-
-     for (uint8_t i = 0; i < 10; i++) {
-        *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
-        if (*TargetPtr != defaultValue) {
-#if defined(DEBUG)
-           Serial.print("TargetPtr error: *TgtPtr, defaultValue = ");
-           Serial.print(*TargetPtr);
-           Serial.print(", ");
-           Serial.print(defaultValue);
-           Serial.print("\n");
-           delay(10);
-#endif
-           eeprom_update_byte((uint8_t *)EETargetPtr, defaultValue);
-           eeprom_busy_wait();
-        } else {
-           break;
-        }
-     }
-
-#if defined(DEBUG)
-     Serial.print("   Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, "
-                  "defaultValue (Orig isSet): ");
-     Serial.print(*TargetPtr);
-     Serial.print(" <");
-     Serial.print(*EEisSetTargetPtr);
-     Serial.print("> <");
-     Serial.print(*EETargetPtr);
-     Serial.print("> ");
-     Serial.print(ISSET);
-     Serial.print(" ");
-     Serial.print(isSet);
-     Serial.print(" ");
-     Serial.print(forceDefault);
-     Serial.print(" ");
-     Serial.print(defaultValue);
-     Serial.print(" (");
-     Serial.print(isSet_Save);
-     Serial.print(")\n");
-#endif
-  } else {
-     *TargetPtr = (uint8_t)eeprom_read_byte((const uint8_t *)EETargetPtr);
-#if defined(DEBUG)
-     Serial.print("No Reset: *TargetPtr, *EEisSetTargetPtr, *EETargetPtr, ISSET, isSet, forceDefault, defaultValue: ");
-     Serial.print(*TargetPtr);
-     Serial.print(" <");
-     Serial.print(*EEisSetTargetPtr);
-     Serial.print("> <");
-     Serial.print(*EETargetPtr);
-     Serial.print("> ");
-     Serial.print(ISSET);
-     Serial.print(" ");
-     Serial.print(isSet);
-     Serial.print(" ");
-     Serial.print(forceDefault);
-     Serial.print(" ");
-     Serial.print(defaultValue);
-     Serial.print("\n");
-#endif
-  }
-
-  eeprom_busy_wait();
-}  // end of checkSetDefaultEE
 
 #if defined(USE_OLD_LCD) || defined(USE_NEW_LCD)
 //{  // USE_OLD_LCD
@@ -1147,38 +1181,6 @@ void LCD_Addr_Ch_PL() {
 
   return;
 }  // end of LCD_Addr_Ch_PL
-
-void LCD_CVval_Status(uint8_t CVnum, uint8_t CVval, uint8_t CVStatus) {
-
-  lcd.clear();
-
-#if defined(USE_OLD_LCD)
-  lcd.setCursor(0, 0);  // column, row
-#endif
-  switch (CVStatus) {
-     case ACCEPTED:
-        snprintf(lcd_line, sizeof(lcd_line), "Changed:");
-     break;
-     case IGNORED:
-        snprintf(lcd_line, sizeof(lcd_line), "Ignored:");
-     break;
-     case PENDING:
-        snprintf(lcd_line, sizeof(lcd_line), "Pending:");
-     break;
-  }
-  LCD_PRINT(lcd_line);
-
-#if defined(USE_OLD_LCD)
-  lcd.setCursor(0, 1);  // column, row
-#endif
-  snprintf(lcd_line, sizeof(lcd_line), "CV%d=%d", CVnum, CVval);
-  LCD_PRINT(lcd_line);
-
-  LCDprevTime  = micros();
-  LCDrefresh = true;
-
-  return;
-}  // end of LCD_CVval_Status
 
 void LCD_Wait_Period_Over(uint16_t status) {
 
@@ -1487,7 +1489,7 @@ void loop() {
          useModemData = 1;
      }
      if ((!filterModemData) && (!initialWait) && ((then-timeOfValidDCC) >= tooLong)) {
-        notifyDccMsg(&msgIdle);
+        notifyDccMsg((DCC_MSG *)&msgIdle);
      }
 
      if (!useModemData) {  // If not using modem data, ensure the output is set to a DC level
