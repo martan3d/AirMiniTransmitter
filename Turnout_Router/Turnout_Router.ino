@@ -39,18 +39,19 @@
 #include <EEPROM.h>
 
 #define MAX_TURNOUTS 8
-#define MAX_ROUTES 32
+#define MAX_ROUTES 16
 
-#define A0_PIN 2
-#define A1_PIN 3
-#define A2_PIN 4
+#define QA0_PIN 2
+#define QA1_PIN 3
+#define QA2_PIN 4
 #define DATA_PIN 5
 #define ENABLE_PIN 6
 #define CL_PIN 7
-#define B0_PIN 8
-#define B1_PIN 9
-#define B2_PIN 10
-#define EO_PIN 11
+#define IA0_PIN 8
+#define IA1_PIN 9
+#define IA2_PIN 10
+#define GS_PIN 11
+#define EO_PIN 12
 
 /*EEprom and version control*/
 struct CONTROLLER
@@ -98,7 +99,7 @@ uint8_t bootTimer=0;
 uint8_t tick;
 uint8_t input_address = 7;
 uint8_t input_address_old;
-uint8_t b0, b1, b2, eo;
+uint8_t ia0, ia1, ia2, gs, eo;
 uint8_t turnout_state;
 uint8_t global_turnout_state[MAX_TURNOUTS] = {0,0,0,0,0,0,0,0};
 
@@ -128,25 +129,27 @@ void setup() {
   helpPrint();
 	pinMode(LED_BUILTIN, OUTPUT);
 
-  pinMode(A0_PIN, OUTPUT);
-  pinMode(A1_PIN, OUTPUT);
-  pinMode(A2_PIN, OUTPUT);
+  pinMode(QA0_PIN, OUTPUT);
+  pinMode(QA1_PIN, OUTPUT);
+  pinMode(QA2_PIN, OUTPUT);
   pinMode(DATA_PIN, OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
   pinMode(CL_PIN, OUTPUT);
-  pinMode(B0_PIN, INPUT_PULLUP);
-  pinMode(B1_PIN, INPUT_PULLUP);
-  pinMode(B2_PIN, INPUT_PULLUP);
+  pinMode(IA0_PIN, INPUT_PULLUP);
+  pinMode(IA1_PIN, INPUT_PULLUP);
+  pinMode(IA2_PIN, INPUT_PULLUP);
+  pinMode(GS_PIN, INPUT_PULLUP);
   pinMode(EO_PIN, INPUT_PULLUP);
 
   digitalWrite(ENABLE_PIN, HIGH); // Disable latching initially
-  digitalWrite(CL_PIN, LOW); // Disable CL initially
-  b0 = digitalRead(B0_PIN);
-  b1 = digitalRead(B1_PIN);
-  b2 = digitalRead(B2_PIN);
+  digitalWrite(CL_PIN, LOW); // Disable CL Latch -> LOW. Will need to change to HIGH for 74HCT259, since _CL
+  ia0 = digitalRead(IA0_PIN);
+  ia1 = digitalRead(IA1_PIN);
+  ia2 = digitalRead(IA2_PIN);
+  gs = digitalRead(GS_PIN);
   eo = digitalRead(EO_PIN);
 
-  if (eo) input_address = 7-((b2<<2) | (b1<<1) | (b0));
+  if (!gs) input_address = 7-((ia2<<2) | (ia1<<1) | (ia0));
   Serial.print("Initial input address: ");
   Serial.println(input_address,DEC);
 
@@ -160,9 +163,9 @@ void latchWrite(uint8_t turnout_number, uint8_t turnout_state) {
   Serial.print(turnout_number,DEC);
   Serial.print(" set to turnout_state: ");
   Serial.println(turnout_state);
-  digitalWrite(A0_PIN, (turnout_number & B001));
-  digitalWrite(A1_PIN, (turnout_number & B010) >> 1);
-  digitalWrite(A2_PIN, (turnout_number & B100) >> 2);
+  digitalWrite(QA0_PIN, (turnout_number & B001));
+  digitalWrite(QA1_PIN, (turnout_number & B010) >> 1);
+  digitalWrite(QA2_PIN, (turnout_number & B100) >> 2);
 
   // Set the data pin
   digitalWrite(DATA_PIN, turnout_state-1); // Note the "-1"
@@ -184,22 +187,15 @@ void routeWrites(uint8_t route_number) {
 
 void loop() {
 
-  // Pole the input address pins
+  // Poll the input address pins
   delay(100);
   input_address_old = input_address;
-  b0 = digitalRead(B0_PIN);
-  b1 = digitalRead(B1_PIN);
-  b2 = digitalRead(B2_PIN);
+  ia0 = digitalRead(IA0_PIN);
+  ia1 = digitalRead(IA1_PIN);
+  ia2 = digitalRead(IA2_PIN);
+  gs = digitalRead(GS_PIN);
   eo = digitalRead(EO_PIN);
-  if (eo) input_address = 7-((b2<<2) | (b1<<1) | (b0));
-  // input_address = 7 - 4*b2 - 2*b1 - b0;
-  /*
-  Serial.print("b2:b1:b0=");
-  Serial.print(b2,DEC);Serial.print(":");
-  Serial.print(b1,DEC);Serial.print(":");
-  Serial.print(b0,DEC); Serial.print(" -> ");
-  Serial.println(input_address,DEC);
-  */
+  if (!gs) input_address = 7-((ia2<<2) | (ia1<<1) | (ia0));
   if (input_address_old != input_address) {
      Serial.print("Changed input address: ");
      Serial.println(input_address);
