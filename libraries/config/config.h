@@ -153,7 +153,7 @@ caution or for development only.
 // #define FILTERMODEMDATADEFAULT 1
 ///////////////////////////
 // Define output 1's DC level when not using modem data like Airewire
-// Change  output 1's DC level default
+// Change  output 1's DC level default. Use for new PMA Rx/WCS:
 // #define DCLEVELDEFAULT 0
 //////////////////////////
 // Change TOO_LONG interval (in 1/4 sec intervals)
