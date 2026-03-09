@@ -56,9 +56,9 @@
 /*EEprom and version control*/
 struct CONTROLLER
 {
-	long	softwareVersion = 20260208;  //yyyymmdd captured as an integer
-	bool isDirty=false;  //will be true if eeprom needs a write
-	long long padding;
+  long	softwareVersion = 20260208;  //yyyymmdd captured as an integer
+  bool isDirty=false;  //will be true if eeprom needs a write
+  long long padding;
 };
 
 /*defaultController contains defaults defined in the CONTROLLER object and is used to override eeprom settings
@@ -78,14 +78,6 @@ const byte numChars = 64;
 char receivedChars[numChars]; // an array to store the received data
 boolean newData = false;
 
-bool ledState;
-
-typedef enum {
-	TURNOUT_THROWN=1,
-	TURNOUT_CLOSED=2,
-	TURNOUT_DONTCARE=0,
-} switchState;
-
 typedef uint8_t VIRTUALROUTE[MAX_TURNOUTS];
 
 //Up to eight routes
@@ -93,41 +85,36 @@ VIRTUALROUTE virtualroute[MAX_ROUTES];
 VIRTUALROUTE *vrBoot=nullptr;
 
 
-unsigned long currentMs;
-unsigned long previousMs;
-uint8_t bootTimer=0;
-uint8_t tick;
-uint8_t input_address = 7;
-uint8_t input_address_old;
+uint8_t input_route = MAX_ROUTES-1;
+uint8_t input_route_old;
 uint8_t ia0, ia1, ia2, gs, eo;
-uint8_t turnout_state;
 uint8_t global_turnout_state[MAX_TURNOUTS] = {0,0,0,0,0,0,0,0};
 
 void helpPrint() {
-     Serial.println("============================================================================================");
-     Serial.println("Commands");
-     Serial.println("Help (this message):         h or ?");
-     Serial.println("Set route:                   s route_number(0-7) turnout_state0(0-2) ... turnout_state7(0-2)");
-     Serial.println("Examine route or all routes: x route_number(0-7) or x");
-     Serial.println("Examine all turnout states:  e ");
-     Serial.println("Activate route:              r route_number(0-7)");
-     Serial.println("Directly set turnout:        t turnout_number(0-7) turnout_state(0-2)");
-     Serial.println("turnout_state values: ");
-     Serial.println("   0: do nothing");
-     Serial.println("   1: set turnout direction 1");
-     Serial.println("   2: set turnout direction 2");
-     Serial.println("============================================================================================");
+  Serial.println("============================================================================================");
+  Serial.println("Commands");
+  Serial.println("Help (this message):         h or ?");
+  Serial.println("Set route:                   s route_number(0-7) turnout_state0(0-2) ... turnout_state7(0-2)");
+  Serial.println("Examine route or all routes: x route_number(0-7) or x");
+  Serial.println("Examine all turnout states:  e ");
+  Serial.println("Activate route:              r route_number(0-7)");
+  Serial.println("Directly set turnout:        t turnout_number(0-7) turnout_state(0-2)");
+  Serial.println("turnout_state values: ");
+  Serial.println("   0: do nothing");
+  Serial.println("   1: set turnout direction 1");
+  Serial.println("   2: set turnout direction 2");
+  Serial.println("============================================================================================");
 }
 
 void setup() {
-	Serial.begin(115200);
-	delay(1000);
+  Serial.begin(115200);
+  delay(1000);
 	
 	//restore virtualroute array from EEPROM
-	getSettings();
-	Serial.println("boot\n");
+  getSettings();
+  Serial.println("boot\n");
   helpPrint();
-	pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   pinMode(QA0_PIN, OUTPUT);
   pinMode(QA1_PIN, OUTPUT);
@@ -143,15 +130,20 @@ void setup() {
 
   digitalWrite(ENABLE_PIN, HIGH); // Disable latching initially
   digitalWrite(CL_PIN, LOW); // Disable CL Latch -> LOW. Will need to change to HIGH for 74HCT259, since _CL
+
+  /*
   ia0 = digitalRead(IA0_PIN);
   ia1 = digitalRead(IA1_PIN);
   ia2 = digitalRead(IA2_PIN);
   gs = digitalRead(GS_PIN);
   eo = digitalRead(EO_PIN);
-
-  if (!gs) input_address = 7-((ia2<<2) | (ia1<<1) | (ia0));
-  Serial.print("Initial input address: ");
-  Serial.println(input_address,DEC);
+  if (!gs) input_route = 7-((ia2<<2) | (ia1<<1) | (ia0));
+  */
+  delay(1000);
+  input_route = MAX_ROUTES-1;
+  Serial.print("Initial route: ");
+  Serial.println(input_route,DEC);
+  routeWrites(input_route);
 
 }
 
@@ -179,6 +171,7 @@ void latchWrite(uint8_t turnout_number, uint8_t turnout_state) {
 void routeWrites(uint8_t route_number) {
   Serial.print("Activating route ");
   Serial.println(route_number);
+  uint8_t turnout_state;
   for (auto turnout_number = 0; turnout_number < MAX_TURNOUTS ; turnout_number++) {
      turnout_state = (virtualroute[route_number])[turnout_number];
      latchWrite(turnout_number,turnout_state);
@@ -189,88 +182,88 @@ void loop() {
 
   // Poll the input address pins
   delay(100);
-  input_address_old = input_address;
-  ia0 = digitalRead(IA0_PIN);
-  ia1 = digitalRead(IA1_PIN);
-  ia2 = digitalRead(IA2_PIN);
+  input_route_old = input_route;
   gs = digitalRead(GS_PIN);
-  eo = digitalRead(EO_PIN);
-  if (!gs) input_address = 7-((ia2<<2) | (ia1<<1) | (ia0));
-  if (input_address_old != input_address) {
-     Serial.print("Changed input address: ");
-     Serial.println(input_address);
-     routeWrites(input_address);
+  if (!gs) {
+     ia0 = digitalRead(IA0_PIN);
+     ia1 = digitalRead(IA1_PIN);
+     ia2 = digitalRead(IA2_PIN);
+     eo = digitalRead(EO_PIN);
+     input_route = 7-((ia2<<2) | (ia1<<1) | (ia0));
+  }
+  if (input_route_old != input_route) {
+     Serial.print("Changed input route: ");
+     Serial.println(input_route);
+     routeWrites(input_route);
   }
   
-	//look for more incoming serial data
-	recvWithEndMarker();
+  //look for more incoming serial data
+  recvWithEndMarker();
 
-	//process serial command
-	if (newData) {
-		//Serial.println(receivedChars);
-		newData = false;
+  //process serial command
+  if (newData) {
+    //Serial.println(receivedChars);
+    newData = false;
 
 		//look for command s route_number, turnout_state0, ..., turnout_state7 (max)
-		if (receivedChars[0] == 's') {
-           VIRTUALROUTE vrParse = {0, 0, 0, 0, 0, 0, 0, 0};
-           //detokenize
-           char *pch;
-           uint8_t i = 0;
-           uint8_t route_number = MAX_ROUTES;
-           uint8_t turnout_state = 3;
-           pch = strtok(receivedChars, " ,");
-           pch = strtok(NULL, " ,");
-           while (pch != NULL) {
-              if (i==0) {
-                 route_number = atoi(pch);
-                 //Valid route numbr
-                 if (route_number >= MAX_ROUTES) {
-                    i = 10;  //error code
-                    Serial.println("bad route number (0-7)");
-				         }
-               }
-               else if (i <= MAX_TURNOUTS) {
-                 turnout_state = atoi(pch);
-                 if (turnout_state>2) {
-                    i = 10;  //error code
-                    Serial.println("bad turnout state (0-2)");
-                 }
-                 else {
-                    vrParse[i-1] = turnout_state;
-                 }
-              }
-              //zero is the s char
+    if (receivedChars[0] == 's') {
+       VIRTUALROUTE vrParse = {0, 0, 0, 0, 0, 0, 0, 0};
+       //detokenize
+       char *pch;
+       uint8_t i = 0;
+       uint8_t route_number = MAX_ROUTES;
+       uint8_t turnout_state = 3;
+       pch = strtok(receivedChars, " ,");
+       pch = strtok(NULL, " ,");
+       while (pch != NULL) {
+          if (i==0) {
+             route_number = atoi(pch);
+             //Valid route numbr
+             if (route_number >= MAX_ROUTES) {
+                i = 10;  //error code
+                Serial.println("bad route number (0-7)");
+             }
+          }
+          else if (i <= MAX_TURNOUTS) {
+             turnout_state = atoi(pch);
+             if (turnout_state>2) {
+                i = 10;  //error code
+                Serial.println("bad turnout state (0-2)");
+             }
+             else {
+                vrParse[i-1] = turnout_state;
+             }
+          }
+          //zero is the s char
+          ++i;
+          pch = strtok(NULL, " ,");
+       } // end of while
 
-		          ++i;
-		          pch = strtok(NULL, " ,");
+      if ((i<=1) || (i >=10)) {
+         Serial.println("bad command. usage s route_number, turnout_state0, .., turnout_state7");
+      }
+      else {
+         Serial.println("OK");
+         //match to a route number copy it over
+         Serial.print("Loading route ");
+         Serial.println(route_number, DEC);
+         for (auto turnout_number = 0; turnout_number < MAX_TURNOUTS ; turnout_number++) {
+            (virtualroute[route_number])[turnout_number] = vrParse[turnout_number];
+            Serial.print(" turnout ");
+            Serial.print(turnout_number,DEC);
+            Serial.print(": ");
+            Serial.println((virtualroute[route_number])[turnout_number],DEC);
+         }
 
-            } // end of while
+         bootController.isDirty = true;
+         putSettings();
 
-			if ((i<=1) || (i >=10)) {
-               Serial.println("bad command. usage s route_number, turnout_state0, .., turnout_state7");
-			}
-			else {
-               Serial.println("OK");
-               //match to a route number copy it over
-               Serial.print("Loading route ");
-               Serial.println(route_number, DEC);
-               for (auto turnout_number = 0; turnout_number < MAX_TURNOUTS ; turnout_number++) {
-                  (virtualroute[route_number])[turnout_number] = vrParse[turnout_number];
-                  Serial.print(" turnout ");
-                  Serial.print(turnout_number,DEC);
-                  Serial.print(": ");
-                  Serial.println((virtualroute[route_number])[turnout_number],DEC);
-               }
-
-               bootController.isDirty = true;
-               putSettings();
-
-		    }
+		  }
 		
-     } // 's'
+    } // 's'
 
-	//look for command r route_number  
-	if (receivedChars[0] == 'r') {
+   	//look for command r route_number  
+   	if (receivedChars[0] == 'r') {
        //detokenize
        char *pch;
        pch = strtok(receivedChars, " ,");
@@ -288,80 +281,80 @@ void loop() {
        else {
           Serial.println("bad command. usage r route_number(0-7)");
        }
-
+   
     } // 'r'
-	
-	//look for direct turnout command
-	if (receivedChars[0] == 'e') {
-    for (uint8_t turnout_number = 0; turnout_number < MAX_TURNOUTS; turnout_number++){
-       Serial.print("turnout ");
-       Serial.print(turnout_number,DEC);
-       Serial.print(": ");
-       Serial.println(global_turnout_state[turnout_number],DEC);
-    }
-  } // 'e'
-
-	//look for direct turnout command
-	if (receivedChars[0] == 't') {
-       //detokenize
-       char *pch;
-       pch = strtok(receivedChars, " ,");
-       pch = strtok(NULL, " ,");
-       uint8_t error = 0;
-       if (pch != NULL) {
-          uint8_t turnout_number = atoi(pch);
-          if (turnout_number < MAX_TURNOUTS) {
-             Serial.println("OK");
-             pch = strtok(NULL, " ,");
-             uint8_t turnout_state = atoi(pch);
-             if (turnout_state <=2) {
-                latchWrite(turnout_number,turnout_state);
+   	
+   	//look for direct turnout command
+   	if (receivedChars[0] == 'e') {
+       for (uint8_t turnout_number = 0; turnout_number < MAX_TURNOUTS; turnout_number++){
+          Serial.print("turnout ");
+          Serial.print(turnout_number,DEC);
+          Serial.print(": ");
+          Serial.println(global_turnout_state[turnout_number],DEC);
+       }
+    } // 'e'
+   
+   	//look for direct turnout command
+   	if (receivedChars[0] == 't') {
+          //detokenize
+          char *pch;
+          pch = strtok(receivedChars, " ,");
+          pch = strtok(NULL, " ,");
+          uint8_t error = 0;
+          if (pch != NULL) {
+             uint8_t turnout_number = atoi(pch);
+             if (turnout_number < MAX_TURNOUTS) {
+                Serial.println("OK");
+                pch = strtok(NULL, " ,");
+                uint8_t turnout_state = atoi(pch);
+                if (turnout_state <=2) {
+                   latchWrite(turnout_number,turnout_state);
+                }
+                else
+                   error = 1;
              }
-             else
+             else {
                 error = 1;
+             }
           }
           else {
              error = 1;
           }
-       }
-       else {
-          error = 1;
-       }
-       
-       if (error) Serial.println("bad command. usage t turnout_number(0-7) turnout_state(0-2)");
-
-    } // 't'
-
-  	//look for help
-  	if (receivedChars[0] == '?' || receivedChars[0] == 'h') {
-       helpPrint();
-    } // '?' or 'h'
-	
-		//2020-08-31 dump all servos
-		//keep it consistent with s command; pin,addr,swing,invert,continuous
-
-    if (receivedChars[0] == 'x') {
-      uint8_t i = 0;
-      uint8_t imatch = MAX_ROUTES;
-      char *pch;
-      pch = strtok(receivedChars, " ,");
-      pch = strtok(NULL, " ,");
-      if (pch!=NULL) imatch = atoi(pch);
-      if (imatch >= MAX_ROUTES) imatch = MAX_ROUTES;
-      for (auto vr : virtualroute) {
-        if (i==imatch || imatch==MAX_ROUTES) {
-           Serial.print("Examining route ");
-           Serial.println(i, DEC);
-           for (auto turnout_number = 0; turnout_number < MAX_TURNOUTS; turnout_number++){
-              Serial.print(" turnout ");
-              Serial.print(turnout_number,DEC);
-              Serial.print(": ");
-              Serial.println(vr[turnout_number], DEC);
-           }
+          
+          if (error) Serial.println("bad command. usage t turnout_number(0-7) turnout_state(0-2)");
+   
+      } // 't'
+   
+     	//look for help
+     	if (receivedChars[0] == '?' || receivedChars[0] == 'h') {
+          helpPrint();
+      } // '?' or 'h'
+   	
+      //2020-08-31 dump all servos
+      //keep it consistent with s command; pin,addr,swing,invert,continuous
+   
+      if (receivedChars[0] == 'x') {
+        uint8_t i = 0;
+        uint8_t imatch = MAX_ROUTES;
+        char *pch;
+        pch = strtok(receivedChars, " ,");
+        pch = strtok(NULL, " ,");
+        if (pch!=NULL) imatch = atoi(pch);
+        if (imatch >= MAX_ROUTES) imatch = MAX_ROUTES;
+        for (auto vr : virtualroute) {
+          if (i==imatch || imatch==MAX_ROUTES) {
+             Serial.print("Examining route ");
+             Serial.println(i, DEC);
+             for (auto turnout_number = 0; turnout_number < MAX_TURNOUTS; turnout_number++){
+                Serial.print(" turnout ");
+                Serial.print(turnout_number,DEC);
+                Serial.print(": ");
+                Serial.println(vr[turnout_number], DEC);
+             }
+          }
+          i++;
         }
-        i++;
-      }
-    } // 'x'
+      } // 'x'
 
 	}//newData
 
@@ -369,27 +362,27 @@ void loop() {
 
 //https://forum.arduino.cc/index.php?topic=288234.0
 void recvWithEndMarker() {
-	static byte ndx = 0;
-	char endMarker = '\n';
-	char rc;
+  static byte ndx = 0;
+  char endMarker = '\n';
+  char rc;
 
-	// if (Serial.available() > 0) {
-	while ((Serial.available() > 0) && (newData == false)) {
-		rc = Serial.read();
+  // if (Serial.available() > 0) {
+  while ((Serial.available() > 0) && (newData == false)) {
+    rc = Serial.read();
 		
-		if (rc != endMarker) {
-			receivedChars[ndx] = rc;
-			ndx++;
-			if (ndx >= numChars) {
-				ndx = numChars - 1;
-			}
-		}
-		else {
-			receivedChars[ndx] = '\0'; // terminate the string
-			ndx = 0;
-			newData = true;
-		}
-	}
+    if (rc != endMarker) {
+      receivedChars[ndx] = rc;
+      ndx++;
+      if (ndx >= numChars) {
+        ndx = numChars - 1;
+      }
+    }
+    else {
+      receivedChars[ndx] = '\0'; // terminate the string
+      ndx = 0;
+      newData = true;
+    }
+  }
 }
 
 
