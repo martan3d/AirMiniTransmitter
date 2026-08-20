@@ -61,7 +61,8 @@
 
 #define MAX_DCC_MESSAGE_LEN 6    // including XOR-Byte
 
-//#define ALLOW_NESTED_IRQ      // uncomment to enable nested IRQ's ( only for AVR! )
+// DRL: DO NOT USE
+// #define ALLOW_NESTED_IRQ      // uncomment to enable nested IRQ's ( only for AVR! )
 
 typedef struct
 {
